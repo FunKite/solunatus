@@ -115,7 +115,7 @@ fn sanitized_event_label<'a>(app: &App, label: &'a str) -> Cow<'a, str> {
 }
 
 fn render_title(f: &mut Frame, area: Rect, app: &App) {
-    let title = Paragraph::new("Solunatus 0.2.2 — github.com/FunKite/solunatus")
+    let title = Paragraph::new(format!("Solunatus {} — github.com/FunKite/solunatus", env!("CARGO_PKG_VERSION")))
         .style(
             Style::default()
                 .fg(get_color(app, Color::Cyan))
