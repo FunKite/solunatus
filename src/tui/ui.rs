@@ -305,9 +305,18 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &App) {
         )]));
 
         let timed_events = &app.events_cache.entries;
-        let next_event_idx = timed_events.iter().position(|(dt, _)| *dt > now_tz);
+        // Filter events to only show those within ±12 hours of current time (sliding window)
+        let window_hours = 12i64;
+        let filtered_events: Vec<_> = timed_events
+            .iter()
+            .filter(|(dt, _)| {
+                let delta = dt.signed_duration_since(now_tz).num_hours().abs();
+                delta <= window_hours
+            })
+            .collect();
+        let next_event_idx = filtered_events.iter().position(|(dt, _)| *dt > now_tz);
 
-        for (idx, (event_time, event_name)) in timed_events.iter().enumerate() {
+        for (idx, (event_time, event_name)) in filtered_events.iter().enumerate() {
             let time_diff = time_utils::time_until(&now_tz, event_time);
             let time_str = format!("{}", event_time.format("%H:%M:%S"));
             let mut diff_str = time_utils::format_duration_detailed(time_diff);
