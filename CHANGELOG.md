@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.4] - 2025-11-22
 
 ### Changed
-- Version bump to 0.2.4
+- **Events Display**: Filter events to ±12h sliding window from current time for cleaner output
 
 ## [0.2.3] - 2025-11-14
 
