@@ -7,14 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- Updated `clap` from 4.5.51 to 4.5.53 (#15)
-- Updated `actions/checkout` from 5 to 6 in CI workflow (#16)
-
 ## [0.2.4] - 2025-11-22
 
 ### Changed
 - **Events Display**: Filter events to ±12h sliding window from current time for cleaner output
+- Updated `clap` from 4.5.51 to 4.5.53 (#15)
+- Updated `actions/checkout` from 5 to 6 in CI workflow (#16)
 
 ## [0.2.3] - 2025-11-14
 
