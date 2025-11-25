@@ -18,6 +18,7 @@ exclude = [
     "CPU_QUICK_REFERENCE.txt",
     ".cargo/",
     "CLAUDE.md",
+    "target-m1max/",
 ]
 
 # Library configuration (default)
