@@ -9,6 +9,7 @@ use crate::astro::{moon, moon_batch_optimized, sun, Location};
 use anyhow::{anyhow, Context, Result};
 use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc, Weekday};
 use chrono_tz::Tz;
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -17,6 +18,7 @@ const MIN_YEAR: i32 = -999;
 const MAX_YEAR: i32 = 3000;
 
 // Rayon thread pool configuration for calendar generation
+#[cfg(feature = "parallel")]
 const CALENDAR_CHUNK_SIZE: usize = 365; // Process 1 year per thread
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -131,6 +133,7 @@ fn validate_range(start: NaiveDate, end: NaiveDate) -> Result<()> {
 ///
 /// Strategy: Divide date range into chunks, process each chunk in parallel,
 /// then sort by date to maintain chronological order.
+#[cfg(feature = "parallel")]
 fn collect_records_parallel(
     location: &Location,
     timezone: &Tz,
@@ -167,6 +170,18 @@ fn collect_records_parallel(
     records.sort_by_key(|r| r.date);
 
     Ok(records)
+}
+
+/// Sequential collection (fallback when parallel feature is disabled)
+#[cfg(not(feature = "parallel"))]
+fn collect_records_parallel(
+    location: &Location,
+    timezone: &Tz,
+    start: NaiveDate,
+    end: NaiveDate,
+) -> Result<Vec<DailyRecord>> {
+    // Without parallel feature, just use sequential processing
+    collect_records_sequential(location, timezone, start, end)
 }
 
 /// Sequential collection for a chunk of dates

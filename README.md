@@ -193,6 +193,35 @@ fn main() {
 }
 ```
 
+**Feature Flags for Library Usage:**
+
+When using Solunatus as a library, you can disable optional features to reduce binary size and compilation dependencies:
+
+```toml
+# Minimal library (no HTTP, no parallelization - smallest binary)
+solunatus = { version = "0.3", default-features = false }
+
+# Core + parallelization (faster calendar generation, no HTTP)
+solunatus = { version = "0.3", default-features = false, features = ["cpu-portable", "parallel"] }
+
+# Full features (default - includes USNO validation and AI insights)
+solunatus = "0.3"
+```
+
+**Available Feature Flags:**
+- `cpu-portable` (default: enabled) - Baseline CPU features for cross-platform compatibility
+- `usno-validation` (default: enabled) - USNO API validation functions (requires `reqwest`)
+- `ai-insights` (default: enabled) - AI integration functions (requires `reqwest`)
+- `parallel` (default: disabled) - Parallel calendar generation using Rayon (~500KB smaller when disabled)
+
+Disabling `usno-validation` and `ai-insights` removes the `reqwest` dependency entirely, which:
+- Reduces binary size by ~1-2 MB
+- Eliminates OpenSSL/TLS compilation requirements
+- Simplifies cross-platform builds
+- Makes the library fully offline with zero network dependencies
+
+All core astronomical calculations work identically regardless of feature flags.
+
 **More Examples:**
 
 The [examples directory](./examples/) contains comprehensive usage patterns:
@@ -390,13 +419,17 @@ The project is organized into focused modules:
 
 All dependencies are well-maintained Rust crates:
 
+**Core dependencies:**
 - `clap` - Command-line argument parsing
 - `ratatui` + `crossterm` - Terminal UI
 - `chrono` + `chrono-tz` - Date/time handling
 - `serde` + `serde_json` - Serialization
-- `reqwest` - HTTP client (for optional location detection)
 - `fuzzy-matcher` - City search
 - `anyhow` - Error handling
+
+**Optional dependencies (configurable via feature flags):**
+- `reqwest` - HTTP client with rustls-tls (optional: for USNO validation and AI insights)
+- `rayon` - Parallel processing (optional: for faster calendar generation)
 
 ## Performance
 
@@ -405,7 +438,7 @@ Solunatus is optimized for speed and efficiency:
 - **Fast calculations**: Computes sun/moon data for 570+ cities in under 100ms
 - **Low memory footprint**: Minimal RAM usage for long-running watch mode
 - **CPU-optimized builds**: Special profiles for Apple Silicon (M1/M2/M3) and x86_64 AVX2
-- **Parallel processing**: Uses Rayon for batch calendar generation
+- **Parallel processing**: Optional Rayon support for faster calendar generation (enable with `parallel` feature)
 
 ### Platform Support
 

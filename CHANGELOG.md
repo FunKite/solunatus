@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - TBD
+
+### Changed
+- **Binary Size Optimization**: Made `rayon` dependency optional, reducing minimal build size by 59% (#17)
+  - New `parallel` feature flag for optional Rayon parallelization in calendar generation
+  - Minimal build (`--no-default-features`): 2.4 MB vs 5.8 MB full build
+  - `parallel` feature is disabled by default to minimize binary size
+  - Calendar generation works with or without the `parallel` feature
+
+### Documentation
+- Added comprehensive library usage documentation in README
+- Documented all feature flags (`cpu-portable`, `usno-validation`, `ai-insights`, `parallel`)
+- Added feature flag examples for different use cases (minimal, core + parallel, full)
+- Clarified binary size and compilation benefits of disabling optional features
+- Updated Dependencies section to distinguish core vs optional dependencies
+
+### Fixed
+- Resolved cross-compilation issues by making `rayon` optional (addresses #17)
+
 ## [0.3.0] - 2025-11-25
 
 ### Added

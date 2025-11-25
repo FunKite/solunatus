@@ -60,8 +60,8 @@ anyhow = "1.0"
 # System directories
 dirs = "5.0"
 
-# Parallel processing
-rayon = "1.10"
+# Parallel processing (optional)
+rayon = { version = "1.10", optional = true }
 
 # CPU Feature Flags for different architectures
 [features]
@@ -71,7 +71,7 @@ cpu-native = []              # Native CPU with available features
 cpu-avx2 = []                # AVX2 for Intel/AMD x86_64
 cpu-neon = []                # NEON for ARM64 (Apple Silicon, etc.)
 cpu-sve = []                 # SVE for high-end ARM64
-parallel = []                # Use rayon for parallelization
+parallel = ["dep:rayon"]     # Use rayon for parallelization
 benchmarks = []              # Build benchmark binaries (not installed by default)
 
 # Optional Features (require reqwest)
