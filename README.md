@@ -157,7 +157,7 @@ Solunatus can be used as a library in your Rust projects for high-precision astr
 
 ```toml
 [dependencies]
-solunatus = "0.3"
+solunatus = "0.3.1"
 chrono = "0.4"
 chrono-tz = "0.10"
 ```
@@ -199,13 +199,13 @@ When using Solunatus as a library, you can disable optional features to reduce b
 
 ```toml
 # Minimal library (no HTTP, no parallelization - smallest binary)
-solunatus = { version = "0.3", default-features = false }
+solunatus = { version = "0.3.1", default-features = false }
 
 # Core + parallelization (faster calendar generation, no HTTP)
-solunatus = { version = "0.3", default-features = false, features = ["cpu-portable", "parallel"] }
+solunatus = { version = "0.3.1", default-features = false, features = ["cpu-portable", "parallel"] }
 
 # Full features (default - includes USNO validation and AI insights)
-solunatus = "0.3"
+solunatus = "0.3.1"
 ```
 
 **Available Feature Flags:**
