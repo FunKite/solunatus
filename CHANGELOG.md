@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.4] - 2025-11-22
+## [0.3.0] - 2025-11-25
+
+### Added
+- **Optional Features**: `reqwest` dependency is now optional, allowing minimal builds without OpenSSL
+  - New feature flags: `usno-validation` and `ai-insights` (both enabled by default)
+  - Build without reqwest: `cargo install solunatus --no-default-features`
+  - Solves cross-compilation issues (#17)
 
 ### Changed
+- **Security**: Switched from OpenSSL to `rustls-tls` backend for HTTP requests (pure Rust TLS)
 - **Events Display**: Filter events to ±12h sliding window from current time for cleaner output
 - Updated `clap` from 4.5.51 to 4.5.53 (#15)
 - Updated `actions/checkout` from 5 to 6 in CI workflow (#16)

@@ -75,22 +75,27 @@ pub struct Args {
     pub strict: bool,
 
     /// Enable AI insights via a local Ollama server
+    #[cfg(feature = "ai-insights")]
     #[arg(long)]
     pub ai_insights: bool,
 
     /// Ollama server base URL or host:port (defaults to http://localhost:11434)
+    #[cfg(feature = "ai-insights")]
     #[arg(long, default_value = "http://localhost:11434")]
     pub ai_server: String,
 
     /// Ollama model to query for insights
+    #[cfg(feature = "ai-insights")]
     #[arg(long, default_value = "llama3")]
     pub ai_model: String,
 
     /// Minutes between AI insight refreshes in watch mode (1-60, default 2)
+    #[cfg(feature = "ai-insights")]
     #[arg(long, default_value_t = 2, value_parser = clap::value_parser!(u64).range(1..=60))]
     pub ai_refresh_minutes: u64,
 
     /// Generate USNO validation report comparing calculations with Naval Observatory data
+    #[cfg(feature = "usno-validation")]
     #[arg(long)]
     pub validate: bool,
 }

@@ -37,18 +37,6 @@ pub enum LocationMode {
     Manual,
 }
 
-/// AI insights refresh mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum AiRefreshMode {
-    /// Refresh automatically at intervals and on manual refresh
-    #[default]
-    #[serde(rename = "auto_and_manual")]
-    AutoAndManual,
-    /// Only refresh when manually requested
-    #[serde(rename = "manual_only")]
-    ManualOnly,
-}
-
 /// Time synchronization settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -70,7 +58,21 @@ impl Default for TimeSyncSettings {
     }
 }
 
+/// AI insights refresh mode.
+#[cfg(feature = "ai-insights")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum AiRefreshMode {
+    /// Refresh automatically at intervals and on manual refresh
+    #[default]
+    #[serde(rename = "auto_and_manual")]
+    AutoAndManual,
+    /// Only refresh when manually requested
+    #[serde(rename = "manual_only")]
+    ManualOnly,
+}
+
 /// AI insights settings (for integration with local Ollama server).
+#[cfg(feature = "ai-insights")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AiSettings {
@@ -91,6 +93,7 @@ pub struct AiSettings {
     pub refresh_mode: AiRefreshMode,
 }
 
+#[cfg(feature = "ai-insights")]
 impl Default for AiSettings {
     fn default() -> Self {
         Self {
@@ -116,6 +119,7 @@ pub struct WatchPreferences {
     pub show_moon: bool,
     #[serde(default = "default_true")]
     pub show_lunar_phases: bool,
+    #[cfg(feature = "ai-insights")]
     #[serde(default = "default_false")]
     pub show_ai_insights: bool,
     #[serde(default = "default_false")]
@@ -130,6 +134,7 @@ impl Default for WatchPreferences {
             show_positions: true,
             show_moon: true,
             show_lunar_phases: true,
+            #[cfg(feature = "ai-insights")]
             show_ai_insights: false,
             night_mode: false,
         }
@@ -150,6 +155,7 @@ pub struct Config {
     pub watch: WatchPreferences,
     #[serde(default)]
     pub time_sync: TimeSyncSettings,
+    #[cfg(feature = "ai-insights")]
     #[serde(default)]
     pub ai: AiSettings,
 }
@@ -164,6 +170,7 @@ impl Default for Config {
             location_mode: LocationMode::City,
             watch: WatchPreferences::default(),
             time_sync: TimeSyncSettings::default(),
+            #[cfg(feature = "ai-insights")]
             ai: AiSettings::default(),
         }
     }
@@ -179,6 +186,7 @@ impl Config {
             location_mode: LocationMode::City,
             watch: WatchPreferences::default(),
             time_sync: TimeSyncSettings::default(),
+            #[cfg(feature = "ai-insights")]
             ai: AiSettings::default(),
         }
     }

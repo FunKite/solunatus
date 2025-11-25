@@ -54,7 +54,7 @@ fn main() {
     println!("\n--- Current Sun Position ---");
     println!("Altitude:    {:.2}°", sun_pos.altitude);
     println!("Azimuth:     {:.2}° ({})", sun_pos.azimuth,
-        astrotimes::astro::coordinates::azimuth_to_compass(sun_pos.azimuth));
+        solunatus::astro::coordinates::azimuth_to_compass(sun_pos.azimuth));
 
     // Calculate moon information
     println!("\n--- Lunar Events ---");
@@ -80,7 +80,7 @@ fn main() {
     println!("Distance:     {:.0} km", moon_pos.distance);
     println!("Altitude:     {:.2}°", moon_pos.altitude);
     println!("Azimuth:      {:.2}° ({})", moon_pos.azimuth,
-        astrotimes::astro::coordinates::azimuth_to_compass(moon_pos.azimuth));
+        solunatus::astro::coordinates::azimuth_to_compass(moon_pos.azimuth));
 
     println!("\n✓ Calculations complete!");
 }

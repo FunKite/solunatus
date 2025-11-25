@@ -3,6 +3,7 @@
 //! Provides structured JSON output for astronomical data including
 //! positions, events, phases, and optional AI insights.
 
+#[cfg(feature = "ai-insights")]
 use crate::ai;
 use crate::astro::*;
 use crate::events;
@@ -122,6 +123,7 @@ pub struct AiInsightsData {
     pub error: Option<String>,
 }
 
+#[cfg(feature = "ai-insights")]
 pub fn generate_json_output(
     location: &Location,
     timezone: &Tz,
@@ -130,6 +132,31 @@ pub fn generate_json_output(
     timezone_name: &str,
     time_sync_info: &time_sync::TimeSyncInfo,
     ai_config: &ai::AiConfig,
+) -> Result<String> {
+    generate_json_output_impl(location, timezone, city_name, dt, timezone_name, time_sync_info, Some(ai_config))
+}
+
+#[cfg(not(feature = "ai-insights"))]
+pub fn generate_json_output(
+    location: &Location,
+    timezone: &Tz,
+    city_name: Option<String>,
+    dt: &DateTime<Tz>,
+    timezone_name: &str,
+    time_sync_info: &time_sync::TimeSyncInfo,
+) -> Result<String> {
+    generate_json_output_impl(location, timezone, city_name, dt, timezone_name, time_sync_info, None)
+}
+
+#[cfg(feature = "ai-insights")]
+fn generate_json_output_impl(
+    location: &Location,
+    timezone: &Tz,
+    city_name: Option<String>,
+    dt: &DateTime<Tz>,
+    timezone_name: &str,
+    time_sync_info: &time_sync::TimeSyncInfo,
+    ai_config: Option<&ai::AiConfig>,
 ) -> Result<String> {
     // Calculate sun position and events
     let sun_pos = sun::solar_position(location, dt);
@@ -182,30 +209,34 @@ pub fn generate_json_output(
         .collect();
 
     let city_name_ref = city_name.as_deref();
-    let ai_insights = if ai_config.enabled {
-        let events =
-            events::collect_events_within_window(location, dt, chrono::Duration::hours(12));
-        let next_idx = events.iter().position(|(time, _)| *time > *dt);
-        let summaries = ai::prepare_event_summaries(&events, dt, next_idx);
+    let ai_insights = if let Some(cfg) = ai_config {
+        if cfg.enabled {
+            let events =
+                events::collect_events_within_window(location, dt, chrono::Duration::hours(12));
+            let next_idx = events.iter().position(|(time, _)| *time > *dt);
+            let summaries = ai::prepare_event_summaries(&events, dt, next_idx);
 
-        let ai_data = ai::build_ai_data(ai::AiDataContext {
-            location,
-            timezone,
-            dt,
-            city_name: city_name_ref,
-            sun_pos: &sun_pos,
-            moon_pos: &moon_pos,
-            events: summaries,
-            time_sync_info,
-            lunar_phases: &phases,
-        });
+            let ai_data = ai::build_ai_data(ai::AiDataContext {
+                location,
+                timezone,
+                dt,
+                city_name: city_name_ref,
+                sun_pos: &sun_pos,
+                moon_pos: &moon_pos,
+                events: summaries,
+                time_sync_info,
+                lunar_phases: &phases,
+            });
 
-        let outcome = match ai::fetch_insights(ai_config, &ai_data) {
-            Ok(outcome) => outcome,
-            Err(err) => ai::AiOutcome::from_error(&ai_config.model, err),
-        };
+            let outcome = match ai::fetch_insights(cfg, &ai_data) {
+                Ok(outcome) => outcome,
+                Err(err) => ai::AiOutcome::from_error(&cfg.model, err),
+            };
 
-        Some(build_ai_insights(&outcome, timezone))
+            Some(build_ai_insights(&outcome, timezone))
+        } else {
+            None
+        }
     } else {
         None
     };
@@ -257,6 +288,113 @@ pub fn generate_json_output(
     Ok(serde_json::to_string_pretty(&output)?)
 }
 
+#[cfg(not(feature = "ai-insights"))]
+fn generate_json_output_impl(
+    location: &Location,
+    timezone: &Tz,
+    city_name: Option<String>,
+    dt: &DateTime<Tz>,
+    timezone_name: &str,
+    time_sync_info: &time_sync::TimeSyncInfo,
+    _ai_config: Option<&()>,  // Placeholder parameter for type consistency
+) -> Result<String> {
+    // Calculate sun position and events
+    let sun_pos = sun::solar_position(location, dt);
+    let sun_events = SunEvents {
+        sunrise: sun::solar_event_time(location, dt, sun::SolarEvent::Sunrise)
+            .map(|t| t.format("%Y-%m-%d %H:%M:%S %Z").to_string()),
+        sunset: sun::solar_event_time(location, dt, sun::SolarEvent::Sunset)
+            .map(|t| t.format("%Y-%m-%d %H:%M:%S %Z").to_string()),
+        solar_noon: sun::solar_event_time(location, dt, sun::SolarEvent::SolarNoon)
+            .map(|t| t.format("%Y-%m-%d %H:%M:%S %Z").to_string()),
+        civil_dawn: sun::solar_event_time(location, dt, sun::SolarEvent::CivilDawn)
+            .map(|t| t.format("%Y-%m-%d %H:%M:%S %Z").to_string()),
+        civil_dusk: sun::solar_event_time(location, dt, sun::SolarEvent::CivilDusk)
+            .map(|t| t.format("%Y-%m-%d %H:%M:%S %Z").to_string()),
+        nautical_dawn: sun::solar_event_time(location, dt, sun::SolarEvent::NauticalDawn)
+            .map(|t| t.format("%Y-%m-%d %H:%M:%S %Z").to_string()),
+        nautical_dusk: sun::solar_event_time(location, dt, sun::SolarEvent::NauticalDusk)
+            .map(|t| t.format("%Y-%m-%d %H:%M:%S %Z").to_string()),
+        astronomical_dawn: sun::solar_event_time(location, dt, sun::SolarEvent::AstronomicalDawn)
+            .map(|t| t.format("%Y-%m-%d %H:%M:%S %Z").to_string()),
+        astronomical_dusk: sun::solar_event_time(location, dt, sun::SolarEvent::AstronomicalDusk)
+            .map(|t| t.format("%Y-%m-%d %H:%M:%S %Z").to_string()),
+    };
+
+    // Calculate moon position and events
+    let moon_pos = moon::lunar_position(location, dt);
+    let moon_events = MoonEvents {
+        moonrise: moon::lunar_event_time(location, dt, moon::LunarEvent::Moonrise)
+            .map(|t| t.format("%Y-%m-%d %H:%M:%S %Z").to_string()),
+        moonset: moon::lunar_event_time(location, dt, moon::LunarEvent::Moonset)
+            .map(|t| t.format("%Y-%m-%d %H:%M:%S %Z").to_string()),
+    };
+
+    // Calculate lunar phases for current month
+    let phases = moon::lunar_phases(dt.year(), dt.month());
+    let lunar_phases = phases
+        .iter()
+        .map(|p| {
+            let phase_type = match p.phase_type {
+                moon::LunarPhaseType::NewMoon => "new_moon",
+                moon::LunarPhaseType::FirstQuarter => "first_quarter",
+                moon::LunarPhaseType::FullMoon => "full_moon",
+                moon::LunarPhaseType::LastQuarter => "last_quarter",
+            };
+            LunarPhaseData {
+                phase_type: phase_type.to_string(),
+                datetime: p.datetime.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+            }
+        })
+        .collect();
+
+    let output = JsonOutput {
+        location: LocationData {
+            latitude: location.latitude.value(),
+            longitude: location.longitude.value(),
+            timezone: timezone_name.to_string(),
+            city: city_name,
+        },
+        datetime: DateTimeData {
+            local: dt.format("%Y-%m-%d %H:%M:%S %Z").to_string(),
+            utc: dt
+                .with_timezone(&chrono::Utc)
+                .format("%Y-%m-%d %H:%M:%S UTC")
+                .to_string(),
+            timezone_offset: dt.format("%:z").to_string(),
+            time_sync: build_time_sync_data(time_sync_info),
+        },
+        sun: SunData {
+            position: PositionData {
+                altitude: sun_pos.altitude,
+                azimuth: sun_pos.azimuth,
+                azimuth_compass: coordinates::azimuth_to_compass(sun_pos.azimuth).to_string(),
+            },
+            events: sun_events,
+        },
+        moon: MoonData {
+            position: MoonPositionData {
+                altitude: moon_pos.altitude,
+                azimuth: moon_pos.azimuth,
+                azimuth_compass: coordinates::azimuth_to_compass(moon_pos.azimuth).to_string(),
+                distance_km: moon_pos.distance,
+                angular_diameter_arcmin: moon_pos.angular_diameter,
+            },
+            events: moon_events,
+            phase: PhaseData {
+                name: moon::phase_name(moon_pos.phase_angle).to_string(),
+                emoji: moon::phase_emoji(moon_pos.phase_angle).to_string(),
+                angle_degrees: moon_pos.phase_angle,
+                illumination_percent: moon_pos.illumination * 100.0,
+            },
+        },
+        lunar_phases,
+        ai_insights: None,  // AI insights not available without the feature
+    };
+
+    Ok(serde_json::to_string_pretty(&output)?)
+}
+
 fn build_time_sync_data(time_sync_info: &time_sync::TimeSyncInfo) -> TimeSyncData {
     match (time_sync_info.delta, time_sync_info.direction()) {
         (Some(delta), Some(direction)) => TimeSyncData {
@@ -287,6 +425,7 @@ fn build_time_sync_data(time_sync_info: &time_sync::TimeSyncInfo) -> TimeSyncDat
     }
 }
 
+#[cfg(feature = "ai-insights")]
 fn build_ai_insights(outcome: &ai::AiOutcome, timezone: &Tz) -> AiInsightsData {
     let elapsed = Utc::now().signed_duration_since(outcome.updated_at);
     let elapsed_secs = elapsed.num_seconds().max(0);

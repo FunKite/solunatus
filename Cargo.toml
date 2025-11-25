@@ -1,6 +1,6 @@
 [package]
 name = "solunatus"
-version = "0.2.4"
+version = "0.3.0"
 edition = "2021"
 authors = ["Mike McLarney"]
 description = "High-precision astronomical calculation library and CLI for sun/moon positions, rise/set times, and lunar phases"
@@ -47,8 +47,8 @@ serde_json = "1.0"
 # Astronomical calculations - we'll implement custom algorithms
 # based on NOAA and Meeus for maximum accuracy
 
-# HTTP for location detection
-reqwest = { version = "0.12", features = ["blocking", "json"] }
+# HTTP for USNO validation and AI insights (optional)
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"], optional = true }
 
 # Fuzzy search for city picker
 fuzzy-matcher = "0.3"
@@ -64,7 +64,7 @@ rayon = "1.10"
 
 # CPU Feature Flags for different architectures
 [features]
-default = ["cpu-portable"]
+default = ["cpu-portable", "usno-validation", "ai-insights"]
 cpu-portable = []            # Portable baseline (no CPU-specific features)
 cpu-native = []              # Native CPU with available features
 cpu-avx2 = []                # AVX2 for Intel/AMD x86_64
@@ -72,6 +72,10 @@ cpu-neon = []                # NEON for ARM64 (Apple Silicon, etc.)
 cpu-sve = []                 # SVE for high-end ARM64
 parallel = []                # Use rayon for parallelization
 benchmarks = []              # Build benchmark binaries (not installed by default)
+
+# Optional Features (require reqwest)
+usno-validation = ["dep:reqwest"]  # USNO API validation (--validate flag, 'r' key)
+ai-insights = ["dep:reqwest"]      # Ollama AI integration (--ai-insights flag, 'a' key)
 
 # Standard release profile (all platforms) - Portable baseline
 [profile.release]

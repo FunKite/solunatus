@@ -93,7 +93,7 @@ impl Location {
 ///
 /// ```
 /// use solunatus::astro::julian_day;
-/// use chrono::Utc;
+/// use chrono::{TimeZone, Utc};
 ///
 /// let dt = Utc.with_ymd_and_hms(2000, 1, 1, 12, 0, 0).unwrap();
 /// let jd = julian_day(&dt);

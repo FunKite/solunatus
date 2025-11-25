@@ -38,7 +38,7 @@ fn main() {
 
     for (event, name, emoji) in &events {
         if *event == SolarEvent::SolarNoon {
-            let time = astrotimes::solar_noon(&location, &now);
+            let time = calculate_solar_noon(&location, &now);
             let pos = solar_position(&location, &time);
             println!("{} {:20} {} (altitude: {:.1}°)",
                 emoji, name, time.format("%H:%M:%S"), pos.altitude);

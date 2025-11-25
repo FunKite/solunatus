@@ -97,10 +97,12 @@ pub mod location_source;
 pub mod output;
 
 // Optional modules for advanced use cases
+#[cfg(feature = "ai-insights")]
 pub mod ai;
 pub mod benchmark;
 pub mod calendar;
 pub mod time_sync;
+#[cfg(feature = "usno-validation")]
 pub mod usno_validation;
 
 // Internal modules (used by binary - not part of public API)

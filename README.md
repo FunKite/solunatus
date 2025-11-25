@@ -128,6 +128,27 @@ cargo build --release
 cargo install --path .
 ```
 
+### Minimal Build (No reqwest/OpenSSL)
+
+Solunatus supports optional features that can be disabled for lighter builds or to avoid OpenSSL compilation issues:
+
+```bash
+# Minimal build (no USNO validation, no AI insights, no reqwest dependency)
+cargo install solunatus --no-default-features
+
+# Build with only USNO validation (requires reqwest)
+cargo install solunatus --no-default-features --features usno-validation
+
+# Build with only AI insights (requires reqwest)
+cargo install solunatus --no-default-features --features ai-insights
+```
+
+**Available Features:**
+- `usno-validation` (default: enabled) - USNO API validation reports (`--validate` flag, `r` key)
+- `ai-insights` (default: enabled) - Ollama AI integration (`--ai-insights` flag, `a` key)
+
+Both features require `reqwest` (which uses `rustls-tls` for pure-Rust TLS). Disabling them completely removes the reqwest dependency, solving cross-compilation issues.
+
 ### As a Library
 
 Solunatus can be used as a library in your Rust projects for high-precision astronomical calculations.
@@ -136,7 +157,7 @@ Solunatus can be used as a library in your Rust projects for high-precision astr
 
 ```toml
 [dependencies]
-solunatus = "0.2"
+solunatus = "0.3"
 chrono = "0.4"
 chrono-tz = "0.10"
 ```

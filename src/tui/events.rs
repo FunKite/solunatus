@@ -1,6 +1,8 @@
 // Event handling for TUI
 
-use super::app::{AiConfigField, App, AppMode, CalendarField};
+use super::app::{App, AppMode, CalendarField};
+#[cfg(feature = "ai-insights")]
+use super::app::AiConfigField;
 use crate::location_source::LocationSource;
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
@@ -21,7 +23,14 @@ fn handle_key_event(app: &mut App, key: KeyEvent) -> Result<()> {
         AppMode::Settings => handle_settings_keys(app, key),
         AppMode::CityPicker => handle_city_picker_keys(app, key),
         AppMode::LocationInput => handle_location_input_keys(app, key),
+        #[cfg(feature = "ai-insights")]
         AppMode::AiConfig => handle_ai_config_keys(app, key),
+        #[cfg(not(feature = "ai-insights"))]
+        AppMode::AiConfig => {
+            // AI config mode not available without ai-insights feature
+            app.mode = AppMode::Watch;
+            Ok(())
+        }
         AppMode::Calendar => handle_calendar_keys(app, key),
         AppMode::Reports => handle_reports_keys(app, key),
     }
@@ -41,6 +50,7 @@ fn handle_watch_mode_keys(app: &mut App, key: KeyEvent) -> Result<()> {
             app.mode = AppMode::Reports;
             app.reports_selected_item = super::app::ReportsMenuItem::Calendar;
         }
+        #[cfg(feature = "ai-insights")]
         KeyCode::Char('f') | KeyCode::Char('F') => {
             // Fetch AI insights manually
             if app.ai_config.enabled {
@@ -103,6 +113,7 @@ fn handle_settings_keys(app: &mut App, key: KeyEvent) -> Result<()> {
             let previous = app.settings_draft.current_field();
             app.settings_draft.next_field();
             // Probe AI server when navigating away from AI server field
+            #[cfg(feature = "ai-insights")]
             if previous == SettingsField::AiServer && app.settings_draft.ai_enabled {
                 app.probe_ai_server_for_settings();
             }
@@ -111,31 +122,40 @@ fn handle_settings_keys(app: &mut App, key: KeyEvent) -> Result<()> {
             let previous = app.settings_draft.current_field();
             app.settings_draft.prev_field();
             // Probe AI server when navigating away from AI server field
+            #[cfg(feature = "ai-insights")]
             if previous == SettingsField::AiServer && app.settings_draft.ai_enabled {
                 app.probe_ai_server_for_settings();
             }
         }
         KeyCode::Left => {
+            #[cfg(feature = "ai-insights")]
             if app.settings_draft.current_field() == SettingsField::AiModel {
                 app.cycle_ai_model_in_settings(-1);
             }
         }
         KeyCode::Right => {
+            #[cfg(feature = "ai-insights")]
             if app.settings_draft.current_field() == SettingsField::AiModel {
                 app.cycle_ai_model_in_settings(1);
             }
         }
         KeyCode::Char('[') => {
+            #[cfg(feature = "ai-insights")]
             if app.settings_draft.current_field() == SettingsField::AiModel {
                 app.cycle_ai_model_in_settings(-1);
-            } else {
+            }
+            #[cfg(not(feature = "ai-insights"))]
+            {
                 app.settings_draft.input_char('[');
             }
         }
         KeyCode::Char(']') => {
+            #[cfg(feature = "ai-insights")]
             if app.settings_draft.current_field() == SettingsField::AiModel {
                 app.cycle_ai_model_in_settings(1);
-            } else {
+            }
+            #[cfg(not(feature = "ai-insights"))]
+            {
                 app.settings_draft.input_char(']');
             }
         }
@@ -154,6 +174,7 @@ fn handle_settings_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                 | SettingsField::NightMode => {
                     app.settings_draft.toggle_current_bool();
                 }
+                #[cfg(feature = "ai-insights")]
                 SettingsField::AiEnabled => {
                     let was_enabled = app.settings_draft.ai_enabled;
                     app.settings_draft.toggle_current_bool();
@@ -273,8 +294,11 @@ fn handle_location_input_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                                     }
                                     app.update_time();
                                     app.reset_cached_data();
-                                    app.ai_last_refresh = None;
-                                    app.ai_outcome = None;
+                                    #[cfg(feature = "ai-insights")]
+                                    {
+                                        app.ai_last_refresh = None;
+                                        app.ai_outcome = None;
+                                    }
                                     app.location_input_draft.clear_error();
                                 }
                                 Err(e) => {
@@ -375,6 +399,7 @@ fn handle_calendar_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "ai-insights")]
 fn handle_ai_config_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
         KeyCode::Esc => {
@@ -467,35 +492,48 @@ fn handle_reports_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                     app.open_calendar_generator();
                 }
                 ReportsMenuItem::UsnoValidation => {
-                    // Generate USNO validation report
-                    app.mode = AppMode::Watch;
-                    let now_tz = app.current_time.with_timezone(&app.timezone);
+                    #[cfg(feature = "usno-validation")]
+                    {
+                        // Generate USNO validation report
+                        app.mode = AppMode::Watch;
+                        let now_tz = app.current_time.with_timezone(&app.timezone);
 
-                    match crate::usno_validation::generate_validation_report(
-                        &app.location,
-                        &app.timezone,
-                        app.city_name.clone(),
-                        &now_tz,
-                    ) {
-                        Ok(report) => {
-                            let html = crate::usno_validation::generate_html_report(&report);
-                            let filename = format!(
-                                "solunatus-usno-validation-{}.html",
-                                now_tz.format("%Y%m%d-%H%M%S")
-                            );
+                        match crate::usno_validation::generate_validation_report(
+                            &app.location,
+                            &app.timezone,
+                            app.city_name.clone(),
+                            &now_tz,
+                        ) {
+                            Ok(report) => {
+                                let html = crate::usno_validation::generate_html_report(&report);
+                                let filename = format!(
+                                    "solunatus-usno-validation-{}.html",
+                                    now_tz.format("%Y%m%d-%H%M%S")
+                                );
 
-                            match std::fs::write(&filename, html) {
-                                Ok(_) => {
-                                    app.set_status_message(format!("USNO validation report saved → {}", filename));
-                                }
-                                Err(e) => {
-                                    app.set_status_message(format!("Error saving report: {}", e));
+                                match std::fs::write(&filename, html) {
+                                    Ok(_) => {
+                                        app.set_status_message(format!(
+                                            "USNO validation report saved → {}",
+                                            filename
+                                        ));
+                                    }
+                                    Err(e) => {
+                                        app.set_status_message(format!("Error saving report: {}", e));
+                                    }
                                 }
                             }
+                            Err(e) => {
+                                app.set_status_message(format!("Error generating report: {}", e));
+                            }
                         }
-                        Err(e) => {
-                            app.set_status_message(format!("Error generating report: {}", e));
-                        }
+                    }
+                    #[cfg(not(feature = "usno-validation"))]
+                    {
+                        app.mode = AppMode::Watch;
+                        app.set_status_message(
+                            "USNO validation not available. Rebuild with: cargo build --features usno-validation".to_string()
+                        );
                     }
                 }
                 ReportsMenuItem::Benchmark => {

@@ -1,5 +1,6 @@
 // Application state for TUI
 
+#[cfg(feature = "ai-insights")]
 use crate::ai;
 use crate::astro::*;
 use crate::calendar::CalendarFormat;
@@ -125,6 +126,7 @@ pub enum SettingsField {
     AiRefreshMinutes,
 }
 
+#[cfg(feature = "ai-insights")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AiConfigField {
     Enabled,
@@ -473,6 +475,7 @@ impl CalendarDraft {
     }
 }
 
+#[cfg(feature = "ai-insights")]
 #[derive(Debug, Clone)]
 pub enum AiServerStatus {
     Unknown,
@@ -480,6 +483,7 @@ pub enum AiServerStatus {
     Failed { server: String, message: String },
 }
 
+#[cfg(feature = "ai-insights")]
 #[derive(Debug, Clone)]
 pub struct AiConfigDraft {
     pub enabled: bool,
@@ -494,6 +498,7 @@ pub struct AiConfigDraft {
     pub model_index: Option<usize>,
 }
 
+#[cfg(feature = "ai-insights")]
 impl AiConfigDraft {
     const FIELD_COUNT: usize = 5;
 
@@ -698,19 +703,29 @@ pub struct SettingsDraft {
     pub show_moon: bool,
     pub show_lunar_phases: bool,
     pub night_mode: bool,
+    #[cfg(feature = "ai-insights")]
     pub ai_enabled: bool,
+    #[cfg(feature = "ai-insights")]
     pub ai_server: String,
+    #[cfg(feature = "ai-insights")]
     pub ai_model: String,
+    #[cfg(feature = "ai-insights")]
     pub ai_refresh_minutes: String,
     pub field_index: usize,
     pub error: Option<String>,
+    #[cfg(feature = "ai-insights")]
     pub ai_server_status: AiServerStatus,
+    #[cfg(feature = "ai-insights")]
     pub ai_models: Vec<String>,
+    #[cfg(feature = "ai-insights")]
     pub ai_model_index: Option<usize>,
 }
 
 impl SettingsDraft {
+    #[cfg(feature = "ai-insights")]
     const FIELD_COUNT: usize = 13;
+    #[cfg(not(feature = "ai-insights"))]
+    const FIELD_COUNT: usize = 9;
 
     pub fn from_app(app: &App) -> Self {
         Self {
@@ -723,14 +738,21 @@ impl SettingsDraft {
             show_moon: app.show_moon,
             show_lunar_phases: app.show_lunar_phases,
             night_mode: app.night_mode,
+            #[cfg(feature = "ai-insights")]
             ai_enabled: app.ai_config.enabled,
+            #[cfg(feature = "ai-insights")]
             ai_server: app.ai_config.server.clone(),
+            #[cfg(feature = "ai-insights")]
             ai_model: app.ai_config.model.clone(),
+            #[cfg(feature = "ai-insights")]
             ai_refresh_minutes: app.ai_config.refresh_minutes().to_string(),
             field_index: 0,
             error: None,
+            #[cfg(feature = "ai-insights")]
             ai_server_status: AiServerStatus::Unknown,
+            #[cfg(feature = "ai-insights")]
             ai_models: Vec::new(),
+            #[cfg(feature = "ai-insights")]
             ai_model_index: None,
         }
     }
@@ -746,10 +768,16 @@ impl SettingsDraft {
             6 => SettingsField::ShowMoon,
             7 => SettingsField::ShowLunarPhases,
             8 => SettingsField::NightMode,
+            #[cfg(feature = "ai-insights")]
             9 => SettingsField::AiEnabled,
+            #[cfg(feature = "ai-insights")]
             10 => SettingsField::AiServer,
+            #[cfg(feature = "ai-insights")]
             11 => SettingsField::AiModel,
+            #[cfg(feature = "ai-insights")]
             _ => SettingsField::AiRefreshMinutes,
+            #[cfg(not(feature = "ai-insights"))]
+            _ => SettingsField::NightMode,
         }
     }
 
@@ -772,6 +800,7 @@ impl SettingsDraft {
             SettingsField::ShowMoon => self.show_moon = !self.show_moon,
             SettingsField::ShowLunarPhases => self.show_lunar_phases = !self.show_lunar_phases,
             SettingsField::NightMode => self.night_mode = !self.night_mode,
+            #[cfg(feature = "ai-insights")]
             SettingsField::AiEnabled => self.ai_enabled = !self.ai_enabled,
             _ => {}
         }
@@ -792,12 +821,15 @@ impl SettingsDraft {
             SettingsField::TimeSyncServer => {
                 self.time_sync_server.push(c);
             }
+            #[cfg(feature = "ai-insights")]
             SettingsField::AiServer => {
                 self.ai_server.push(c);
             }
+            #[cfg(feature = "ai-insights")]
             SettingsField::AiModel => {
                 self.ai_model.push(c);
             }
+            #[cfg(feature = "ai-insights")]
             SettingsField::AiRefreshMinutes => {
                 if c.is_ascii_digit() && self.ai_refresh_minutes.len() < 2 {
                     self.ai_refresh_minutes.push(c);
@@ -813,12 +845,15 @@ impl SettingsDraft {
             SettingsField::TimeSyncServer => {
                 self.time_sync_server.pop();
             }
+            #[cfg(feature = "ai-insights")]
             SettingsField::AiServer => {
                 self.ai_server.pop();
             }
+            #[cfg(feature = "ai-insights")]
             SettingsField::AiModel => {
                 self.ai_model.pop();
             }
+            #[cfg(feature = "ai-insights")]
             SettingsField::AiRefreshMinutes => {
                 self.ai_refresh_minutes.pop();
             }
@@ -856,9 +891,13 @@ pub struct App {
     pub reports_selected_item: ReportsMenuItem,
     pub time_sync: TimeSyncInfo,
     pub time_sync_server: String,
+    #[cfg(feature = "ai-insights")]
     pub ai_config: ai::AiConfig,
+    #[cfg(feature = "ai-insights")]
     pub ai_outcome: Option<ai::AiOutcome>,
+    #[cfg(feature = "ai-insights")]
     pub ai_last_refresh: Option<Instant>,
+    #[cfg(feature = "ai-insights")]
     pub ai_config_draft: AiConfigDraft,
     pub status_message: Option<String>,
     pub status_timestamp: Option<Instant>,
@@ -874,10 +913,13 @@ pub struct App {
     pub show_positions: bool,
     pub show_moon: bool,
     pub show_lunar_phases: bool,
+    #[cfg(feature = "ai-insights")]
     pub show_ai_insights: bool,
     pub time_sync_last_check: Instant,
     pub time_sync_disabled: bool,
+    #[cfg(feature = "ai-insights")]
     ai_job_rx: Option<Receiver<Result<ai::AiOutcome, String>>>,
+    #[cfg(feature = "ai-insights")]
     ai_job_prev_outcome: Option<ai::AiOutcome>,
 }
 
@@ -891,6 +933,7 @@ pub struct AppConfig {
     pub time_sync: TimeSyncInfo,
     pub time_sync_disabled: bool,
     pub time_sync_server: String,
+    #[cfg(feature = "ai-insights")]
     pub ai_config: ai::AiConfig,
     pub watch_prefs: Option<WatchPreferences>,
 }
@@ -905,6 +948,7 @@ impl App {
         let time_sync = config.time_sync;
         let time_sync_disabled = config.time_sync_disabled;
         let time_sync_server = config.time_sync_server;
+        #[cfg(feature = "ai-insights")]
         let ai_config = config.ai_config;
         let watch_prefs = config.watch_prefs;
         let now = Local::now();
@@ -968,23 +1012,34 @@ impl App {
                 show_moon: prefs.show_moon,
                 show_lunar_phases: prefs.show_lunar_phases,
                 night_mode: prefs.night_mode,
+                #[cfg(feature = "ai-insights")]
                 ai_enabled: ai_config.enabled,
+                #[cfg(feature = "ai-insights")]
                 ai_server: ai_config.server.clone(),
+                #[cfg(feature = "ai-insights")]
                 ai_model: ai_config.model.clone(),
+                #[cfg(feature = "ai-insights")]
                 ai_refresh_minutes: ai_config.refresh_minutes().to_string(),
                 field_index: 0,
                 error: None,
+                #[cfg(feature = "ai-insights")]
                 ai_server_status: AiServerStatus::Unknown,
+                #[cfg(feature = "ai-insights")]
                 ai_models: Vec::new(),
+                #[cfg(feature = "ai-insights")]
                 ai_model_index: None,
             },
             location_mode,
             reports_selected_item: ReportsMenuItem::Calendar,
             time_sync,
             time_sync_server,
+            #[cfg(feature = "ai-insights")]
             ai_config_draft: AiConfigDraft::from_config(&ai_config),
+            #[cfg(feature = "ai-insights")]
             ai_config,
+            #[cfg(feature = "ai-insights")]
             ai_outcome: None,
+            #[cfg(feature = "ai-insights")]
             ai_last_refresh: None,
             status_message: None,
             status_timestamp: None,
@@ -1003,10 +1058,13 @@ impl App {
             show_positions: prefs.show_positions,
             show_moon: prefs.show_moon,
             show_lunar_phases: prefs.show_lunar_phases,
+            #[cfg(feature = "ai-insights")]
             show_ai_insights: prefs.show_ai_insights,
             time_sync_last_check: Instant::now(),
             time_sync_disabled,
+            #[cfg(feature = "ai-insights")]
             ai_job_rx: None,
+            #[cfg(feature = "ai-insights")]
             ai_job_prev_outcome: None,
         }
     }
@@ -1107,6 +1165,7 @@ impl App {
     }
 
     pub fn refresh_scheduled_data(&mut self) {
+        #[cfg(feature = "ai-insights")]
         self.poll_ai_job();
         self.refresh_time_sync_if_needed();
         self.refresh_events_if_needed();
@@ -1133,6 +1192,7 @@ impl App {
             show_positions: self.show_positions,
             show_moon: self.show_moon,
             show_lunar_phases: self.show_lunar_phases,
+            #[cfg(feature = "ai-insights")]
             show_ai_insights: self.show_ai_insights,
             night_mode: self.night_mode,
         }
@@ -1151,13 +1211,16 @@ impl App {
             enabled: !self.time_sync_disabled,
             server: self.time_sync_server.clone(),
         };
-        cfg.ai = config::AiSettings {
-            enabled: self.ai_config.enabled,
-            server: self.ai_config.server.clone(),
-            model: self.ai_config.model.clone(),
-            refresh_minutes: self.ai_config.refresh_minutes(),
-            refresh_mode: self.ai_config.refresh_mode,
-        };
+        #[cfg(feature = "ai-insights")]
+        {
+            cfg.ai = config::AiSettings {
+                enabled: self.ai_config.enabled,
+                server: self.ai_config.server.clone(),
+                model: self.ai_config.model.clone(),
+                refresh_minutes: self.ai_config.refresh_minutes(),
+                refresh_mode: self.ai_config.refresh_mode,
+            };
+        }
         cfg
     }
 
@@ -1303,8 +1366,11 @@ impl App {
         self.should_save = true;
         self.update_time();
         self.reset_cached_data();
-        self.ai_last_refresh = None;
-        self.ai_outcome = None;
+        #[cfg(feature = "ai-insights")]
+        {
+            self.ai_last_refresh = None;
+            self.ai_outcome = None;
+        }
     }
 
     pub fn update_city_search(&mut self, query: &str) {
@@ -1341,6 +1407,7 @@ impl App {
         }
     }
 
+    #[cfg(feature = "ai-insights")]
     pub fn should_refresh_ai(&self) -> bool {
         if !self.ai_config.enabled {
             return false;
@@ -1361,6 +1428,7 @@ impl App {
         }
     }
 
+    #[cfg(feature = "ai-insights")]
     pub fn toggle_ai_enabled(&mut self) {
         let was_enabled = self.ai_config_draft.enabled;
         self.ai_config_draft.toggle_enabled();
@@ -1372,24 +1440,28 @@ impl App {
         }
     }
 
+    #[cfg(feature = "ai-insights")]
     pub fn advance_ai_field(&mut self) {
         let previous = self.ai_config_draft.current_field();
         self.ai_config_draft.next_field();
         self.handle_ai_field_exit(previous);
     }
 
+    #[cfg(feature = "ai-insights")]
     pub fn retreat_ai_field(&mut self) {
         let previous = self.ai_config_draft.current_field();
         self.ai_config_draft.prev_field();
         self.handle_ai_field_exit(previous);
     }
 
+    #[cfg(feature = "ai-insights")]
     pub fn cycle_ai_model(&mut self, delta: isize) {
         if self.ai_config_draft.current_field() == AiConfigField::Model {
             self.ai_config_draft.cycle_model(delta);
         }
     }
 
+    #[cfg(feature = "ai-insights")]
     fn handle_ai_field_exit(&mut self, previous: AiConfigField) {
         match previous {
             AiConfigField::Enabled => {
@@ -1408,6 +1480,7 @@ impl App {
         }
     }
 
+    #[cfg(feature = "ai-insights")]
     fn probe_ai_server_for_draft(&mut self) {
         if !self.ai_config_draft.enabled {
             return;
@@ -1428,10 +1501,12 @@ impl App {
         }
     }
 
+    #[cfg(feature = "ai-insights")]
     pub fn refresh_ai_insights(&mut self) {
         self.start_ai_refresh_job();
     }
 
+    #[cfg(feature = "ai-insights")]
     fn start_ai_refresh_job(&mut self) {
         if !self.ai_config.enabled {
             return;
@@ -1476,6 +1551,7 @@ impl App {
         self.ai_job_rx = Some(rx);
     }
 
+    #[cfg(feature = "ai-insights")]
     fn poll_ai_job(&mut self) {
         if let Some(rx) = &self.ai_job_rx {
             match rx.try_recv() {
@@ -1511,6 +1587,7 @@ impl App {
         }
     }
 
+    #[cfg(feature = "ai-insights")]
     pub fn open_ai_config(&mut self) {
         self.ai_config_draft.sync_from(&self.ai_config);
         if self.ai_config_draft.enabled {
@@ -1519,6 +1596,7 @@ impl App {
         self.mode = AppMode::AiConfig;
     }
 
+    #[cfg(feature = "ai-insights")]
     pub fn apply_ai_config_changes(&mut self) -> Result<()> {
         let minutes_str = self.ai_config_draft.refresh_minutes.trim();
         if minutes_str.is_empty() {
@@ -1603,17 +1681,25 @@ impl App {
             show_moon: self.show_moon,
             show_lunar_phases: self.show_lunar_phases,
             night_mode: self.night_mode,
+            #[cfg(feature = "ai-insights")]
             ai_enabled: self.ai_config.enabled,
+            #[cfg(feature = "ai-insights")]
             ai_server: self.ai_config.server.clone(),
+            #[cfg(feature = "ai-insights")]
             ai_model: self.ai_config.model.clone(),
+            #[cfg(feature = "ai-insights")]
             ai_refresh_minutes: self.ai_config.refresh_minutes().to_string(),
             field_index: 0,
             error: None,
+            #[cfg(feature = "ai-insights")]
             ai_server_status: AiServerStatus::Unknown,
+            #[cfg(feature = "ai-insights")]
             ai_models: Vec::new(),
+            #[cfg(feature = "ai-insights")]
             ai_model_index: None,
         };
         // Probe AI server if AI is enabled
+        #[cfg(feature = "ai-insights")]
         if self.ai_config.enabled {
             self.probe_ai_server_for_settings();
         }
@@ -1624,6 +1710,7 @@ impl App {
         // Validate and apply changes
 
         // Validate AI refresh minutes
+        #[cfg(feature = "ai-insights")]
         if self.settings_draft.ai_enabled {
             let minutes_str = self.settings_draft.ai_refresh_minutes.trim();
             if minutes_str.is_empty() {
@@ -1658,15 +1745,18 @@ impl App {
         self.night_mode = self.settings_draft.night_mode;
 
         // Apply AI settings
-        self.ai_config.enabled = self.settings_draft.ai_enabled;
-        self.ai_config.server = self.settings_draft.ai_server.clone();
-        self.ai_config.model = self.settings_draft.ai_model.clone();
+        #[cfg(feature = "ai-insights")]
+        {
+            self.ai_config.enabled = self.settings_draft.ai_enabled;
+            self.ai_config.server = self.settings_draft.ai_server.clone();
+            self.ai_config.model = self.settings_draft.ai_model.clone();
 
-        // Reset AI refresh if settings changed
-        if self.ai_config.enabled {
-            self.ai_outcome = None;
-            self.ai_last_refresh = None;
-            self.start_ai_refresh_job();
+            // Reset AI refresh if settings changed
+            if self.ai_config.enabled {
+                self.ai_outcome = None;
+                self.ai_last_refresh = None;
+                self.start_ai_refresh_job();
+            }
         }
 
         self.should_save = true;
@@ -1684,18 +1774,26 @@ impl App {
             show_moon: true,
             show_lunar_phases: true,
             night_mode: false,
+            #[cfg(feature = "ai-insights")]
             ai_enabled: false,
+            #[cfg(feature = "ai-insights")]
             ai_server: "http://localhost:11434".to_string(),
+            #[cfg(feature = "ai-insights")]
             ai_model: "llama3.2:latest".to_string(),
+            #[cfg(feature = "ai-insights")]
             ai_refresh_minutes: "2".to_string(),
             field_index: 0,
             error: None,
+            #[cfg(feature = "ai-insights")]
             ai_server_status: AiServerStatus::Unknown,
+            #[cfg(feature = "ai-insights")]
             ai_models: Vec::new(),
+            #[cfg(feature = "ai-insights")]
             ai_model_index: None,
         };
     }
 
+    #[cfg(feature = "ai-insights")]
     pub fn probe_ai_server_for_settings(&mut self) {
         if !self.settings_draft.ai_enabled {
             return;
@@ -1740,6 +1838,7 @@ impl App {
         }
     }
 
+    #[cfg(feature = "ai-insights")]
     pub fn cycle_ai_model_in_settings(&mut self, delta: isize) {
         if self.settings_draft.ai_models.is_empty() {
             return;

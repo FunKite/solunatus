@@ -1,6 +1,8 @@
 // Solunatus - High-precision astronomical CLI for sun and moon calculations
 
-use solunatus::{ai, astro, calendar, city, cli, config, events, location_source, output, time_sync, tui};
+use solunatus::{astro, calendar, city, cli, config, events, location_source, output, time_sync, tui};
+#[cfg(feature = "ai-insights")]
+use solunatus::ai;
 
 use anyhow::{anyhow, Context, Result};
 use chrono::{Datelike, Duration, Local, NaiveDate, Offset, TimeZone};
@@ -33,9 +35,11 @@ fn main() -> Result<()> {
         time_sync::check_time_sync()
     };
 
+    #[cfg(feature = "ai-insights")]
     let mut ai_config = ai::AiConfig::from_args(&args)?;
 
     // Merge with saved AI settings if config was loaded
+    #[cfg(feature = "ai-insights")]
     if let Some(cfg) = &config {
         ai_config = ai_config.merge_with_saved(&cfg.ai);
     }
@@ -94,29 +98,40 @@ fn main() -> Result<()> {
         } else {
             println!("{}", calendar_output);
         }
-    } else if args.validate {
+    }
+    #[cfg(feature = "usno-validation")]
+    if args.validate {
         // Validation mode - compare with USNO data
-        let report = solunatus::usno_validation::generate_validation_report(
-            &location,
-            &timezone,
-            city_name.clone(),
-            &dt,
-        )?;
+        {
+            let report = solunatus::usno_validation::generate_validation_report(
+                &location,
+                &timezone,
+                city_name.clone(),
+                &dt,
+            )?;
 
-        let html = solunatus::usno_validation::generate_html_report(&report);
+            let html = solunatus::usno_validation::generate_html_report(&report);
 
-        // Generate filename with timestamp
-        let timestamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
-        let filename = format!("solunatus-usno-validation-{}.html", timestamp);
-        fs::write(&filename, html)?;
-        println!("✓ Validation report written to: {}", filename);
-        println!("\nSummary:");
-        println!("  Pass:    {} (0-7 min)", report.results.iter().filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Pass).count());
-        println!("  Caution: {} (7-10 min)", report.results.iter().filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Warning).count());
-        println!("  Fail:    {} (>10 min)", report.results.iter().filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Fail).count());
-        println!("  Missing: {}", report.results.iter().filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Missing).count());
+            // Generate filename with timestamp
+            let timestamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+            let filename = format!("solunatus-usno-validation-{}.html", timestamp);
+            fs::write(&filename, html)?;
+            println!("✓ Validation report written to: {}", filename);
+            println!("\nSummary:");
+            println!("  Pass:    {} (0-7 min)", report.results.iter().filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Pass).count());
+            println!("  Caution: {} (7-10 min)", report.results.iter().filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Warning).count());
+            println!("  Fail:    {} (>10 min)", report.results.iter().filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Fail).count());
+            println!("  Missing: {}", report.results.iter().filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Missing).count());
+        }
+        #[cfg(not(feature = "usno-validation"))]
+        {
+            eprintln!("Error: USNO validation feature not enabled.");
+            eprintln!("Rebuild with: cargo build --features usno-validation");
+            std::process::exit(1);
+        }
     } else if args.json {
         // JSON output mode
+        #[cfg(feature = "ai-insights")]
         let json = output::generate_json_output(
             &location,
             &timezone,
@@ -126,6 +141,15 @@ fn main() -> Result<()> {
             &time_sync_info,
             &ai_config,
         )?;
+        #[cfg(not(feature = "ai-insights"))]
+        let json = output::generate_json_output(
+            &location,
+            &timezone,
+            city_name.clone(),
+            &dt,
+            timezone.name(),
+            &time_sync_info,
+        )?;
         println!("{}", json);
     } else if args.should_watch() {
         // Interactive watch mode
@@ -133,7 +157,8 @@ fn main() -> Result<()> {
             .as_ref()
             .map(|cfg| cfg.time_sync.server.clone())
             .unwrap_or_default();
-        run_watch_mode(tui::AppConfig {
+        #[cfg(feature = "ai-insights")]
+        let app_config = tui::AppConfig {
             location,
             timezone,
             city_name: city_name.clone(),
@@ -147,9 +172,26 @@ fn main() -> Result<()> {
             time_sync_server,
             ai_config: ai_config.clone(),
             watch_prefs: config.as_ref().map(|cfg| cfg.watch.clone()),
-        })?;
+        };
+        #[cfg(not(feature = "ai-insights"))]
+        let app_config = tui::AppConfig {
+            location,
+            timezone,
+            city_name: city_name.clone(),
+            location_source,
+            location_mode: config
+                .as_ref()
+                .map(|cfg| cfg.location_mode)
+                .unwrap_or(solunatus::config::LocationMode::City),
+            time_sync: time_sync_info.clone(),
+            time_sync_disabled: skip_time_sync,
+            time_sync_server,
+            watch_prefs: config.as_ref().map(|cfg| cfg.watch.clone()),
+        };
+        run_watch_mode(app_config)?;
     } else {
         // Single output mode (text)
+        #[cfg(feature = "ai-insights")]
         print_text_output(
             &location,
             &timezone,
@@ -158,6 +200,15 @@ fn main() -> Result<()> {
             &time_sync_info,
             location_source,
             &ai_config,
+        )?;
+        #[cfg(not(feature = "ai-insights"))]
+        print_text_output(
+            &location,
+            &timezone,
+            &city_name,
+            &dt,
+            &time_sync_info,
+            location_source,
         )?;
     }
 
@@ -244,6 +295,7 @@ fn run_watch_mode(config: tui::AppConfig) -> Result<()> {
     // Create app
     let mut app = tui::App::new(config);
 
+    #[cfg(feature = "ai-insights")]
     if app.ai_config.enabled {
         app.refresh_ai_insights();
     }
@@ -261,6 +313,7 @@ fn run_watch_mode(config: tui::AppConfig) -> Result<()> {
 
         app.refresh_scheduled_data();
 
+        #[cfg(feature = "ai-insights")]
         if app.should_refresh_ai() {
             app.refresh_ai_insights();
         }
@@ -292,6 +345,7 @@ fn run_watch_mode(config: tui::AppConfig) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "ai-insights")]
 fn print_text_output(
     location: &astro::Location,
     timezone: &Tz,
@@ -371,6 +425,7 @@ fn print_text_output(
     let events = events::collect_events_within_window(location, dt, Duration::hours(12));
 
     let next_idx = events.iter().position(|(time, _)| *time > *dt);
+    #[allow(unused_variables)]
     let precomputed_ai_events = if ai_config.enabled {
         Some(ai::prepare_event_summaries(&events, dt, next_idx))
     } else {
@@ -505,6 +560,174 @@ fn print_text_output(
             "Model: {}  Updated {:02}:{:02} ago",
             ai_outcome.model, minutes, seconds
         );
+    }
+
+    Ok(())
+}
+
+#[cfg(not(feature = "ai-insights"))]
+fn print_text_output(
+    location: &astro::Location,
+    timezone: &Tz,
+    city_name: &Option<String>,
+    dt: &chrono::DateTime<Tz>,
+    time_sync_info: &time_sync::TimeSyncInfo,
+    location_source: LocationSource,
+) -> Result<()> {
+    println!("Solunatus {} — github.com/FunKite/solunatus", env!("CARGO_PKG_VERSION"));
+
+    // Location
+    println!("— Location & Date —");
+    println!(
+        "📍 Lat,Lon~{:.3},{:.3} {}",
+        location.latitude.value(),
+        location.longitude.value(),
+        location_source.short_label()
+    );
+    if let Some(city) = city_name {
+        println!("🏙️ Place: {}", city);
+    }
+    let offset_seconds = dt.offset().fix().local_minus_utc();
+    let offset_minutes = offset_seconds / 60;
+    let sign = if offset_minutes >= 0 { '+' } else { '-' };
+    let abs_minutes = offset_minutes.abs();
+    let offset_hours = abs_minutes / 60;
+    let offset_remaining_minutes = abs_minutes % 60;
+    let offset_label = if offset_remaining_minutes == 0 {
+        format!("UTC{}{:02}", sign, offset_hours)
+    } else {
+        format!(
+            "UTC{}{:02}:{:02}",
+            sign, offset_hours, offset_remaining_minutes
+        )
+    };
+    println!(
+        "📅 {} ⌚{}@{}",
+        dt.format("%b %d %H:%M:%S"),
+        timezone.name(),
+        offset_label
+    );
+    match (
+        time_sync_info.delta,
+        time_sync_info.direction(),
+        time_sync_info.error_summary(),
+    ) {
+        (Some(delta), Some(direction), _) => {
+            println!(
+                "🕒 Time sync ({}): {} ({})",
+                time_sync_info.source,
+                time_sync::format_offset(delta),
+                time_sync::describe_direction(direction)
+            );
+        }
+        (Some(delta), None, _) => {
+            println!(
+                "🕒 Time sync ({}): {}",
+                time_sync_info.source,
+                time_sync::format_offset(delta)
+            );
+        }
+        (None, _, Some(err)) => {
+            println!(
+                "🕒 Time sync ({}): unavailable ({})",
+                time_sync_info.source, err
+            );
+        }
+        _ => {
+            println!("🕒 Time sync ({}): unavailable", time_sync_info.source);
+        }
+    }
+
+    // Events
+    println!("— Events —");
+
+    let events = events::collect_events_within_window(location, dt, Duration::hours(12));
+    let next_idx = events.iter().position(|(time, _)| *time > *dt);
+
+    for (idx, (event_time, event_name)) in events.iter().enumerate() {
+        let diff = astro::time_utils::time_until(dt, event_time);
+        let mut diff_str = astro::time_utils::format_duration_detailed(diff);
+
+        // Add leading space for events with wide emojis to maintain alignment
+        if event_name.contains("Civil dawn") || event_name.contains("Solar noon") {
+            diff_str = format!(" {}", diff_str);
+        }
+
+        let marker = if Some(idx) == next_idx { " (next)" } else { "" };
+
+        println!(
+            "{}  {:<18}   {:<18}{}",
+            event_time.format("%H:%M:%S"),
+            event_name,
+            diff_str,
+            marker
+        );
+    }
+
+    // Position
+    let sun_pos = astro::sun::solar_position(location, dt);
+    let moon_pos = astro::moon::lunar_position(location, dt);
+
+    println!("— Position —");
+    println!(
+        "☀️ Sun:  Alt {:>5.1}°, Az {:>3.0}° {}",
+        sun_pos.altitude,
+        sun_pos.azimuth,
+        astro::coordinates::azimuth_to_compass(sun_pos.azimuth)
+    );
+    println!(
+        "🌕 Moon: Alt {:>5.1}°, Az {:>3.0}° {}",
+        moon_pos.altitude,
+        moon_pos.azimuth,
+        astro::coordinates::azimuth_to_compass(moon_pos.azimuth)
+    );
+
+    // Moon
+    let size_class = if moon_pos.angular_diameter > 33.0 {
+        "Near Perigee"
+    } else if moon_pos.angular_diameter > 32.0 {
+        "Larger than Average"
+    } else if moon_pos.angular_diameter > 30.5 {
+        "Average"
+    } else if moon_pos.angular_diameter > 29.5 {
+        "Smaller than Average"
+    } else {
+        "Near Apogee"
+    };
+
+    println!("— Moon —");
+    println!(
+        "{} Phase:           {} (Age {:.1} days)",
+        astro::moon::phase_emoji(moon_pos.phase_angle),
+        astro::moon::phase_name(moon_pos.phase_angle),
+        (moon_pos.phase_angle / 360.0 * 29.53)
+    );
+    println!("💡 Fraction Illum.: {:.0}%", moon_pos.illumination * 100.0);
+    println!(
+        "🔭 Apparent size:   {:.1}' ({})",
+        moon_pos.angular_diameter, size_class
+    );
+
+    // Lunar phases
+    let phases = astro::moon::lunar_phases(dt.year(), dt.month());
+    if !phases.is_empty() {
+        println!("— Lunar Phases —");
+        for phase in phases.iter().take(4) {
+            let emoji = match phase.phase_type {
+                astro::moon::LunarPhaseType::NewMoon => "🌑",
+                astro::moon::LunarPhaseType::FirstQuarter => "🌓",
+                astro::moon::LunarPhaseType::FullMoon => "🌕",
+                astro::moon::LunarPhaseType::LastQuarter => "🌗",
+            };
+            let name = match phase.phase_type {
+                astro::moon::LunarPhaseType::NewMoon => "New:",
+                astro::moon::LunarPhaseType::FirstQuarter => "First quarter:",
+                astro::moon::LunarPhaseType::FullMoon => "Full:",
+                astro::moon::LunarPhaseType::LastQuarter => "Last quarter:",
+            };
+            let phase_dt = phase.datetime.with_timezone(timezone);
+            println!("{} {:<18} {}", emoji, name, phase_dt.format("%b %d %H:%M"));
+        }
     }
 
     Ok(())

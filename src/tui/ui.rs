@@ -1,6 +1,8 @@
 // UI rendering
 
-use super::app::{AiConfigField, AiServerStatus, App, CalendarField, LocationInputField, SettingsField};
+use super::app::{App, CalendarField, LocationInputField, SettingsField};
+#[cfg(feature = "ai-insights")]
+use super::app::{AiConfigField, AiServerStatus};
 use crate::astro::*;
 use crate::time_sync;
 use chrono::{Offset, Utc};
@@ -13,6 +15,7 @@ use ratatui::{
 };
 use std::borrow::Cow;
 
+#[cfg(feature = "ai-insights")]
 fn get_footer_instructions(ai_enabled: bool) -> Vec<&'static str> {
     let mut instructions = vec!["q quit", "s settings", "r reports"];
     if ai_enabled {
@@ -21,11 +24,19 @@ fn get_footer_instructions(ai_enabled: bool) -> Vec<&'static str> {
     instructions
 }
 
+#[cfg(not(feature = "ai-insights"))]
+fn get_footer_instructions(_ai_enabled: bool) -> Vec<&'static str> {
+    vec!["q quit", "s settings", "r reports"]
+}
+
 pub fn render(f: &mut Frame, app: &App) {
     match app.mode {
         super::app::AppMode::Watch => {
             let area = f.area();
+            #[cfg(feature = "ai-insights")]
             let footer_height = footer_line_count(area.width, app.ai_config.enabled);
+            #[cfg(not(feature = "ai-insights"))]
+            let footer_height = footer_line_count(area.width, false);
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
@@ -48,8 +59,23 @@ pub fn render(f: &mut Frame, app: &App) {
         super::app::AppMode::LocationInput => {
             render_location_input(f, app);
         }
+        #[cfg(feature = "ai-insights")]
         super::app::AppMode::AiConfig => {
             render_ai_config(f, app);
+        }
+        #[cfg(not(feature = "ai-insights"))]
+        super::app::AppMode::AiConfig => {
+            // Render fallback message when AI config mode is not available
+            let area = f.area();
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .title("AI Insights Not Available");
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+            let message = Paragraph::new("AI insights feature is not enabled.\nRebuild with: cargo build --features ai-insights")
+                .style(Style::default().fg(Color::Gray))
+                .alignment(Alignment::Center);
+            f.render_widget(message, inner);
         }
         super::app::AppMode::Calendar => {
             render_calendar_generator(f, app);
@@ -509,6 +535,7 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &App) {
         sections_rendered += 1;
     }
 
+    #[cfg(feature = "ai-insights")]
     if app.ai_config.enabled {
         if sections_rendered > 0 {
             lines.push(Line::from(""));
@@ -577,7 +604,10 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_footer(f: &mut Frame, area: Rect, app: &App) {
+    #[cfg(feature = "ai-insights")]
     let footer_instructions = get_footer_instructions(app.ai_config.enabled);
+    #[cfg(not(feature = "ai-insights"))]
+    let footer_instructions = get_footer_instructions(false);
     let mut lines = Vec::new();
     let max_width = area.width.saturating_sub(4) as usize;
     let mut current_line = String::new();
@@ -1007,6 +1037,7 @@ fn render_calendar_generator(f: &mut Frame, app: &App) {
     f.render_widget(footer, chunks[3]);
 }
 
+#[cfg(feature = "ai-insights")]
 fn render_ai_config(f: &mut Frame, app: &App) {
     let area = f.area();
     let block = bordered_block(app).title("AI Insights Settings");
@@ -1379,117 +1410,125 @@ fn render_settings(f: &mut Frame, app: &App) {
     );
     lines.push(Line::from(""));
 
-    // AI Configuration section
-    lines.push(Line::from(Span::styled(
-        "— AI Configuration —",
-        Style::default().fg(get_color(app, Color::Yellow)).add_modifier(Modifier::BOLD),
-    )));
+    #[cfg(feature = "ai-insights")]
+    {
+        // AI Configuration section
+        lines.push(Line::from(Span::styled(
+            "— AI Configuration —",
+            Style::default()
+                .fg(get_color(app, Color::Yellow))
+                .add_modifier(Modifier::BOLD),
+        )));
 
-    let ai_enabled_str = if draft.ai_enabled { "[x] Enabled" } else { "[ ] Disabled" };
-    render_setting_field(
-        &mut lines,
-        app,
-        current_field == SettingsField::AiEnabled,
-        "AI Insights",
-        ai_enabled_str.to_string(),
-        None,
-    );
-
-    if draft.ai_enabled {
-        render_setting_field(
-            &mut lines,
-            app,
-            current_field == SettingsField::AiServer,
-            "Ollama Server",
-            draft.ai_server.clone(),
-            None,
-        );
-
-        // Show server status
-        match &draft.ai_server_status {
-            crate::tui::app::AiServerStatus::Connected { server } => {
-                lines.push(Line::from(Span::styled(
-                    format!(
-                        "  {}Connected to {} — {} model{} available",
-                        symbol_prefix(app, "✅ "),
-                        server,
-                        draft.ai_models.len(),
-                        if draft.ai_models.len() == 1 { "" } else { "s" }
-                    ),
-                    Style::default()
-                        .fg(get_color(app, Color::LightGreen))
-                        .add_modifier(Modifier::BOLD),
-                )));
-            }
-            crate::tui::app::AiServerStatus::Failed { server, message } => {
-                lines.push(Line::from(Span::styled(
-                    format!(
-                        "  {}Unable to reach {} ({})",
-                        symbol_prefix(app, "⚠️ "),
-                        server,
-                        message.replace('\n', " ")
-                    ),
-                    Style::default().fg(get_color(app, Color::LightRed)),
-                )));
-            }
-            crate::tui::app::AiServerStatus::Unknown => {}
-        }
-
-        let model_hint = if draft.ai_models.is_empty() {
-            None
+        let ai_enabled_str = if draft.ai_enabled {
+            "[x] Enabled"
         } else {
-            Some("(←/→ or [ ] to browse)".to_string())
+            "[ ] Disabled"
         };
         render_setting_field(
             &mut lines,
             app,
-            current_field == SettingsField::AiModel,
-            "Model",
-            draft.ai_model.clone(),
-            model_hint,
-        );
-
-        // Show available models list if we have them
-        if !draft.ai_models.is_empty() {
-            for (idx, model_name) in draft.ai_models.iter().enumerate() {
-                let selected = Some(idx) == draft.ai_model_index;
-                let indicator = if selected { "▶" } else { " " };
-                let style = if selected {
-                    Style::default()
-                        .fg(get_color(app, Color::Green))
-                        .add_modifier(Modifier::BOLD)
-                } else if current_field == SettingsField::AiModel {
-                    Style::default().fg(get_color(app, Color::White))
-                } else {
-                    Style::default().fg(get_color(app, Color::Gray))
-                };
-
-                lines.push(Line::from(vec![
-                    Span::raw("   "),
-                    Span::styled(
-                        format!("{} {}", indicator, model_name),
-                        style,
-                    )
-                ]));
-            }
-
-            // Show hint for using arrow keys when on AI Model field
-            if current_field == SettingsField::AiModel && draft.ai_models.len() > 1 {
-                lines.push(Line::from(Span::styled(
-                    "   Tip: Use ←/→ arrows to select a different model",
-                    Style::default().fg(get_color(app, Color::Gray)),
-                )));
-            }
-        }
-
-        render_setting_field(
-            &mut lines,
-            app,
-            current_field == SettingsField::AiRefreshMinutes,
-            "Refresh (min)",
-            draft.ai_refresh_minutes.clone(),
+            current_field == SettingsField::AiEnabled,
+            "AI Insights",
+            ai_enabled_str.to_string(),
             None,
         );
+
+        if draft.ai_enabled {
+            render_setting_field(
+                &mut lines,
+                app,
+                current_field == SettingsField::AiServer,
+                "Ollama Server",
+                draft.ai_server.clone(),
+                None,
+            );
+
+            // Show server status
+            match &draft.ai_server_status {
+                crate::tui::app::AiServerStatus::Connected { server } => {
+                    lines.push(Line::from(Span::styled(
+                        format!(
+                            "  {}Connected to {} — {} model{} available",
+                            symbol_prefix(app, "✅ "),
+                            server,
+                            draft.ai_models.len(),
+                            if draft.ai_models.len() == 1 { "" } else { "s" }
+                        ),
+                        Style::default()
+                            .fg(get_color(app, Color::LightGreen))
+                            .add_modifier(Modifier::BOLD),
+                    )));
+                }
+                crate::tui::app::AiServerStatus::Failed { server, message } => {
+                    lines.push(Line::from(Span::styled(
+                        format!(
+                            "  {}Unable to reach {} ({})",
+                            symbol_prefix(app, "⚠️ "),
+                            server,
+                            message.replace('\n', " ")
+                        ),
+                        Style::default().fg(get_color(app, Color::LightRed)),
+                    )));
+                }
+                crate::tui::app::AiServerStatus::Unknown => {}
+            }
+
+            let model_hint = if draft.ai_models.is_empty() {
+                None
+            } else {
+                Some("(←/→ or [ ] to browse)".to_string())
+            };
+            render_setting_field(
+                &mut lines,
+                app,
+                current_field == SettingsField::AiModel,
+                "Model",
+                draft.ai_model.clone(),
+                model_hint,
+            );
+
+            // Show available models list if we have them
+            if !draft.ai_models.is_empty() {
+                for (idx, model_name) in draft.ai_models.iter().enumerate() {
+                    let selected = Some(idx) == draft.ai_model_index;
+                    let indicator = if selected { "▶" } else { " " };
+                    let style = if selected {
+                        Style::default()
+                            .fg(get_color(app, Color::Green))
+                            .add_modifier(Modifier::BOLD)
+                    } else if current_field == SettingsField::AiModel {
+                        Style::default().fg(get_color(app, Color::White))
+                    } else {
+                        Style::default().fg(get_color(app, Color::Gray))
+                    };
+
+                    lines.push(Line::from(vec![
+                        Span::raw("   "),
+                        Span::styled(format!("{} {}", indicator, model_name), style),
+                    ]));
+                }
+
+                // Show hint for using arrow keys when on AI Model field
+                if current_field == SettingsField::AiModel && draft.ai_models.len() > 1 {
+                    lines.push(Line::from(Span::styled(
+                        "   Tip: Use ←/→ arrows to select a different model",
+                        Style::default().fg(get_color(app, Color::Gray)),
+                    )));
+                }
+            }
+
+            render_setting_field(
+                &mut lines,
+                app,
+                current_field == SettingsField::AiRefreshMinutes,
+                "Refresh (min)",
+                draft.ai_refresh_minutes.clone(),
+                None,
+            );
+        }
+
+        lines.push(Line::from(""));
     }
 
     lines.push(Line::from(""));
