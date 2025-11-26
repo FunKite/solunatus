@@ -13,116 +13,213 @@ use chrono::{DateTime, Datelike, Utc};
 use chrono_tz::Tz;
 use serde::Serialize;
 
+/// Top-level JSON output structure for astronomical data.
+///
+/// Contains all calculated positions, events, phases, and optional AI insights.
 #[derive(Serialize)]
 pub struct JsonOutput {
+    /// Geographic location information
     pub location: LocationData,
+    /// Current date and time information
     pub datetime: DateTimeData,
+    /// Solar position and events
     pub sun: SunData,
+    /// Lunar position, events, and phase
     pub moon: MoonData,
+    /// Lunar phases for current month
     pub lunar_phases: Vec<LunarPhaseData>,
+    /// Optional AI-generated insights
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_insights: Option<AiInsightsData>,
 }
 
+/// Geographic location data for JSON output.
 #[derive(Serialize)]
 pub struct LocationData {
+    /// Latitude in decimal degrees (WGS84)
     pub latitude: f64,
+    /// Longitude in decimal degrees (WGS84)
     pub longitude: f64,
+    /// IANA timezone identifier
     pub timezone: String,
+    /// Optional city name
     pub city: Option<String>,
 }
 
+/// Date and time information for JSON output.
 #[derive(Serialize)]
 pub struct DateTimeData {
+    /// Local time with timezone
     pub local: String,
+    /// UTC time
     pub utc: String,
+    /// Timezone offset (e.g., "+05:00")
     pub timezone_offset: String,
+    /// NTP time synchronization status
     pub time_sync: TimeSyncData,
 }
 
+/// Solar position and events for JSON output.
 #[derive(Serialize)]
 pub struct SunData {
+    /// Current sun position (altitude, azimuth)
     pub position: PositionData,
+    /// Solar events (sunrise, sunset, twilight times)
     pub events: SunEvents,
 }
 
+/// Lunar position, events, and phase for JSON output.
 #[derive(Serialize)]
 pub struct MoonData {
+    /// Current moon position (altitude, azimuth, distance, size)
     pub position: MoonPositionData,
+    /// Lunar events (moonrise, moonset)
     pub events: MoonEvents,
+    /// Current lunar phase details
     pub phase: PhaseData,
 }
 
+/// Celestial body position (sun/moon) for JSON output.
 #[derive(Serialize)]
 pub struct PositionData {
+    /// Altitude in degrees (+ above horizon, - below)
     pub altitude: f64,
+    /// Azimuth in degrees (0° = North, clockwise)
     pub azimuth: f64,
+    /// Compass direction (e.g., "NE", "SW")
     pub azimuth_compass: String,
 }
 
+/// Lunar position with distance and angular size for JSON output.
 #[derive(Serialize)]
 pub struct MoonPositionData {
+    /// Altitude in degrees (+ above horizon, - below)
     pub altitude: f64,
+    /// Azimuth in degrees (0° = North, clockwise)
     pub azimuth: f64,
+    /// Compass direction (e.g., "NE", "SW")
     pub azimuth_compass: String,
+    /// Distance from Earth in kilometers
     pub distance_km: f64,
+    /// Angular diameter in arcminutes
     pub angular_diameter_arcmin: f64,
 }
 
+/// Solar events for JSON output.
+///
+/// All times are formatted as "YYYY-MM-DD HH:MM:SS TZ".
+/// Events are `None` if they don't occur on the given day (e.g., polar regions).
 #[derive(Serialize)]
 pub struct SunEvents {
+    /// Sunrise time
     pub sunrise: Option<String>,
+    /// Sunset time
     pub sunset: Option<String>,
+    /// Solar noon (sun at highest altitude)
     pub solar_noon: Option<String>,
+    /// Civil dawn (sun at -6° altitude)
     pub civil_dawn: Option<String>,
+    /// Civil dusk (sun at -6° altitude)
     pub civil_dusk: Option<String>,
+    /// Nautical dawn (sun at -12° altitude)
     pub nautical_dawn: Option<String>,
+    /// Nautical dusk (sun at -12° altitude)
     pub nautical_dusk: Option<String>,
+    /// Astronomical dawn (sun at -18° altitude)
     pub astronomical_dawn: Option<String>,
+    /// Astronomical dusk (sun at -18° altitude)
     pub astronomical_dusk: Option<String>,
 }
 
+/// Lunar events for JSON output.
+///
+/// Times are formatted as "YYYY-MM-DD HH:MM:SS TZ".
+/// Events are `None` if they don't occur on the given day.
 #[derive(Serialize)]
 pub struct MoonEvents {
+    /// Moonrise time
     pub moonrise: Option<String>,
+    /// Moonset time
     pub moonset: Option<String>,
 }
 
+/// Current lunar phase details for JSON output.
 #[derive(Serialize)]
 pub struct PhaseData {
+    /// Phase name (e.g., "Full Moon", "Waxing Crescent")
     pub name: String,
+    /// Emoji representation of phase
     pub emoji: String,
+    /// Phase angle in degrees (0° = new, 180° = full)
     pub angle_degrees: f64,
+    /// Illumination percentage (0-100)
     pub illumination_percent: f64,
 }
 
+/// Lunar phase event data for JSON output.
 #[derive(Serialize)]
 pub struct LunarPhaseData {
+    /// Phase type: "new_moon", "first_quarter", "full_moon", "last_quarter"
     pub phase_type: String,
+    /// UTC timestamp of phase event
     pub datetime: String,
 }
 
+/// NTP time synchronization status for JSON output.
 #[derive(Serialize)]
 pub struct TimeSyncData {
+    /// NTP server source (e.g., "time.google.com (NTP)")
     pub source: String,
+    /// Clock offset in seconds (system - NTP time)
     pub delta_seconds: Option<f64>,
+    /// Human-readable offset (e.g., "+2.3s", "-150.0ms")
     pub offset_display: Option<String>,
+    /// Status code: "ahead", "behind", "in_sync", "error", "unavailable"
     pub status: String,
+    /// Error message if time sync failed
     pub error: Option<String>,
 }
 
+/// AI-generated insights for JSON output.
 #[derive(Serialize)]
 pub struct AiInsightsData {
+    /// Ollama model used to generate insights
     pub model: String,
+    /// Timestamp when insights were generated
     pub updated_at: String,
+    /// Time elapsed since last update (e.g., "Updated 02:15 ago")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_elapsed: Option<String>,
+    /// Generated insights text
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    /// Error message if insights generation failed
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
+/// Generates JSON output for astronomical data (with AI insights support).
+///
+/// Creates a complete JSON document containing positions, events, phases,
+/// time sync status, and optional AI-generated insights.
+///
+/// # Arguments
+///
+/// * `location` - Geographic location
+/// * `timezone` - Timezone for event times
+/// * `city_name` - Optional city name
+/// * `dt` - Current date/time
+/// * `timezone_name` - Timezone display name
+/// * `time_sync_info` - NTP time sync status
+/// * `ai_config` - AI configuration (if ai-insights feature enabled)
+///
+/// # Returns
+///
+/// A pretty-printed JSON string containing all astronomical data.
+///
+/// # Errors
+///
+/// Returns an error if JSON serialization fails.
 #[cfg(feature = "ai-insights")]
 pub fn generate_json_output(
     location: &Location,
@@ -136,6 +233,27 @@ pub fn generate_json_output(
     generate_json_output_impl(location, timezone, city_name, dt, timezone_name, time_sync_info, Some(ai_config))
 }
 
+/// Generates JSON output for astronomical data (without AI insights).
+///
+/// Creates a complete JSON document containing positions, events, phases,
+/// and time sync status.
+///
+/// # Arguments
+///
+/// * `location` - Geographic location
+/// * `timezone` - Timezone for event times
+/// * `city_name` - Optional city name
+/// * `dt` - Current date/time
+/// * `timezone_name` - Timezone display name
+/// * `time_sync_info` - NTP time sync status
+///
+/// # Returns
+///
+/// A pretty-printed JSON string containing all astronomical data.
+///
+/// # Errors
+///
+/// Returns an error if JSON serialization fails.
 #[cfg(not(feature = "ai-insights"))]
 pub fn generate_json_output(
     location: &Location,

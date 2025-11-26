@@ -1,3 +1,31 @@
+//! NTP time synchronization with intelligent caching.
+//!
+//! This module provides network time protocol (NTP) synchronization to detect
+//! clock drift between the system clock and authoritative time sources.
+//!
+//! # Features
+//!
+//! - **NTP Query**: Connects to time.google.com or pool.ntp.org for time sync
+//! - **Smart Caching**: 30-minute cache to comply with NTP server Terms of Service
+//! - **Drift Detection**: Measures system clock offset in microseconds
+//! - **Direction Classification**: Identifies if system is ahead, behind, or in sync
+//!
+//! # Cache Behavior
+//!
+//! To prevent abuse of public NTP servers, this module caches time sync results
+//! for 30 minutes minimum. The cache is stored at `~/.solunatus_ntp_cache.json`.
+//!
+//! # Examples
+//!
+//! ```no_run
+//! use solunatus::time_sync::{check_time_sync, format_offset};
+//!
+//! let sync_info = check_time_sync();
+//! if let Some(delta) = sync_info.delta {
+//!     println!("System clock offset: {}", format_offset(delta));
+//! }
+//! ```
+
 use anyhow::{anyhow, Context};
 use chrono::{DateTime, Duration as ChronoDuration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
@@ -10,12 +38,16 @@ const TIME_SERVERS: [(&str, &str); 2] = [
     ("time.google.com:123", "time.google.com (NTP)"),
     ("pool.ntp.org:123", "pool.ntp.org (NTP)"),
 ];
+/// The label for the primary NTP time source (time.google.com).
 pub const PRIMARY_SOURCE_LABEL: &str = TIME_SERVERS[0].1;
 const SYNC_THRESHOLD_MICROS: i64 = 50_000; // 50 ms tolerance treated as in sync
 
 // Cache settings - 30 minutes minimum between NTP queries (pool.ntp.org ToS compliance)
 const CACHE_MIN_INTERVAL_SECS: i64 = 1800; // 30 minutes
 
+/// Cached NTP time synchronization result.
+///
+/// Stored at `~/.solunatus_ntp_cache.json` to reduce load on public NTP servers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TimeSyncCache {
     /// UTC timestamp when this cache entry was created
@@ -26,7 +58,13 @@ struct TimeSyncCache {
     delta_micros: i64,
 }
 
-/// Default NTP servers to use when none are specified
+/// Returns the default NTP servers to use for time synchronization.
+///
+/// # Returns
+///
+/// A vector of (server_address, display_label) tuples containing:
+/// - time.google.com:123
+/// - pool.ntp.org:123
 pub fn default_servers() -> Vec<(String, String)> {
     TIME_SERVERS
         .iter()
@@ -34,24 +72,62 @@ pub fn default_servers() -> Vec<(String, String)> {
         .collect()
 }
 
+/// Information about system clock synchronization status.
+///
+/// Contains the time source, measured drift, and any errors encountered.
 #[derive(Debug, Clone)]
 pub struct TimeSyncInfo {
+    /// The NTP server source used (e.g., "time.google.com (NTP)")
     pub source: &'static str,
+    /// The measured clock delta (None if sync failed)
     pub delta: Option<ChronoDuration>,
+    /// Error message if synchronization failed
     pub error: Option<String>,
 }
 
+/// Direction of system clock drift relative to NTP time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TimeSyncDirection {
+    /// System clock is ahead of NTP time
     Ahead,
+    /// System clock is behind NTP time
     Behind,
+    /// System clock is synchronized (within ±50ms)
     InSync,
 }
 
+/// Checks system time synchronization using default NTP servers.
+///
+/// Uses cached results if available and fresh (< 30 minutes old).
+///
+/// # Returns
+///
+/// A [`TimeSyncInfo`] struct containing sync status and any errors.
+///
+/// # Examples
+///
+/// ```no_run
+/// use solunatus::time_sync::check_time_sync;
+///
+/// let sync = check_time_sync();
+/// match sync.delta {
+///     Some(delta) => println!("System clock offset: {:?}", delta),
+///     None => println!("Time sync failed: {:?}", sync.error),
+/// }
+/// ```
 pub fn check_time_sync() -> TimeSyncInfo {
     check_time_sync_with_servers(None)
 }
 
+/// Checks system time synchronization with optional custom server.
+///
+/// # Arguments
+///
+/// * `custom_server` - Optional NTP server address (e.g., "time.google.com:123")
+///
+/// # Returns
+///
+/// A [`TimeSyncInfo`] struct containing sync status and any errors.
 pub fn check_time_sync_with_servers(custom_server: Option<&str>) -> TimeSyncInfo {
     // Determine which server we're targeting (for cache key matching)
     let target_server = custom_server
@@ -105,6 +181,30 @@ pub fn check_time_sync_with_servers(custom_server: Option<&str>) -> TimeSyncInfo
     }
 }
 
+/// Formats a time offset as a human-readable string.
+///
+/// Automatically chooses appropriate units based on magnitude:
+/// - Minutes/seconds for offsets ≥ 60s
+/// - Seconds with 3 decimals for offsets ≥ 1s
+/// - Milliseconds with 1 decimal for offsets < 1s
+///
+/// # Arguments
+///
+/// * `delta` - The time offset to format
+///
+/// # Returns
+///
+/// A formatted string like "+2.3s", "-5m30s", or "+12.5ms"
+///
+/// # Examples
+///
+/// ```
+/// use chrono::Duration;
+/// use solunatus::time_sync::format_offset;
+///
+/// let delta = Duration::milliseconds(250);
+/// assert_eq!(format_offset(delta), "+250.0ms");
+/// ```
 pub fn format_offset(delta: ChronoDuration) -> String {
     let total_seconds = delta.num_seconds();
     let abs_seconds = total_seconds.abs();
@@ -127,6 +227,17 @@ pub fn format_offset(delta: ChronoDuration) -> String {
     }
 }
 
+/// Returns a human-readable description of the sync direction.
+///
+/// # Arguments
+///
+/// * `direction` - The time sync direction
+///
+/// # Returns
+///
+/// - `"system ahead"` for [`TimeSyncDirection::Ahead`]
+/// - `"system behind"` for [`TimeSyncDirection::Behind`]
+/// - `"system in sync"` for [`TimeSyncDirection::InSync`]
 pub fn describe_direction(direction: TimeSyncDirection) -> &'static str {
     match direction {
         TimeSyncDirection::Ahead => "system ahead",
@@ -135,6 +246,17 @@ pub fn describe_direction(direction: TimeSyncDirection) -> &'static str {
     }
 }
 
+/// Returns a machine-readable code for the sync direction.
+///
+/// # Arguments
+///
+/// * `direction` - The time sync direction
+///
+/// # Returns
+///
+/// - `"ahead"` for [`TimeSyncDirection::Ahead`]
+/// - `"behind"` for [`TimeSyncDirection::Behind`]
+/// - `"in_sync"` for [`TimeSyncDirection::InSync`]
 pub fn direction_code(direction: TimeSyncDirection) -> &'static str {
     match direction {
         TimeSyncDirection::Ahead => "ahead",
@@ -234,10 +356,22 @@ fn query_ntp(server: &str) -> anyhow::Result<chrono::DateTime<Utc>> {
 }
 
 impl TimeSyncInfo {
+    /// Classifies the direction of time drift.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(`[`TimeSyncDirection`]`)` if delta is available
+    /// - `None` if time sync failed or delta is out of range
     pub fn direction(&self) -> Option<TimeSyncDirection> {
         self.delta.and_then(classify_direction)
     }
 
+    /// Converts the time delta to seconds as a floating point value.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(f64)` representing seconds (e.g., 0.123 for 123ms)
+    /// - `None` if time sync failed
     pub fn delta_seconds(&self) -> Option<f64> {
         self.delta.and_then(|delta| {
             delta
@@ -246,6 +380,14 @@ impl TimeSyncInfo {
         })
     }
 
+    /// Returns a shortened version of the error message if present.
+    ///
+    /// Truncates error messages to 60 characters for display purposes.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(String)` with truncated error message
+    /// - `None` if no error occurred
     pub fn error_summary(&self) -> Option<String> {
         self.error.as_ref().map(|err| summarize_error(err))
     }

@@ -5,7 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] - Planned for 0.3.2
+
+### Documentation
+- **Comprehensive Module Documentation**: Significantly improved crates.io documentation coverage (from 37.5% baseline)
+  - **Module-level docs**: Added detailed module documentation for `ai`, `time_sync`, `benchmark`, `location_source`, and `usno_validation`
+  - **Struct documentation**: Documented all public structs in `output` (14 structs), `config` (4 structs), `ai` (9 structs), and `usno_validation` (3 structs) with field-level descriptions
+  - **Function documentation**: Added comprehensive docs for:
+    - `ai`: `fetch_insights`, `probe_server`, `build_ai_data`, `prepare_event_summaries`
+    - `time_sync`: `check_time_sync`, `check_time_sync_with_servers`, `format_offset`, `describe_direction`, `direction_code`
+    - `calendar`: `generate_calendar`
+    - `output`: `generate_json_output` (both AI and non-AI variants)
+    - `benchmark`: `run_benchmark`, `generate_html_report`
+  - **Enum documentation**: Documented `ValidationStatus`, `TimeSyncDirection`, `LocationMode`, `AiRefreshMode`, `LocationSource`, `CalendarFormat`
+  - **Usage examples**: Added practical examples for all major public functions showing real-world usage patterns
+  - **Error documentation**: Documented error cases and return values for all fallible functions
+  - **Configuration examples**: Added JSON configuration examples for `Config` and `AiSettings`
+  - Fixed broken intra-doc links for better documentation navigation
+  - Documentation now builds without warnings (0 warnings, 33 tests passing)
 
 ## [0.3.1] - 2025-11-25
 

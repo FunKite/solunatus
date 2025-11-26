@@ -1,4 +1,26 @@
-// Benchmark module - cycles through all cities calculating astronomical data
+//! Performance benchmarking across the city database.
+//!
+//! This module provides functionality to benchmark astronomical calculations
+//! across all cities in the built-in database, measuring performance and
+//! identifying any computational failures.
+//!
+//! # Features
+//!
+//! - Cycles through all cities in the database
+//! - Calculates complete astronomical data (sun/moon positions, events, phases)
+//! - Measures individual and aggregate performance metrics
+//! - Tracks failures and generates detailed HTML reports
+//!
+//! # Usage
+//!
+//! ```no_run
+//! use solunatus::benchmark::run_benchmark;
+//!
+//! let result = run_benchmark();
+//! println!("Processed {} cities in {:.2}s",
+//!          result.total_cities,
+//!          result.total_duration_ms as f64 / 1000.0);
+//! ```
 
 use crate::astro::*;
 use crate::city::CityDatabase;
@@ -6,16 +28,29 @@ use chrono::{DateTime, Datelike, Utc};
 use chrono_tz::Tz;
 use std::time::Instant;
 
+/// Results from a complete benchmark run across all cities.
+///
+/// Contains aggregate statistics including timing data, success rates,
+/// and detailed failure information.
 #[derive(Debug, Clone)]
 pub struct BenchmarkResult {
+    /// Total number of cities processed.
     pub total_cities: usize,
+    /// Number of cities that completed successfully.
     pub successful: usize,
+    /// Number of cities that failed during calculation.
     pub failed: usize,
+    /// Total wall-clock time for the entire benchmark (milliseconds).
     pub total_duration_ms: u128,
+    /// Average time per city (milliseconds).
     pub avg_duration_per_city_ms: f64,
+    /// Minimum time for any single city (milliseconds).
     pub min_duration_ms: u128,
+    /// Maximum time for any single city (milliseconds).
     pub max_duration_ms: u128,
+    /// Throughput in cities processed per second.
     pub cities_per_second: f64,
+    /// Names of cities that failed, with error messages.
     pub failed_cities: Vec<String>,
 }
 
@@ -27,7 +62,30 @@ struct CityBenchmark {
     pub error: Option<String>,
 }
 
-/// Run benchmark across all cities in the database
+/// Runs a comprehensive benchmark across all cities in the database.
+///
+/// This function:
+/// - Loads the city database
+/// - Iterates through every city
+/// - Calculates complete astronomical data (positions, events, phases)
+/// - Measures timing for each city
+/// - Aggregates statistics and failures
+///
+/// # Returns
+///
+/// A [`BenchmarkResult`] containing performance metrics and failure information.
+///
+/// # Examples
+///
+/// ```no_run
+/// use solunatus::benchmark::run_benchmark;
+///
+/// let result = run_benchmark();
+/// println!("Processed {} cities:", result.total_cities);
+/// println!("  Success: {}", result.successful);
+/// println!("  Failed: {}", result.failed);
+/// println!("  Throughput: {:.2} cities/sec", result.cities_per_second);
+/// ```
 pub fn run_benchmark() -> BenchmarkResult {
     let db = match CityDatabase::load() {
         Ok(db) => db,
@@ -183,7 +241,33 @@ fn benchmark_city(
     Ok(())
 }
 
-/// Generate HTML report for benchmark results
+/// Generates an HTML report from benchmark results.
+///
+/// Creates a styled, self-contained HTML document with:
+/// - Summary statistics (cities processed, success rate)
+/// - Performance metrics (duration, throughput, min/max times)
+/// - List of failed cities with error messages
+///
+/// The report uses dark mode styling and is designed for readability.
+///
+/// # Arguments
+///
+/// * `result` - The benchmark results to format as HTML
+///
+/// # Returns
+///
+/// A complete HTML document as a `String`.
+///
+/// # Examples
+///
+/// ```no_run
+/// use solunatus::benchmark::{run_benchmark, generate_html_report};
+/// use std::fs;
+///
+/// let result = run_benchmark();
+/// let html = generate_html_report(&result);
+/// fs::write("benchmark_report.html", html).expect("Failed to write report");
+/// ```
 pub fn generate_html_report(result: &BenchmarkResult) -> String {
     let success_rate = if result.total_cities > 0 {
         (result.successful as f64 / result.total_cities as f64) * 100.0

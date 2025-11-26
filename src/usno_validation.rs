@@ -1,4 +1,39 @@
-// USNO validation module - compare solunatus calculations against U.S. Naval Observatory data
+//! USNO validation module for accuracy verification.
+//!
+//! This module compares Solunatus astronomical calculations against the
+//! U.S. Naval Observatory's official data to verify accuracy. It fetches
+//! reference data from the USNO API and generates detailed comparison reports.
+//!
+//! # Features
+//!
+//! - Validates solar events (sunrise, sunset, solar noon, twilight times)
+//! - Validates lunar events (moonrise, moonset)
+//! - Compares times to ±1 minute precision
+//! - Generates HTML validation reports
+//! - Status indicators: Pass (±7 min), Warning (±10 min), Fail (>10 min)
+//!
+//! # Examples
+//!
+//! ```no_run
+//! use solunatus::usno_validation::generate_validation_report;
+//! use solunatus::astro::Location;
+//! use chrono::Utc;
+//! use chrono_tz::America::New_York;
+//!
+//! let location = Location::new(42.36, -71.06).unwrap();
+//! let now = Utc::now().with_timezone(&New_York);
+//!
+//! let report = generate_validation_report(
+//!     &location,
+//!     &New_York,
+//!     Some("Boston"),
+//!     &now,
+//! ).unwrap();
+//!
+//! println!("Validation: {}/{} events passed",
+//!          report.results.iter().filter(|r| matches!(r.status, solunatus::usno_validation::ValidationStatus::Pass)).count(),
+//!          report.results.len());
+//! ```
 
 use crate::astro::*;
 use crate::events;
@@ -55,22 +90,42 @@ struct UsnoPhase {
     time: String,
 }
 
+/// Result of validating a single astronomical event against USNO data.
+///
+/// Contains the event name, both calculated and reference values,
+/// the time difference, and a pass/fail status.
 #[derive(Debug, Clone)]
 pub struct ValidationResult {
+    /// Event name (e.g., "Sunrise", "Civil Dawn")
     pub event_name: String,
+    /// Solunatus calculated time
     pub astrotimes_value: Option<String>,
+    /// USNO reference time
     pub usno_value: Option<String>,
+    /// Time difference in minutes (negative = Solunatus earlier)
     pub difference_minutes: Option<i64>,
+    /// Validation status (Pass/Warning/Fail/Missing)
     pub status: ValidationStatus,
     // Internal field for sorting - holds the datetime for chronological ordering
     _datetime: Option<DateTime<Tz>>,
 }
 
+/// Validation status indicating accuracy of calculations.
+///
+/// Based on time difference thresholds:
+/// - Pass: ±7 minutes or less
+/// - Warning: ±8-10 minutes
+/// - Fail: >10 minutes
+/// - Missing: Event not calculated or not in USNO data
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValidationStatus {
+    /// Calculation matches USNO within ±7 minutes
     Pass,
+    /// Calculation differs by ±8-10 minutes
     Warning,
+    /// Calculation differs by >10 minutes
     Fail,
+    /// Event missing from either source
     Missing,
 }
 
@@ -85,13 +140,24 @@ impl ValidationStatus {
     }
 }
 
+/// Complete validation report comparing Solunatus to USNO data.
+///
+/// Contains location, date, version information, and a list of
+/// individual event validation results.
 pub struct ValidationReport {
+    /// Geographic location for validation
     pub location: Location,
+    /// Timezone for event times
     pub timezone: Tz,
+    /// Optional city name
     pub city_name: Option<String>,
+    /// Date and time of validation
     pub date: DateTime<Tz>,
+    /// Solunatus version being validated
     pub version: String,
+    /// USNO API version used for reference data
     pub usno_apiversion: String,
+    /// Individual event validation results
     pub results: Vec<ValidationResult>,
 }
 

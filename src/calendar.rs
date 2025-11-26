@@ -92,6 +92,54 @@ struct CalendarJson<'a> {
     days: Vec<CalendarDayJson>,
 }
 
+/// Generates an astronomical calendar for a date range.
+///
+/// Creates an HTML or JSON calendar showing daily solar and lunar events
+/// (sunrise, sunset, moonrise, moonset, lunar phases) for the specified
+/// date range and location.
+///
+/// # Arguments
+///
+/// * `location` - Geographic location for calculations
+/// * `timezone` - Timezone for event times
+/// * `city_name` - Optional city name for display
+/// * `start` - First date to include (inclusive)
+/// * `end` - Last date to include (inclusive)
+/// * `format` - Output format (HTML or JSON)
+///
+/// # Returns
+///
+/// - HTML: Complete styled HTML document with monthly tables
+/// - JSON: Structured JSON with metadata and daily event arrays
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Start date is after end date
+/// - Date range is outside supported bounds (1000 BCE to 3000 CE)
+/// - Astronomical calculations fail for any date
+///
+/// # Examples
+///
+/// ```no_run
+/// use solunatus::calendar::{generate_calendar, CalendarFormat};
+/// use solunatus::astro::Location;
+/// use chrono::NaiveDate;
+/// use chrono_tz::America::New_York;
+///
+/// let location = Location::new(42.36, -71.06).unwrap();
+/// let start = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+/// let end = NaiveDate::from_ymd_opt(2025, 1, 31).unwrap();
+///
+/// let html = generate_calendar(
+///     &location,
+///     &New_York,
+///     Some("Boston"),
+///     start,
+///     end,
+///     CalendarFormat::Html,
+/// ).unwrap();
+/// ```
 pub fn generate_calendar(
     location: &Location,
     timezone: &Tz,
