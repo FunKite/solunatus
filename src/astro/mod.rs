@@ -99,6 +99,7 @@ impl Location {
 /// let jd = julian_day(&dt);
 /// assert!((jd - 2451545.0).abs() < 0.001); // J2000.0 epoch
 /// ```
+#[must_use]
 pub fn julian_day<T: TimeZone>(dt: &DateTime<T>) -> f64 {
     // Convert to UTC for Julian Day calculation
     let utc_dt = dt.with_timezone(&chrono::Utc);
@@ -146,6 +147,7 @@ pub fn julian_day<T: TimeZone>(dt: &DateTime<T>) -> f64 {
 /// let t = julian_century(2451545.0);
 /// assert_eq!(t, 0.0);
 /// ```
+#[must_use]
 pub fn julian_century(jd: f64) -> f64 {
     (jd - 2451545.0) / 36525.0
 }
@@ -169,6 +171,7 @@ pub fn julian_century(jd: f64) -> f64 {
 /// assert_eq!(normalize_degrees(-10.0), 350.0);
 /// assert_eq!(normalize_degrees(0.0), 0.0);
 /// ```
+#[must_use]
 pub fn normalize_degrees(angle: f64) -> f64 {
     Degrees::new(angle).normalized().value()
 }
@@ -194,6 +197,7 @@ pub fn normalize_degrees(angle: f64) -> f64 {
 /// assert_eq!(normalize_degrees_signed(190.0), -170.0);
 /// assert_eq!(normalize_degrees_signed(-190.0), 170.0);
 /// ```
+#[must_use]
 pub fn normalize_degrees_signed(angle: f64) -> f64 {
     Degrees::new(angle).normalized_signed().value()
 }

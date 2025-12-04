@@ -345,19 +345,22 @@ fn run_watch_mode(config: tui::AppConfig) -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "ai-insights")]
-fn print_text_output(
+// ============================================================================
+// Text Output Helper Functions
+// ============================================================================
+
+fn print_header() {
+    println!("Solunatus {} — github.com/FunKite/solunatus", env!("CARGO_PKG_VERSION"));
+}
+
+fn print_location_section(
     location: &astro::Location,
     timezone: &Tz,
     city_name: &Option<String>,
     dt: &chrono::DateTime<Tz>,
     time_sync_info: &time_sync::TimeSyncInfo,
     location_source: LocationSource,
-    ai_config: &ai::AiConfig,
-) -> Result<()> {
-    println!("Solunatus {} — github.com/FunKite/solunatus", env!("CARGO_PKG_VERSION"));
-
-    // Location
+) {
     println!("— Location & Date —");
     println!(
         "📍 Lat,Lon~{:.3},{:.3} {}",
@@ -368,6 +371,7 @@ fn print_text_output(
     if let Some(city) = city_name {
         println!("🏙️ Place: {}", city);
     }
+
     let offset_seconds = dt.offset().fix().local_minus_utc();
     let offset_minutes = offset_seconds / 60;
     let sign = if offset_minutes >= 0 { '+' } else { '-' };
@@ -377,10 +381,7 @@ fn print_text_output(
     let offset_label = if offset_remaining_minutes == 0 {
         format!("UTC{}{:02}", sign, offset_hours)
     } else {
-        format!(
-            "UTC{}{:02}:{:02}",
-            sign, offset_hours, offset_remaining_minutes
-        )
+        format!("UTC{}{:02}:{:02}", sign, offset_hours, offset_remaining_minutes)
     };
     println!(
         "📅 {} ⌚{}@{}",
@@ -388,6 +389,7 @@ fn print_text_output(
         timezone.name(),
         offset_label
     );
+
     match (
         time_sync_info.delta,
         time_sync_info.direction(),
@@ -418,19 +420,14 @@ fn print_text_output(
             println!("🕒 Time sync ({}): unavailable", time_sync_info.source);
         }
     }
+}
 
-    // Events
+fn print_events_section(
+    events: &[(chrono::DateTime<Tz>, &'static str)],
+    dt: &chrono::DateTime<Tz>,
+    next_idx: Option<usize>,
+) {
     println!("— Events —");
-
-    let events = events::collect_events_within_window(location, dt, Duration::hours(12));
-
-    let next_idx = events.iter().position(|(time, _)| *time > *dt);
-    #[allow(unused_variables)]
-    let precomputed_ai_events = if ai_config.enabled {
-        Some(ai::prepare_event_summaries(&events, dt, next_idx))
-    } else {
-        None
-    };
 
     for (idx, (event_time, event_name)) in events.iter().enumerate() {
         let diff = astro::time_utils::time_until(dt, event_time);
@@ -451,11 +448,12 @@ fn print_text_output(
             marker
         );
     }
+}
 
-    // Position
-    let sun_pos = astro::sun::solar_position(location, dt);
-    let moon_pos = astro::moon::lunar_position(location, dt);
-
+fn print_position_section(
+    sun_pos: &astro::sun::SolarPosition,
+    moon_pos: &astro::moon::LunarPosition,
+) {
     println!("— Position —");
     println!(
         "☀️ Sun:  Alt {:>5.1}°, Az {:>3.0}° {}",
@@ -469,20 +467,23 @@ fn print_text_output(
         moon_pos.azimuth,
         astro::coordinates::azimuth_to_compass(moon_pos.azimuth)
     );
+}
 
-    // Moon
-    let size_class = if moon_pos.angular_diameter > 33.0 {
+fn moon_size_class(angular_diameter: f64) -> &'static str {
+    if angular_diameter > 33.0 {
         "Near Perigee"
-    } else if moon_pos.angular_diameter > 32.0 {
+    } else if angular_diameter > 32.0 {
         "Larger than Average"
-    } else if moon_pos.angular_diameter > 30.5 {
+    } else if angular_diameter > 30.5 {
         "Average"
-    } else if moon_pos.angular_diameter > 29.5 {
+    } else if angular_diameter > 29.5 {
         "Smaller than Average"
     } else {
         "Near Apogee"
-    };
+    }
+}
 
+fn print_moon_section(moon_pos: &astro::moon::LunarPosition) {
     println!("— Moon —");
     println!(
         "{} Phase:           {} (Age {:.1} days)",
@@ -493,34 +494,100 @@ fn print_text_output(
     println!("💡 Fraction Illum.: {:.0}%", moon_pos.illumination * 100.0);
     println!(
         "🔭 Apparent size:   {:.1}' ({})",
-        moon_pos.angular_diameter, size_class
+        moon_pos.angular_diameter,
+        moon_size_class(moon_pos.angular_diameter)
     );
+}
 
-    // Lunar phases
-    let phases = astro::moon::lunar_phases(dt.year(), dt.month());
-    if !phases.is_empty() {
-        println!("— Lunar Phases —");
-        for phase in phases.iter().take(4) {
-            let emoji = match phase.phase_type {
-                astro::moon::LunarPhaseType::NewMoon => "🌑",
-                astro::moon::LunarPhaseType::FirstQuarter => "🌓",
-                astro::moon::LunarPhaseType::FullMoon => "🌕",
-                astro::moon::LunarPhaseType::LastQuarter => "🌗",
-            };
-            let name = match phase.phase_type {
-                astro::moon::LunarPhaseType::NewMoon => "New:",
-                astro::moon::LunarPhaseType::FirstQuarter => "First quarter:",
-                astro::moon::LunarPhaseType::FullMoon => "Full:",
-                astro::moon::LunarPhaseType::LastQuarter => "Last quarter:",
-            };
-            let phase_dt = phase.datetime.with_timezone(timezone);
-            println!("{} {:<18} {}", emoji, name, phase_dt.format("%b %d %H:%M"));
-        }
+fn print_lunar_phases_section(phases: &[astro::moon::LunarPhase], timezone: &Tz) {
+    if phases.is_empty() {
+        return;
     }
 
+    println!("— Lunar Phases —");
+    for phase in phases.iter().take(4) {
+        let emoji = match phase.phase_type {
+            astro::moon::LunarPhaseType::NewMoon => "🌑",
+            astro::moon::LunarPhaseType::FirstQuarter => "🌓",
+            astro::moon::LunarPhaseType::FullMoon => "🌕",
+            astro::moon::LunarPhaseType::LastQuarter => "🌗",
+        };
+        let name = match phase.phase_type {
+            astro::moon::LunarPhaseType::NewMoon => "New:",
+            astro::moon::LunarPhaseType::FirstQuarter => "First quarter:",
+            astro::moon::LunarPhaseType::FullMoon => "Full:",
+            astro::moon::LunarPhaseType::LastQuarter => "Last quarter:",
+        };
+        let phase_dt = phase.datetime.with_timezone(timezone);
+        println!("{} {:<18} {}", emoji, name, phase_dt.format("%b %d %H:%M"));
+    }
+}
+
+#[cfg(feature = "ai-insights")]
+fn print_ai_section(
+    ai_config: &ai::AiConfig,
+    ai_data: &ai::AiData,
+) {
+    let ai_outcome = match ai::fetch_insights(ai_config, ai_data) {
+        Ok(outcome) => outcome,
+        Err(err) => ai::AiOutcome::from_error(&ai_config.model, err),
+    };
+
+    println!("— AI Insights —");
+
+    if let Some(content) = &ai_outcome.content {
+        for line in content.lines() {
+            println!("{}", line.trim_end());
+        }
+    } else {
+        println!("No insights available.");
+    }
+
+    if let Some(err) = &ai_outcome.error {
+        println!("⚠️ {}", err);
+    }
+
+    let elapsed = chrono::Utc::now().signed_duration_since(ai_outcome.updated_at);
+    let elapsed_secs = elapsed.num_seconds().max(0);
+    let minutes = elapsed_secs / 60;
+    let seconds = elapsed_secs % 60;
+    println!(
+        "Model: {}  Updated {:02}:{:02} ago",
+        ai_outcome.model, minutes, seconds
+    );
+}
+
+// ============================================================================
+// Main Text Output Function
+// ============================================================================
+
+#[cfg(feature = "ai-insights")]
+fn print_text_output(
+    location: &astro::Location,
+    timezone: &Tz,
+    city_name: &Option<String>,
+    dt: &chrono::DateTime<Tz>,
+    time_sync_info: &time_sync::TimeSyncInfo,
+    location_source: LocationSource,
+    ai_config: &ai::AiConfig,
+) -> Result<()> {
+    print_header();
+    print_location_section(location, timezone, city_name, dt, time_sync_info, location_source);
+
+    let events = events::collect_events_within_window(location, dt, Duration::hours(12));
+    let next_idx = events.iter().position(|(time, _)| *time > *dt);
+    print_events_section(&events, dt, next_idx);
+
+    let sun_pos = astro::sun::solar_position(location, dt);
+    let moon_pos = astro::moon::lunar_position(location, dt);
+    print_position_section(&sun_pos, &moon_pos);
+    print_moon_section(&moon_pos);
+
+    let phases = astro::moon::lunar_phases(dt.year(), dt.month());
+    print_lunar_phases_section(&phases, timezone);
+
     if ai_config.enabled {
-        let ai_events = precomputed_ai_events
-            .unwrap_or_else(|| ai::prepare_event_summaries(&events, dt, next_idx));
+        let ai_events = ai::prepare_event_summaries(&events, dt, next_idx);
         let ai_data = ai::build_ai_data(ai::AiDataContext {
             location,
             timezone,
@@ -532,34 +599,7 @@ fn print_text_output(
             time_sync_info,
             lunar_phases: &phases,
         });
-
-        let ai_outcome = match ai::fetch_insights(ai_config, &ai_data) {
-            Ok(outcome) => outcome,
-            Err(err) => ai::AiOutcome::from_error(&ai_config.model, err),
-        };
-
-        println!("— AI Insights —");
-
-        if let Some(content) = &ai_outcome.content {
-            for line in content.lines() {
-                println!("{}", line.trim_end());
-            }
-        } else {
-            println!("No insights available.");
-        }
-
-        if let Some(err) = &ai_outcome.error {
-            println!("⚠️ {}", err);
-        }
-
-        let elapsed = chrono::Utc::now().signed_duration_since(ai_outcome.updated_at);
-        let elapsed_secs = elapsed.num_seconds().max(0);
-        let minutes = elapsed_secs / 60;
-        let seconds = elapsed_secs % 60;
-        println!(
-            "Model: {}  Updated {:02}:{:02} ago",
-            ai_outcome.model, minutes, seconds
-        );
+        print_ai_section(ai_config, &ai_data);
     }
 
     Ok(())
@@ -574,161 +614,20 @@ fn print_text_output(
     time_sync_info: &time_sync::TimeSyncInfo,
     location_source: LocationSource,
 ) -> Result<()> {
-    println!("Solunatus {} — github.com/FunKite/solunatus", env!("CARGO_PKG_VERSION"));
-
-    // Location
-    println!("— Location & Date —");
-    println!(
-        "📍 Lat,Lon~{:.3},{:.3} {}",
-        location.latitude.value(),
-        location.longitude.value(),
-        location_source.short_label()
-    );
-    if let Some(city) = city_name {
-        println!("🏙️ Place: {}", city);
-    }
-    let offset_seconds = dt.offset().fix().local_minus_utc();
-    let offset_minutes = offset_seconds / 60;
-    let sign = if offset_minutes >= 0 { '+' } else { '-' };
-    let abs_minutes = offset_minutes.abs();
-    let offset_hours = abs_minutes / 60;
-    let offset_remaining_minutes = abs_minutes % 60;
-    let offset_label = if offset_remaining_minutes == 0 {
-        format!("UTC{}{:02}", sign, offset_hours)
-    } else {
-        format!(
-            "UTC{}{:02}:{:02}",
-            sign, offset_hours, offset_remaining_minutes
-        )
-    };
-    println!(
-        "📅 {} ⌚{}@{}",
-        dt.format("%b %d %H:%M:%S"),
-        timezone.name(),
-        offset_label
-    );
-    match (
-        time_sync_info.delta,
-        time_sync_info.direction(),
-        time_sync_info.error_summary(),
-    ) {
-        (Some(delta), Some(direction), _) => {
-            println!(
-                "🕒 Time sync ({}): {} ({})",
-                time_sync_info.source,
-                time_sync::format_offset(delta),
-                time_sync::describe_direction(direction)
-            );
-        }
-        (Some(delta), None, _) => {
-            println!(
-                "🕒 Time sync ({}): {}",
-                time_sync_info.source,
-                time_sync::format_offset(delta)
-            );
-        }
-        (None, _, Some(err)) => {
-            println!(
-                "🕒 Time sync ({}): unavailable ({})",
-                time_sync_info.source, err
-            );
-        }
-        _ => {
-            println!("🕒 Time sync ({}): unavailable", time_sync_info.source);
-        }
-    }
-
-    // Events
-    println!("— Events —");
+    print_header();
+    print_location_section(location, timezone, city_name, dt, time_sync_info, location_source);
 
     let events = events::collect_events_within_window(location, dt, Duration::hours(12));
     let next_idx = events.iter().position(|(time, _)| *time > *dt);
+    print_events_section(&events, dt, next_idx);
 
-    for (idx, (event_time, event_name)) in events.iter().enumerate() {
-        let diff = astro::time_utils::time_until(dt, event_time);
-        let mut diff_str = astro::time_utils::format_duration_detailed(diff);
-
-        // Add leading space for events with wide emojis to maintain alignment
-        if event_name.contains("Civil dawn") || event_name.contains("Solar noon") {
-            diff_str = format!(" {}", diff_str);
-        }
-
-        let marker = if Some(idx) == next_idx { " (next)" } else { "" };
-
-        println!(
-            "{}  {:<18}   {:<18}{}",
-            event_time.format("%H:%M:%S"),
-            event_name,
-            diff_str,
-            marker
-        );
-    }
-
-    // Position
     let sun_pos = astro::sun::solar_position(location, dt);
     let moon_pos = astro::moon::lunar_position(location, dt);
+    print_position_section(&sun_pos, &moon_pos);
+    print_moon_section(&moon_pos);
 
-    println!("— Position —");
-    println!(
-        "☀️ Sun:  Alt {:>5.1}°, Az {:>3.0}° {}",
-        sun_pos.altitude,
-        sun_pos.azimuth,
-        astro::coordinates::azimuth_to_compass(sun_pos.azimuth)
-    );
-    println!(
-        "🌕 Moon: Alt {:>5.1}°, Az {:>3.0}° {}",
-        moon_pos.altitude,
-        moon_pos.azimuth,
-        astro::coordinates::azimuth_to_compass(moon_pos.azimuth)
-    );
-
-    // Moon
-    let size_class = if moon_pos.angular_diameter > 33.0 {
-        "Near Perigee"
-    } else if moon_pos.angular_diameter > 32.0 {
-        "Larger than Average"
-    } else if moon_pos.angular_diameter > 30.5 {
-        "Average"
-    } else if moon_pos.angular_diameter > 29.5 {
-        "Smaller than Average"
-    } else {
-        "Near Apogee"
-    };
-
-    println!("— Moon —");
-    println!(
-        "{} Phase:           {} (Age {:.1} days)",
-        astro::moon::phase_emoji(moon_pos.phase_angle),
-        astro::moon::phase_name(moon_pos.phase_angle),
-        (moon_pos.phase_angle / 360.0 * 29.53)
-    );
-    println!("💡 Fraction Illum.: {:.0}%", moon_pos.illumination * 100.0);
-    println!(
-        "🔭 Apparent size:   {:.1}' ({})",
-        moon_pos.angular_diameter, size_class
-    );
-
-    // Lunar phases
     let phases = astro::moon::lunar_phases(dt.year(), dt.month());
-    if !phases.is_empty() {
-        println!("— Lunar Phases —");
-        for phase in phases.iter().take(4) {
-            let emoji = match phase.phase_type {
-                astro::moon::LunarPhaseType::NewMoon => "🌑",
-                astro::moon::LunarPhaseType::FirstQuarter => "🌓",
-                astro::moon::LunarPhaseType::FullMoon => "🌕",
-                astro::moon::LunarPhaseType::LastQuarter => "🌗",
-            };
-            let name = match phase.phase_type {
-                astro::moon::LunarPhaseType::NewMoon => "New:",
-                astro::moon::LunarPhaseType::FirstQuarter => "First quarter:",
-                astro::moon::LunarPhaseType::FullMoon => "Full:",
-                astro::moon::LunarPhaseType::LastQuarter => "Last quarter:",
-            };
-            let phase_dt = phase.datetime.with_timezone(timezone);
-            println!("{} {:<18} {}", emoji, name, phase_dt.format("%b %d %H:%M"));
-        }
-    }
+    print_lunar_phases_section(&phases, timezone);
 
     Ok(())
 }

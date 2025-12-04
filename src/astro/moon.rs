@@ -179,14 +179,22 @@ fn moon_ecliptic_coords(t: f64) -> (f64, f64) {
 /// Calculate Moon's distance from Earth (km)
 fn moon_distance(t: f64) -> f64 {
     let d = moon_mean_elongation(t) * DEG_TO_RAD;
-    let _m = sun_mean_anomaly_moon(t) * DEG_TO_RAD;
+    let m = sun_mean_anomaly_moon(t) * DEG_TO_RAD;
     let m_prime = moon_mean_anomaly(t) * DEG_TO_RAD;
 
-    // Main periodic terms for distance
+    // Main periodic terms for distance (Meeus Table 47.A)
+    // Including additional terms that use sun's mean anomaly for improved accuracy
     let sigma_r = -20905355.0 * (m_prime).cos()
         - 3699111.0 * (2.0 * d - m_prime).cos()
         - 2955968.0 * (2.0 * d).cos()
-        - 569925.0 * (2.0 * m_prime).cos();
+        - 569925.0 * (2.0 * m_prime).cos()
+        + 48888.0 * (m).cos()
+        - 3149.0 * (2.0 * d - m).cos()
+        + 246158.0 * (2.0 * d - 2.0 * m_prime).cos()
+        - 152138.0 * (2.0 * d + m_prime).cos()
+        - 170733.0 * (2.0 * d - m - m_prime).cos()
+        - 204586.0 * (m_prime - m).cos()
+        - 129620.0 * (m_prime + m).cos();
 
     385000.56 + sigma_r / 1000.0 // in kilometers
 }
@@ -225,6 +233,7 @@ fn moon_distance(t: f64) -> f64 {
 /// println!("Moon altitude: {:.2}°", moon_pos.altitude);
 /// println!("Moon illumination: {:.1}%", moon_pos.illumination * 100.0);
 /// ```
+#[must_use]
 pub fn lunar_position<T: TimeZone>(location: &Location, dt: &DateTime<T>) -> LunarPosition {
     let jd = julian_day(dt);
     let t = julian_century(jd);
@@ -372,6 +381,7 @@ fn calculate_phase_illumination<T: TimeZone>(dt: &DateTime<T>) -> (f64, f64) {
 ///     println!("{:?}: {}", phase.phase_type, phase.datetime.format("%Y-%m-%d %H:%M UTC"));
 /// }
 /// ```
+#[must_use]
 pub fn lunar_phases(year: i32, month: u32) -> Vec<LunarPhase> {
     let approx_k = (year as f64 + (month as f64 - 0.5) / 12.0 - 2000.0) * 12.3685;
     let phase_offsets = [
@@ -388,7 +398,9 @@ pub fn lunar_phases(year: i32, month: u32) -> Vec<LunarPhase> {
         for &(phase_type, fraction) in &phase_offsets {
             let k = k_integer + fraction;
             let jde = lunar_phase_jde(k, phase_type);
-            let dt = jd_to_datetime(jde);
+            let Some(dt) = jd_to_datetime(jde) else {
+                continue; // Skip invalid dates (extremely rare)
+            };
 
             if dt.year() == year && dt.month() == month {
                 phases.push(LunarPhase {
@@ -469,7 +481,9 @@ fn lunar_phase_jde(k: f64, phase_type: LunarPhaseType) -> f64 {
 }
 
 /// Convert Julian Day to DateTime
-fn jd_to_datetime(jd: f64) -> DateTime<chrono::Utc> {
+///
+/// Returns `None` if the resulting date is invalid (extremely rare edge case).
+fn jd_to_datetime(jd: f64) -> Option<DateTime<chrono::Utc>> {
     use chrono::Utc;
 
     let jd0 = jd + 0.5;
@@ -505,7 +519,7 @@ fn jd_to_datetime(jd: f64) -> DateTime<chrono::Utc> {
         minutes as u32,
         seconds as u32,
     )
-    .unwrap()
+    .single()
 }
 
 fn resolve_local_datetime<T: TimeZone>(
@@ -678,6 +692,7 @@ pub fn lunar_event_time<T: TimeZone>(
 /// assert_eq!(phase_name(90.0), "First Quarter");
 /// assert_eq!(phase_name(180.0), "Full Moon");
 /// ```
+#[must_use]
 pub fn phase_name(phase_angle: f64) -> &'static str {
     match phase_angle {
         a if a < 11.25 => "New Moon",
@@ -721,6 +736,7 @@ pub fn phase_name(phase_angle: f64) -> &'static str {
 /// assert_eq!(phase_emoji(0.0), "🌑");
 /// assert_eq!(phase_emoji(180.0), "🌕");
 /// ```
+#[must_use]
 pub fn phase_emoji(phase_angle: f64) -> &'static str {
     match phase_angle {
         a if a < 11.25 => "🌑",
