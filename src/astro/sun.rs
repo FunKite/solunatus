@@ -142,6 +142,7 @@ fn sun_declination(t: f64) -> f64 {
 ///
 /// The equation of time in minutes. Positive values mean the sundial is ahead
 /// of clock time, negative values mean it's behind.
+#[must_use]
 pub fn equation_of_time(t: f64) -> f64 {
     let epsilon = obliquity_correction(t);
     let l0 = sun_geom_mean_long(t);
@@ -206,6 +207,7 @@ fn hour_angle_for_altitude(lat: f64, dec: f64, altitude: f64) -> Option<f64> {
 /// let noon = solunatus::astro::sun::solar_noon(&location, &now);
 /// println!("Solar noon: {}", noon.format("%H:%M:%S"));
 /// ```
+#[must_use]
 pub fn solar_noon<T: TimeZone>(location: &Location, date: &DateTime<T>) -> DateTime<T> {
     // Use noon UTC as reference for calculations
     let base_date = date.date_naive().and_hms_opt(12, 0, 0).unwrap();
@@ -326,6 +328,7 @@ pub fn solar_event_time<T: TimeZone>(
 /// println!("Sun altitude: {:.2}°", pos.altitude);
 /// println!("Sun azimuth: {:.2}°", pos.azimuth);
 /// ```
+#[must_use]
 pub fn solar_position<T: TimeZone>(location: &Location, dt: &DateTime<T>) -> SolarPosition {
     let jd = julian_day(dt);
     let t = julian_century(jd);

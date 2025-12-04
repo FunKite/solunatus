@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - Planned for 0.3.2
 
+### Changed
+- **Code Quality**: Refactored `print_text_output` in main.rs, reducing code duplication by ~60%
+  - Created helper functions: `print_header()`, `print_location_section()`, `print_events_section()`, `print_position_section()`, `moon_size_class()`, `print_moon_section()`, `print_lunar_phases_section()`, `print_ai_section()`
+- **Code Quality**: Split `tui/app.rs` into smaller, focused modules
+  - New `src/tui/drafts.rs` (~600 lines): `LocationInputDraft`, `CalendarDraft`, `AiConfigDraft`, `SettingsDraft` and their field enums
+  - New `src/tui/cache.rs` (~90 lines): `CachedEvents`, `CachedPositions`, `CachedMoonDetails`, `MoonAltitudeTrend`
+  - Reduced `app.rs` by ~400 lines for better maintainability
+- **Code Quality**: Added `#[must_use]` attributes to pure functions across astronomical modules
+  - `src/astro/mod.rs`: `julian_day()`, `julian_century()`, `normalize_degrees()`, `normalize_degrees_signed()`
+  - `src/astro/sun.rs`: `equation_of_time()`, `solar_noon()`, `solar_position()`
+  - `src/astro/moon.rs`: `lunar_position()`, `lunar_phases()`, `phase_name()`, `phase_emoji()`
+- **Accuracy**: Enhanced lunar distance calculation with additional Meeus periodic terms in `moon.rs`
+
+### Fixed
+- **Safety**: Changed `jd_to_datetime` return type from `DateTime<Utc>` to `Option<DateTime<Utc>>` to prevent potential panics
+  - Uses `.single()` instead of `.unwrap()` for safe date construction
+  - Updated `lunar_phases()` to handle `None` with let-else pattern
+
 ### Documentation
 - **Comprehensive Module Documentation**: Significantly improved crates.io documentation coverage (from 37.5% baseline)
   - **Module-level docs**: Added detailed module documentation for `ai`, `time_sync`, `benchmark`, `location_source`, and `usno_validation`
