@@ -26,7 +26,7 @@
 //! let report = generate_validation_report(
 //!     &location,
 //!     &New_York,
-//!     Some("Boston"),
+//!     Some("Boston".to_string()),
 //!     &now,
 //! ).unwrap();
 //!
