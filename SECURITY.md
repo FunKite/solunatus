@@ -2,12 +2,17 @@
 
 ## Supported Versions
 
-We currently support the following versions with security updates:
+**Only the latest release receives security patches.** We recommend always running the most recent version.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
-| < 0.1   | :x:                |
+| Latest  | :white_check_mark: |
+| Older   | :x:                |
+
+To check for updates:
+```bash
+cargo install solunatus --force
+```
 
 ## Reporting a Vulnerability
 
