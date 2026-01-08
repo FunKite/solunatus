@@ -1,5 +1,6 @@
 # Rust
 /target/
+/target-m1max/
 **/*.rs.bk
 
 # IDE
@@ -12,6 +13,9 @@
 # OS
 .DS_Store
 Thumbs.db
+
+# Local release artifacts
+dist/linux-binaries-v0.2.2/
 
 # Config
 .env
