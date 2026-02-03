@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Dependencies**: Updated `clap` to 4.5.54, `serde_json` to 1.0.149, and `reqwest` to 0.12.28
 - **Dependencies**: Updated `ratatui` to 0.30.0 (brings in `lru` 0.16.3)
+- **Dependencies**: Updated `bytes` to 1.11.1 (PR #25)
 
 ### Security
 - **Dependencies**: Updated `lru` to 0.16.3 to address GHSA-rhfx-m35p-ff5j (low severity)
