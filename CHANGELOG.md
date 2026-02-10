@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dependencies**: Updated `ratatui` to 0.30.0 (brings in `lru` 0.16.3)
 - **Dependencies**: Updated `bytes` to 1.11.1 (PR #25)
 - **Dependencies**: Updated `time` to 0.3.47 (Dependabot PR #26)
+- **Dependencies**: Updated `clap` to 4.5.57 and `anyhow` to 1.0.101 (Dependabot PR #27)
 
 ### Security
 - **Dependencies**: Updated `lru` to 0.16.3 to address GHSA-rhfx-m35p-ff5j (low severity)
