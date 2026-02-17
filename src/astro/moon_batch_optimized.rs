@@ -12,6 +12,9 @@ use super::{moon, moon::LunarEvent, Location};
 /// compiler vectorization of trigonometric operations.
 use chrono::{DateTime, Duration, TimeZone};
 
+type AltSample<T> = (DateTime<T>, f64);
+type CrossingBracket<T> = (AltSample<T>, AltSample<T>);
+
 /// Result of batch moonrise/moonset search
 #[derive(Debug, Clone)]
 pub struct BatchRiseSetResult<T: TimeZone> {
@@ -66,14 +69,14 @@ where
     let mut prev_alt = moon::lunar_position(location, &prev_time).altitude - threshold;
     calculations += 1;
 
-    let mut rise_bracket: Option<((DateTime<T>, f64), (DateTime<T>, f64))> = None;
-    let mut set_bracket: Option<((DateTime<T>, f64), (DateTime<T>, f64))> = None;
+    let mut rise_bracket: Option<CrossingBracket<T>> = None;
+    let mut set_bracket: Option<CrossingBracket<T>> = None;
 
     let mut batch_start = start.clone() + step;
     while batch_start <= end {
         let mut times: Vec<DateTime<T>> = Vec::with_capacity(4);
         for i in 0..4 {
-            let t = batch_start.clone() + (step * i as i32);
+            let t = batch_start.clone() + (step * i);
             if t > end {
                 break;
             }
@@ -103,7 +106,7 @@ where
             prev_alt = curr_alt;
         }
 
-        batch_start = batch_start + (step * 4);
+        batch_start += step * 4;
     }
 
     // Phase 2: Binary refinement for candidate crossings.
