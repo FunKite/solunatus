@@ -13,7 +13,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  Build:
+  build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -22,7 +23,8 @@ jobs:
       - name: Build
         run: cargo build --verbose --locked
 
-  Clippy:
+  clippy:
+    name: Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -33,7 +35,8 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-features --all-targets -- -D warnings
 
-  Rustfmt:
+  rustfmt:
+    name: Rustfmt
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -44,7 +47,8 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-  Feature Tests:
+  feature_tests:
+    name: Feature Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -55,7 +59,8 @@ jobs:
       - name: Test all features
         run: cargo test --verbose --all-features --locked
 
-  Documentation:
+  documentation:
+    name: Documentation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
