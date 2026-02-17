@@ -1,0 +1,122 @@
+name: USNO Validation Drift
+
+on:
+  schedule:
+    - cron: "15 10 * * 1"
+  workflow_dispatch:
+    inputs:
+      max_caution:
+        description: "Maximum allowed caution events (7-10 min)"
+        required: false
+        default: "2"
+      max_fail:
+        description: "Maximum allowed fail events (>10 min)"
+        required: false
+        default: "0"
+      max_missing:
+        description: "Maximum allowed missing events"
+        required: false
+        default: "0"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  usno_drift_validation:
+    name: USNO Drift Validation
+    runs-on: ubuntu-latest
+    env:
+      MAX_CAUTION: ${{ inputs.max_caution || '2' }}
+      MAX_FAIL: ${{ inputs.max_fail || '0' }}
+      MAX_MISSING: ${{ inputs.max_missing || '0' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+      - name: Build solunatus
+        run: cargo build --release --locked --no-default-features --features usno-validation
+      - name: Run USNO validation gates
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          check_case() {
+            local city="$1"
+            local date="$2"
+            local slug="$3"
+            local output=""
+            local attempts=0
+
+            echo ""
+            echo "==> Validating city=${city} date=${date}"
+            until [[ ${attempts} -ge 3 ]]; do
+              attempts=$((attempts + 1))
+              if output="$(
+                ./target/release/solunatus --city "${city}" --date "${date}" --validate 2>&1
+              )"; then
+                break
+              fi
+              echo "Attempt ${attempts}/3 failed for ${city} ${date}; retrying..." >&2
+              if [[ ${attempts} -lt 3 ]]; then
+                sleep 5
+              fi
+            done
+
+            if [[ ${attempts} -ge 3 && -z "${output}" ]]; then
+              echo "USNO validation command failed with no output for ${city} ${date}" >&2
+              return 1
+            fi
+            echo "${output}"
+
+            pass="$(awk '/^  Pass:/ {print $2}' <<<"${output}" | tail -1)"
+            caution="$(awk '/^  Caution:/ {print $2}' <<<"${output}" | tail -1)"
+            fail="$(awk '/^  Fail:/ {print $2}' <<<"${output}" | tail -1)"
+            missing="$(awk '/^  Missing:/ {print $2}' <<<"${output}" | tail -1)"
+
+            if [[ -z "${pass}" || -z "${caution}" || -z "${fail}" || -z "${missing}" ]]; then
+              echo "Could not parse validation summary for ${city} ${date}" >&2
+              return 1
+            fi
+
+            echo "Thresholds: caution<=${MAX_CAUTION}, fail<=${MAX_FAIL}, missing<=${MAX_MISSING}"
+            if (( caution > MAX_CAUTION || fail > MAX_FAIL || missing > MAX_MISSING )); then
+              echo "USNO drift threshold breached for ${city} ${date}" >&2
+              return 1
+            fi
+
+            report_file="$(awk -F': ' '/Validation report written to:/ {print $2}' <<<"${output}" | tail -1)"
+            if [[ -n "${report_file}" && -f "${report_file}" ]]; then
+              mkdir -p usno-reports
+              mv "${report_file}" "usno-reports/${slug}-${date}.html"
+            fi
+          }
+
+          check_case "San Diego" "2026-01-15" "san-diego"
+          check_case "Reykjavik" "2026-03-21" "reykjavik"
+          check_case "Sydney" "2026-12-21" "sydney"
+
+          echo ""
+          echo "USNO drift validation gates passed."
+
+      - name: Publish report summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "## USNO Drift Validation Reports"
+            if compgen -G "usno-reports/*.html" > /dev/null; then
+              echo ""
+              echo "Generated reports:"
+              for report in usno-reports/*.html; do
+                echo "- ${report}"
+              done
+            else
+              echo ""
+              echo "No report files were generated."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"

@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-02-17
+
 ### Changed
+- **Release**: Bumped crate version to `0.3.3`, which updates CLI/TUI application banners via `CARGO_PKG_VERSION`
 - **Dependencies**: Updated `clap` to 4.5.56 and `chrono` to 0.4.43 (Dependabot PR #24)
 - **Dependencies**: Updated `serde_json` to 1.0.149 and `reqwest` to 0.12.28
 - **Dependencies**: Updated `ratatui` to 0.30.0 (brings in `lru` 0.16.3)
@@ -22,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation**: Simplified and modernized `README.md` quick start, feature, and usage sections
 - **Algorithm**: Refined moon batch rise/set sweep to scan the full day with contiguous crossing brackets
 - **CI**: Fixed `clippy` violations in moon batch optimization code to restore Rust CI green status (PR #31)
+- **CI**: Added scheduled/manual USNO drift validation workflow that runs fixed-city `--validate` checks with caution/fail/missing thresholds
 
 ### Added
 - **Developer Safety**: Added `scripts/safe_local_test.sh` for safer local testing (offline by default, credential scrubbing, isolated target directory)
