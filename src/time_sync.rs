@@ -144,7 +144,8 @@ pub fn check_time_sync_with_servers(custom_server: Option<&str>) -> TimeSyncInfo
         let target_server_normalized = target_server.split(':').next().unwrap_or(target_server);
 
         if cache_server_normalized == target_server_normalized
-            && age.num_seconds() < CACHE_MIN_INTERVAL_SECS {
+            && age.num_seconds() < CACHE_MIN_INTERVAL_SECS
+        {
             let delta = ChronoDuration::microseconds(cache.delta_micros);
             return TimeSyncInfo {
                 source: PRIMARY_SOURCE_LABEL, // Use static label for consistency
@@ -266,7 +267,9 @@ pub fn direction_code(direction: TimeSyncDirection) -> &'static str {
 }
 
 /// Returns (delta, label, server_address)
-fn fetch_delta(custom_server: Option<&str>) -> anyhow::Result<(ChronoDuration, &'static str, String)> {
+fn fetch_delta(
+    custom_server: Option<&str>,
+) -> anyhow::Result<(ChronoDuration, &'static str, String)> {
     let mut last_err: Option<anyhow::Error> = None;
 
     // If custom server is specified, try it first
@@ -433,8 +436,8 @@ fn load_cache() -> anyhow::Result<TimeSyncCache> {
     let contents = fs::read_to_string(&path)
         .with_context(|| format!("failed to read cache file: {}", path.display()))?;
 
-    let cache: TimeSyncCache = serde_json::from_str(&contents)
-        .context("failed to parse cache file")?;
+    let cache: TimeSyncCache =
+        serde_json::from_str(&contents).context("failed to parse cache file")?;
 
     Ok(cache)
 }
@@ -443,8 +446,7 @@ fn load_cache() -> anyhow::Result<TimeSyncCache> {
 fn save_cache(cache: &TimeSyncCache) -> anyhow::Result<()> {
     let path = cache_file_path().ok_or_else(|| anyhow!("cannot determine home directory"))?;
 
-    let json = serde_json::to_string_pretty(cache)
-        .context("failed to serialize cache")?;
+    let json = serde_json::to_string_pretty(cache).context("failed to serialize cache")?;
 
     fs::write(&path, json)
         .with_context(|| format!("failed to write cache file: {}", path.display()))?;

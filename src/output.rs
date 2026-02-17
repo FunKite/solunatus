@@ -230,7 +230,15 @@ pub fn generate_json_output(
     time_sync_info: &time_sync::TimeSyncInfo,
     ai_config: &ai::AiConfig,
 ) -> Result<String> {
-    generate_json_output_impl(location, timezone, city_name, dt, timezone_name, time_sync_info, Some(ai_config))
+    generate_json_output_impl(
+        location,
+        timezone,
+        city_name,
+        dt,
+        timezone_name,
+        time_sync_info,
+        Some(ai_config),
+    )
 }
 
 /// Generates JSON output for astronomical data (without AI insights).
@@ -263,7 +271,15 @@ pub fn generate_json_output(
     timezone_name: &str,
     time_sync_info: &time_sync::TimeSyncInfo,
 ) -> Result<String> {
-    generate_json_output_impl(location, timezone, city_name, dt, timezone_name, time_sync_info, None)
+    generate_json_output_impl(
+        location,
+        timezone,
+        city_name,
+        dt,
+        timezone_name,
+        time_sync_info,
+        None,
+    )
 }
 
 #[cfg(feature = "ai-insights")]
@@ -414,7 +430,7 @@ fn generate_json_output_impl(
     dt: &DateTime<Tz>,
     timezone_name: &str,
     time_sync_info: &time_sync::TimeSyncInfo,
-    _ai_config: Option<&()>,  // Placeholder parameter for type consistency
+    _ai_config: Option<&()>, // Placeholder parameter for type consistency
 ) -> Result<String> {
     // Calculate sun position and events
     let sun_pos = sun::solar_position(location, dt);
@@ -507,7 +523,7 @@ fn generate_json_output_impl(
             },
         },
         lunar_phases,
-        ai_insights: None,  // AI insights not available without the feature
+        ai_insights: None, // AI insights not available without the feature
     };
 
     Ok(serde_json::to_string_pretty(&output)?)

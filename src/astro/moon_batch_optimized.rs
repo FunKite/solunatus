@@ -1,3 +1,4 @@
+use super::{moon, moon::LunarEvent, Location};
 /// Batch-optimized moonrise/moonset calculations using SIMD
 ///
 /// This module provides 4-wide batch versions of lunar event calculations
@@ -10,7 +11,6 @@
 /// The batch approach reduces computational overhead and enables better
 /// compiler vectorization of trigonometric operations.
 use chrono::{DateTime, Duration, TimeZone};
-use super::{Location, moon, moon::LunarEvent};
 
 /// Result of batch moonrise/moonset search
 #[derive(Debug, Clone)]
@@ -48,11 +48,13 @@ where
     let start_naive = date.date_naive().and_hms_opt(0, 0, 0).unwrap();
     let start = match tz.from_local_datetime(&start_naive) {
         chrono::LocalResult::Single(dt) => dt,
-        _ => return BatchRiseSetResult {
-            moonrise: None,
-            moonset: None,
-            calculations_performed: 0,
-        },
+        _ => {
+            return BatchRiseSetResult {
+                moonrise: None,
+                moonset: None,
+                calculations_performed: 0,
+            }
+        }
     };
 
     let end = start.clone() + Duration::hours(24);
@@ -205,10 +207,7 @@ where
 /// Computes lunar altitude for 4 different times, enabling 4-way parallelism
 /// of the trigonometric operations that dominate the calculation time.
 #[inline]
-pub fn batch_lunar_altitude<T: TimeZone>(
-    location: &Location,
-    times: &[DateTime<T>; 4],
-) -> [f64; 4]
+pub fn batch_lunar_altitude<T: TimeZone>(location: &Location, times: &[DateTime<T>; 4]) -> [f64; 4]
 where
     T::Offset: std::fmt::Display,
 {

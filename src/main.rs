@@ -1,8 +1,10 @@
 // Solunatus - High-precision astronomical CLI for sun and moon calculations
 
-use solunatus::{astro, calendar, city, cli, config, events, location_source, output, time_sync, tui};
 #[cfg(feature = "ai-insights")]
 use solunatus::ai;
+use solunatus::{
+    astro, calendar, city, cli, config, events, location_source, output, time_sync, tui,
+};
 
 use anyhow::{anyhow, Context, Result};
 use chrono::{Datelike, Duration, Local, NaiveDate, Offset, TimeZone};
@@ -45,14 +47,14 @@ fn main() -> Result<()> {
     }
 
     // Determine location
-    let (location, timezone, city_name, location_source) =
-        determine_location(&args, &mut config)?;
+    let (location, timezone, city_name, location_source) = determine_location(&args, &mut config)?;
 
     // Determine date
     let dt = if let Some(date_str) = &args.date {
         let naive_date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
             .context("Invalid date format. Use YYYY-MM-DD")?;
-        let naive_datetime = naive_date.and_hms_opt(12, 0, 0)
+        let naive_datetime = naive_date
+            .and_hms_opt(12, 0, 0)
             .ok_or_else(|| anyhow!("Invalid time: 12:00:00"))?;
         timezone
             .from_local_datetime(&naive_datetime)
@@ -118,10 +120,38 @@ fn main() -> Result<()> {
             fs::write(&filename, html)?;
             println!("✓ Validation report written to: {}", filename);
             println!("\nSummary:");
-            println!("  Pass:    {} (0-7 min)", report.results.iter().filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Pass).count());
-            println!("  Caution: {} (7-10 min)", report.results.iter().filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Warning).count());
-            println!("  Fail:    {} (>10 min)", report.results.iter().filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Fail).count());
-            println!("  Missing: {}", report.results.iter().filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Missing).count());
+            println!(
+                "  Pass:    {} (0-7 min)",
+                report
+                    .results
+                    .iter()
+                    .filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Pass)
+                    .count()
+            );
+            println!(
+                "  Caution: {} (7-10 min)",
+                report
+                    .results
+                    .iter()
+                    .filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Warning)
+                    .count()
+            );
+            println!(
+                "  Fail:    {} (>10 min)",
+                report
+                    .results
+                    .iter()
+                    .filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Fail)
+                    .count()
+            );
+            println!(
+                "  Missing: {}",
+                report
+                    .results
+                    .iter()
+                    .filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Missing)
+                    .count()
+            );
         }
         #[cfg(not(feature = "usno-validation"))]
         {
@@ -233,12 +263,7 @@ fn main() -> Result<()> {
 fn determine_location(
     args: &cli::Args,
     config: &mut Option<config::Config>,
-) -> Result<(
-    astro::Location,
-    Tz,
-    Option<String>,
-    LocationSource,
-)> {
+) -> Result<(astro::Location, Tz, Option<String>, LocationSource)> {
     // Priority: CLI args > Config file > Auto-detection
 
     // Check if city is specified
@@ -262,8 +287,8 @@ fn determine_location(
     if let (Some(lat), Some(lon)) = (args.lat, args.lon) {
         let tz_str = args.tz.clone().unwrap_or_else(|| "UTC".to_string());
         let tz: Tz = tz_str.parse().unwrap_or(chrono_tz::UTC);
-        let location = astro::Location::new(lat, lon)
-            .map_err(|e| anyhow!("Invalid location: {}", e))?;
+        let location =
+            astro::Location::new(lat, lon).map_err(|e| anyhow!("Invalid location: {}", e))?;
         return Ok((location, tz, None, LocationSource::ManualCli));
     }
 
@@ -271,12 +296,7 @@ fn determine_location(
     if let Some(cfg) = config {
         let location = astro::Location::new_unchecked(cfg.lat, cfg.lon);
         let tz: Tz = cfg.tz.parse()?;
-        return Ok((
-            location,
-            tz,
-            cfg.city.clone(),
-            LocationSource::SavedConfig,
-        ));
+        return Ok((location, tz, cfg.city.clone(), LocationSource::SavedConfig));
     }
 
     Err(anyhow!(
@@ -350,7 +370,10 @@ fn run_watch_mode(config: tui::AppConfig) -> Result<()> {
 // ============================================================================
 
 fn print_header() {
-    println!("Solunatus {} — github.com/FunKite/solunatus", env!("CARGO_PKG_VERSION"));
+    println!(
+        "Solunatus {} — github.com/FunKite/solunatus",
+        env!("CARGO_PKG_VERSION")
+    );
 }
 
 fn print_location_section(
@@ -381,7 +404,10 @@ fn print_location_section(
     let offset_label = if offset_remaining_minutes == 0 {
         format!("UTC{}{:02}", sign, offset_hours)
     } else {
-        format!("UTC{}{:02}:{:02}", sign, offset_hours, offset_remaining_minutes)
+        format!(
+            "UTC{}{:02}:{:02}",
+            sign, offset_hours, offset_remaining_minutes
+        )
     };
     println!(
         "📅 {} ⌚{}@{}",
@@ -524,10 +550,7 @@ fn print_lunar_phases_section(phases: &[astro::moon::LunarPhase], timezone: &Tz)
 }
 
 #[cfg(feature = "ai-insights")]
-fn print_ai_section(
-    ai_config: &ai::AiConfig,
-    ai_data: &ai::AiData,
-) {
+fn print_ai_section(ai_config: &ai::AiConfig, ai_data: &ai::AiData) {
     let ai_outcome = match ai::fetch_insights(ai_config, ai_data) {
         Ok(outcome) => outcome,
         Err(err) => ai::AiOutcome::from_error(&ai_config.model, err),
@@ -572,7 +595,14 @@ fn print_text_output(
     ai_config: &ai::AiConfig,
 ) -> Result<()> {
     print_header();
-    print_location_section(location, timezone, city_name, dt, time_sync_info, location_source);
+    print_location_section(
+        location,
+        timezone,
+        city_name,
+        dt,
+        time_sync_info,
+        location_source,
+    );
 
     let events = events::collect_events_within_window(location, dt, Duration::hours(12));
     let next_idx = events.iter().position(|(time, _)| *time > *dt);
@@ -615,7 +645,14 @@ fn print_text_output(
     location_source: LocationSource,
 ) -> Result<()> {
     print_header();
-    print_location_section(location, timezone, city_name, dt, time_sync_info, location_source);
+    print_location_section(
+        location,
+        timezone,
+        city_name,
+        dt,
+        time_sync_info,
+        location_source,
+    );
 
     let events = events::collect_events_within_window(location, dt, Duration::hours(12));
     let next_idx = events.iter().position(|(time, _)| *time > *dt);

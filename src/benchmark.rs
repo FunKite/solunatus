@@ -195,18 +195,13 @@ pub fn run_benchmark() -> BenchmarkResult {
 }
 
 /// Benchmark a single city by calculating all astronomical data
-fn benchmark_city(
-    _name: &str,
-    lat: f64,
-    lon: f64,
-    tz_str: &str,
-) -> anyhow::Result<()> {
+fn benchmark_city(_name: &str, lat: f64, lon: f64, tz_str: &str) -> anyhow::Result<()> {
     // Parse timezone
     let tz: Tz = tz_str.parse()?;
 
     // Create location (use default elevation of 0)
-    let location = Location::new(lat, lon)
-        .map_err(|e| anyhow::anyhow!("Invalid location: {}", e))?;
+    let location =
+        Location::new(lat, lon).map_err(|e| anyhow::anyhow!("Invalid location: {}", e))?;
 
     // Get current time in timezone
     let now_utc: DateTime<Utc> = Utc::now();
@@ -283,7 +278,9 @@ pub fn generate_html_report(result: &BenchmarkResult) -> String {
     html.push_str("<title>Solunatus Benchmark Report</title>\n");
     html.push_str("<style>\n");
     html.push_str("body { font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; max-width: 1200px; margin: 40px auto; padding: 20px; background: #0a0e1a; color: #e0e6f0; }\n");
-    html.push_str("h1 { color: #60a5fa; border-bottom: 2px solid #1e40af; padding-bottom: 10px; }\n");
+    html.push_str(
+        "h1 { color: #60a5fa; border-bottom: 2px solid #1e40af; padding-bottom: 10px; }\n",
+    );
     html.push_str("h2 { color: #34d399; margin-top: 30px; }\n");
     html.push_str(".summary { background: #1e293b; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #334155; }\n");
     html.push_str(".stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #334155; }\n");

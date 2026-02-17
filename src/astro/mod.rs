@@ -38,7 +38,7 @@ pub use units::{Altitude, Azimuth, Degrees, Radians, DEG_TO_RAD, RAD_TO_DEG};
 /// All calculations assume sea level (0m elevation) per USNO celestial navigation convention
 #[derive(Debug, Clone, Copy)]
 pub struct Location {
-    pub latitude: Latitude,  // positive North
+    pub latitude: Latitude,   // positive North
     pub longitude: Longitude, // positive East
 }
 

@@ -182,7 +182,12 @@ impl Latitude {
 
 impl fmt::Display for Latitude {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}° {}", self.0.abs(), if self.0 >= 0.0 { "N" } else { "S" })
+        write!(
+            f,
+            "{}° {}",
+            self.0.abs(),
+            if self.0 >= 0.0 { "N" } else { "S" }
+        )
     }
 }
 
@@ -196,7 +201,10 @@ pub struct Longitude(f64);
 impl Longitude {
     pub fn new(degrees: f64) -> Result<Self, String> {
         if !(-180.0..=180.0).contains(&degrees) {
-            Err(format!("Invalid longitude: {} (must be -180 to 180)", degrees))
+            Err(format!(
+                "Invalid longitude: {} (must be -180 to 180)",
+                degrees
+            ))
         } else {
             Ok(Self(degrees))
         }
@@ -222,7 +230,12 @@ impl Longitude {
 
 impl fmt::Display for Longitude {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}° {}", self.0.abs(), if self.0 >= 0.0 { "E" } else { "W" })
+        write!(
+            f,
+            "{}° {}",
+            self.0.abs(),
+            if self.0 >= 0.0 { "E" } else { "W" }
+        )
     }
 }
 

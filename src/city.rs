@@ -166,9 +166,8 @@ impl CityDatabase {
             // Use stack-allocated buffer to avoid repeated allocations
             let match_score = if let Some(state) = &city.state {
                 // Try to match against "Name, State, Country" format
-                let mut search_buf = String::with_capacity(
-                    city.name.len() + state.len() + city.country.len() + 4,
-                );
+                let mut search_buf =
+                    String::with_capacity(city.name.len() + state.len() + city.country.len() + 4);
                 search_buf.push_str(&city.name);
                 search_buf.push_str(", ");
                 search_buf.push_str(state);

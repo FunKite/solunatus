@@ -158,7 +158,9 @@ fn collect_records_parallel(
     // Process chunks in parallel
     let chunk_results: Result<Vec<Vec<DailyRecord>>> = chunks
         .into_par_iter()
-        .map(|(chunk_start, chunk_end)| collect_records_sequential(location, timezone, chunk_start, chunk_end))
+        .map(|(chunk_start, chunk_end)| {
+            collect_records_sequential(location, timezone, chunk_start, chunk_end)
+        })
         .collect();
 
     // Flatten and sort by date (should already be sorted, but ensure it)
@@ -225,7 +227,8 @@ fn build_record_optimized(
     // Lunar events: Use batch optimization for moonrise + moonset
     // This is the critical path - moonrise/moonset are expensive
     let threshold = -0.834;
-    let batch_result = moon_batch_optimized::batch_search_rise_and_set(location, &local_midday, threshold);
+    let batch_result =
+        moon_batch_optimized::batch_search_rise_and_set(location, &local_midday, threshold);
     let moonrise = batch_result.moonrise;
     let moonset = batch_result.moonset;
 

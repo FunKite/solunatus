@@ -452,9 +452,7 @@ pub fn build_ai_data(ctx: AiDataContext) -> AiData {
         time_sync: AiTimeSync {
             source: time_sync_info.source.to_string(),
             delta_seconds: time_sync_info.delta_seconds(),
-            offset_display: time_sync_info
-                .delta
-                .map(time_sync::format_offset),
+            offset_display: time_sync_info.delta.map(time_sync::format_offset),
             direction_code: direction.map(|dir| time_sync::direction_code(dir).to_string()),
             direction_description: direction
                 .map(|dir| time_sync::describe_direction(dir).to_string()),
@@ -573,8 +571,8 @@ pub fn fetch_insights(config: &AiConfig, data: &AiData) -> Result<AiOutcome> {
         StdDuration::from_secs(DEFAULT_TIMEOUT_SECS)
     };
 
-    let client = build_secure_http_client(timeout)
-        .context("failed to construct HTTP client for Ollama")?;
+    let client =
+        build_secure_http_client(timeout).context("failed to construct HTTP client for Ollama")?;
 
     let body = OllamaRequest {
         model: &config.model,
