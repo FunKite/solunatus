@@ -116,16 +116,18 @@ pub mod cpu_features;
 pub mod tui;
 
 // Re-export key types at crate root for convenience
-pub use astro::{julian_century, julian_day, normalize_degrees, normalize_degrees_signed, Location};
+pub use astro::{
+    julian_century, julian_day, normalize_degrees, normalize_degrees_signed, Location,
+};
 pub use city::{City, CityDatabase};
 pub use config::Config;
 
 // Re-export essential astronomical types
-pub use astro::sun::{solar_event_time, solar_noon, solar_position, SolarEvent, SolarPosition};
 pub use astro::moon::{
     lunar_event_time, lunar_phases, lunar_position, phase_emoji, phase_name, LunarEvent,
     LunarPhase, LunarPhaseType, LunarPosition,
 };
+pub use astro::sun::{solar_event_time, solar_noon, solar_position, SolarEvent, SolarPosition};
 
 /// Prelude module containing the most commonly used types and functions.
 ///
@@ -135,8 +137,8 @@ pub use astro::moon::{
 /// use solunatus::prelude::*;
 /// ```
 pub mod prelude {
-    pub use crate::astro::sun::{SolarEvent, SolarPosition};
     pub use crate::astro::moon::{LunarEvent, LunarPhase, LunarPhaseType, LunarPosition};
+    pub use crate::astro::sun::{SolarEvent, SolarPosition};
     pub use crate::astro::Location;
     pub use crate::city::{City, CityDatabase};
 
@@ -408,7 +410,10 @@ mod tests {
     #[test]
     fn test_convenience_functions() {
         let location = Location::new(40.7128, -74.0060).unwrap();
-        let date = Utc.with_ymd_and_hms(2025, 6, 21, 12, 0, 0).unwrap().with_timezone(&New_York);
+        let date = Utc
+            .with_ymd_and_hms(2025, 6, 21, 12, 0, 0)
+            .unwrap()
+            .with_timezone(&New_York);
 
         // Test sunrise/sunset
         let sunrise = calculate_sunrise(&location, &date);
@@ -428,7 +433,10 @@ mod tests {
     #[test]
     fn test_moon_phase() {
         let location = Location::new(40.7128, -74.0060).unwrap();
-        let date = Utc.with_ymd_and_hms(2025, 6, 21, 12, 0, 0).unwrap().with_timezone(&New_York);
+        let date = Utc
+            .with_ymd_and_hms(2025, 6, 21, 12, 0, 0)
+            .unwrap()
+            .with_timezone(&New_York);
 
         let (name, emoji) = get_current_moon_phase(&location, &date);
         assert!(!name.is_empty());
@@ -448,6 +456,10 @@ mod tests {
         let info = library_info();
         assert_eq!(info.version, env!("CARGO_PKG_VERSION"));
         // City database should have 570+ cities
-        assert!(info.city_count >= 570, "Expected at least 570 cities, got {}", info.city_count);
+        assert!(
+            info.city_count >= 570,
+            "Expected at least 570 cities, got {}",
+            info.city_count
+        );
     }
 }

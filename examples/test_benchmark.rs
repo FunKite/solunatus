@@ -12,11 +12,20 @@ fn main() {
     println!("Total cities:       {}", result.total_cities);
     println!("Successful:         {}", result.successful);
     println!("Failed:             {}", result.failed);
-    println!("Total duration:     {:.2} s", result.total_duration_ms as f64 / 1000.0);
-    println!("Avg per city:       {:.2} ms", result.avg_duration_per_city_ms);
+    println!(
+        "Total duration:     {:.2} s",
+        result.total_duration_ms as f64 / 1000.0
+    );
+    println!(
+        "Avg per city:       {:.2} ms",
+        result.avg_duration_per_city_ms
+    );
     println!("Min duration:       {} ms", result.min_duration_ms);
     println!("Max duration:       {} ms", result.max_duration_ms);
-    println!("Throughput:         {:.2} cities/sec", result.cities_per_second);
+    println!(
+        "Throughput:         {:.2} cities/sec",
+        result.cities_per_second
+    );
 
     if !result.failed_cities.is_empty() {
         println!("");

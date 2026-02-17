@@ -5,9 +5,9 @@
 //! cargo run --example moon_phases
 //! ```
 
-use solunatus::prelude::*;
 use chrono::Datelike;
 use chrono::Local;
+use solunatus::prelude::*;
 
 fn main() {
     println!("=== Solunatus Library - Lunar Phases ===\n");
@@ -38,7 +38,8 @@ fn main() {
                     LunarPhaseType::LastQuarter => "Last Quarter",
                 };
 
-                println!("  {} {:15} - {}",
+                println!(
+                    "  {} {:15} - {}",
                     emoji,
                     name,
                     phase.datetime.format("%Y-%m-%d %H:%M UTC")
@@ -55,11 +56,7 @@ fn main() {
 
     for offset in 0..3 {
         let target_month = month + offset;
-        let target_year = if target_month > 12 {
-            year + 1
-        } else {
-            year
-        };
+        let target_year = if target_month > 12 { year + 1 } else { year };
         let target_month = ((target_month - 1) % 12) + 1;
 
         if let Ok(phases) = get_lunar_phases_for_month(target_year, target_month) {

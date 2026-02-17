@@ -8,7 +8,10 @@ pub mod ui;
 
 pub use app::{App, AppConfig, AppMode, ReportsMenuItem};
 pub use cache::{CachedEvents, CachedMoonDetails, CachedPositions, MoonAltitudeTrend};
-pub use drafts::{CalendarDraft, CalendarField, LocationInputDraft, LocationInputField, SettingsDraft, SettingsField};
+pub use drafts::{
+    CalendarDraft, CalendarField, LocationInputDraft, LocationInputField, SettingsDraft,
+    SettingsField,
+};
 pub use events::handle_events;
 pub use ui::render;
 

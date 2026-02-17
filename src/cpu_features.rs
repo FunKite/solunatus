@@ -187,7 +187,11 @@ impl OptimizationProfile {
             simd_width: 16, // 512-bit / 32-bit = 16 floats
         };
 
-        #[cfg(all(target_arch = "x86_64", target_feature = "avx2", not(target_feature = "avx512f")))]
+        #[cfg(all(
+            target_arch = "x86_64",
+            target_feature = "avx2",
+            not(target_feature = "avx512f")
+        ))]
         return Self {
             name: "x86_64-AVX2",
             has_avx2: true,
@@ -255,7 +259,11 @@ impl OptimizationProfile {
             "Optimization Profile: {} (parallelism={}, SIMD={})",
             self.name,
             self.parallelism,
-            if self.has_simd() { "enabled" } else { "disabled" }
+            if self.has_simd() {
+                "enabled"
+            } else {
+                "disabled"
+            }
         )
     }
 }

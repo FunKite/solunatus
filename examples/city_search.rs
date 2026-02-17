@@ -5,9 +5,9 @@
 //! cargo run --example city_search
 //! ```
 
-use solunatus::prelude::*;
 use chrono::Local;
 use chrono_tz::Tz;
+use solunatus::prelude::*;
 
 fn main() {
     println!("=== Solunatus Library - City Search ===\n");
@@ -29,7 +29,8 @@ fn main() {
 
     println!("Found {} matching cities:\n", results.len());
     for (city, score) in results.iter().take(5) {
-        println!("  {} - {}, {} (score: {})",
+        println!(
+            "  {} - {}, {} (score: {})",
             city.name,
             city.state.as_deref().unwrap_or("N/A"),
             city.country,

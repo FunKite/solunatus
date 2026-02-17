@@ -71,7 +71,7 @@ struct UsnoData {
     month: u32,
     day: u32,
     #[allow(dead_code)]
-    tz: f64,  // Timezone offset from UTC (0.0 means UTC)
+    tz: f64, // Timezone offset from UTC (0.0 means UTC)
 }
 
 #[derive(Debug, Deserialize)]
@@ -162,22 +162,20 @@ pub struct ValidationReport {
 }
 
 /// Fetch USNO data for the given location and date
-fn fetch_usno_data(
-    location: &Location,
-    date: &DateTime<Tz>,
-) -> Result<UsnoData> {
+fn fetch_usno_data(location: &Location, date: &DateTime<Tz>) -> Result<UsnoData> {
     let date_str = date.format("%Y-%m-%d").to_string();
-    let coords = format!("{:.5},{:.5}", location.latitude.value(), location.longitude.value());
+    let coords = format!(
+        "{:.5},{:.5}",
+        location.latitude.value(),
+        location.longitude.value()
+    );
     let url = format!("{}?date={}&coords={}", USNO_API_BASE, date_str, coords);
 
     let response = reqwest::blocking::get(&url)
         .with_context(|| format!("Failed to fetch USNO data from {}", url))?;
 
     if !response.status().is_success() {
-        return Err(anyhow!(
-            "USNO API returned error: {}",
-            response.status()
-        ));
+        return Err(anyhow!("USNO API returned error: {}", response.status()));
     }
 
     let usno_response: UsnoResponse = response
@@ -247,16 +245,15 @@ pub fn generate_validation_report(
     date: &DateTime<Tz>,
 ) -> Result<ValidationReport> {
     // Calculate our own events within ±13 hours
-    let events_list = events::collect_events_within_window(
-        location,
-        date,
-        ChronoDuration::hours(13),
-    );
+    let events_list =
+        events::collect_events_within_window(location, date, ChronoDuration::hours(13));
 
     // Build a map of our events for easy lookup, keeping the event closest to reference time
     let mut astrotimes_events: HashMap<String, DateTime<Tz>> = HashMap::new();
     for (dt, name) in events_list {
-        let normalized = name.trim_start_matches(|c: char| !c.is_ascii_alphabetic()).to_string();
+        let normalized = name
+            .trim_start_matches(|c: char| !c.is_ascii_alphabetic())
+            .to_string();
 
         if let Some(&existing_dt) = astrotimes_events.get(&normalized) {
             let delta_existing = existing_dt.signed_duration_since(*date).num_seconds().abs();
@@ -279,11 +276,8 @@ pub fn generate_validation_report(
         let fetch_date = *date + ChronoDuration::days(day_offset);
 
         if let Ok(usno_data) = fetch_usno_data(location, &fetch_date) {
-            let usno_date = NaiveDate::from_ymd_opt(
-                usno_data.year,
-                usno_data.month,
-                usno_data.day,
-            ).ok_or_else(|| anyhow!("Invalid USNO date"))?;
+            let usno_date = NaiveDate::from_ymd_opt(usno_data.year, usno_data.month, usno_data.day)
+                .ok_or_else(|| anyhow!("Invalid USNO date"))?;
 
             // Parse sun events
             for event in &usno_data.sundata {
@@ -306,8 +300,8 @@ pub fn generate_validation_report(
     }
 
     // Fetch primary day data for metadata
-    let usno_data = fetch_usno_data(location, date)
-        .context("Failed to fetch USNO reference data")?;
+    let usno_data =
+        fetch_usno_data(location, date).context("Failed to fetch USNO reference data")?;
 
     let mut results = Vec::new();
 
@@ -380,7 +374,9 @@ pub fn generate_validation_report(
         city_name,
         date: *date,
         version: env!("CARGO_PKG_VERSION").to_string(),
-        usno_apiversion: usno_data.sundata.first()
+        usno_apiversion: usno_data
+            .sundata
+            .first()
             .map(|_| "4.0.1".to_string())
             .unwrap_or_else(|| "unknown".to_string()),
         results,
@@ -400,7 +396,9 @@ pub fn generate_html_report(report: &ValidationReport) -> String {
     html.push_str("body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }\n");
     html.push_str("h1 { color: #2c3e50; }\n");
     html.push_str("h2 { color: #34495e; margin-top: 30px; }\n");
-    html.push_str(".info { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }\n");
+    html.push_str(
+        ".info { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }\n",
+    );
     html.push_str(".info-grid { display: grid; grid-template-columns: 200px 1fr; gap: 10px; }\n");
     html.push_str(".info-label { font-weight: bold; }\n");
     html.push_str("table { border-collapse: collapse; width: 100%; background: white; border-radius: 8px; overflow: hidden; }\n");
@@ -415,7 +413,9 @@ pub fn generate_html_report(report: &ValidationReport) -> String {
     html.push_str(".status-warning { color: #f39c12; font-weight: bold; }\n");
     html.push_str(".status-fail { color: #e74c3c; font-weight: bold; }\n");
     html.push_str(".status-missing { color: #95a5a6; font-weight: bold; }\n");
-    html.push_str(".summary { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }\n");
+    html.push_str(
+        ".summary { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }\n",
+    );
     html.push_str(".summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; text-align: center; }\n");
     html.push_str(".summary-item { padding: 15px; border-radius: 8px; }\n");
     html.push_str("</style>\n");
@@ -427,23 +427,60 @@ pub fn generate_html_report(report: &ValidationReport) -> String {
     html.push_str("<div class=\"info\">\n");
     html.push_str("<h2>Configuration</h2>\n");
     html.push_str("<div class=\"info-grid\">\n");
-    html.push_str(&format!("<div class=\"info-label\">Solunatus Version:</div><div>{}</div>\n", report.version));
-    html.push_str(&format!("<div class=\"info-label\">USNO API Version:</div><div>{}</div>\n", report.usno_apiversion));
-    html.push_str(&format!("<div class=\"info-label\">Date:</div><div>{}</div>\n", report.date.format("%Y-%m-%d %H:%M:%S %Z")));
-    html.push_str(&format!("<div class=\"info-label\">Timezone:</div><div>{}</div>\n", report.timezone.name()));
+    html.push_str(&format!(
+        "<div class=\"info-label\">Solunatus Version:</div><div>{}</div>\n",
+        report.version
+    ));
+    html.push_str(&format!(
+        "<div class=\"info-label\">USNO API Version:</div><div>{}</div>\n",
+        report.usno_apiversion
+    ));
+    html.push_str(&format!(
+        "<div class=\"info-label\">Date:</div><div>{}</div>\n",
+        report.date.format("%Y-%m-%d %H:%M:%S %Z")
+    ));
+    html.push_str(&format!(
+        "<div class=\"info-label\">Timezone:</div><div>{}</div>\n",
+        report.timezone.name()
+    ));
     if let Some(ref city) = report.city_name {
-        html.push_str(&format!("<div class=\"info-label\">Location:</div><div>{}</div>\n", city));
+        html.push_str(&format!(
+            "<div class=\"info-label\">Location:</div><div>{}</div>\n",
+            city
+        ));
     }
-    html.push_str(&format!("<div class=\"info-label\">Latitude:</div><div>{:.5}°</div>\n", report.location.latitude.value()));
-    html.push_str(&format!("<div class=\"info-label\">Longitude:</div><div>{:.5}°</div>\n", report.location.longitude.value()));
+    html.push_str(&format!(
+        "<div class=\"info-label\">Latitude:</div><div>{:.5}°</div>\n",
+        report.location.latitude.value()
+    ));
+    html.push_str(&format!(
+        "<div class=\"info-label\">Longitude:</div><div>{:.5}°</div>\n",
+        report.location.longitude.value()
+    ));
     html.push_str("</div>\n");
     html.push_str("</div>\n");
 
     // Summary statistics
-    let pass_count = report.results.iter().filter(|r| r.status == ValidationStatus::Pass).count();
-    let warning_count = report.results.iter().filter(|r| r.status == ValidationStatus::Warning).count();
-    let fail_count = report.results.iter().filter(|r| r.status == ValidationStatus::Fail).count();
-    let missing_count = report.results.iter().filter(|r| r.status == ValidationStatus::Missing).count();
+    let pass_count = report
+        .results
+        .iter()
+        .filter(|r| r.status == ValidationStatus::Pass)
+        .count();
+    let warning_count = report
+        .results
+        .iter()
+        .filter(|r| r.status == ValidationStatus::Warning)
+        .count();
+    let fail_count = report
+        .results
+        .iter()
+        .filter(|r| r.status == ValidationStatus::Fail)
+        .count();
+    let missing_count = report
+        .results
+        .iter()
+        .filter(|r| r.status == ValidationStatus::Missing)
+        .count();
 
     html.push_str("<div class=\"summary\">\n");
     html.push_str("<h2>Summary</h2>\n");
@@ -502,16 +539,26 @@ pub fn generate_html_report(report: &ValidationReport) -> String {
             ValidationStatus::Missing => "— MISSING",
         };
 
-        let diff_text = result.difference_minutes
+        let diff_text = result
+            .difference_minutes
             .map(|d| format!("{:+} min", d))
             .unwrap_or_else(|| "—".to_string());
 
         html.push_str(&format!("<tr class=\"{}\">\n", row_class));
         html.push_str(&format!("<td>{}</td>\n", result.event_name));
-        html.push_str(&format!("<td>{}</td>\n", result.astrotimes_value.as_deref().unwrap_or("—")));
-        html.push_str(&format!("<td>{}</td>\n", result.usno_value.as_deref().unwrap_or("—")));
+        html.push_str(&format!(
+            "<td>{}</td>\n",
+            result.astrotimes_value.as_deref().unwrap_or("—")
+        ));
+        html.push_str(&format!(
+            "<td>{}</td>\n",
+            result.usno_value.as_deref().unwrap_or("—")
+        ));
         html.push_str(&format!("<td>{}</td>\n", diff_text));
-        html.push_str(&format!("<td class=\"{}\">{}</td>\n", status_class, status_text));
+        html.push_str(&format!(
+            "<td class=\"{}\">{}</td>\n",
+            status_class, status_text
+        ));
         html.push_str("</tr>\n");
     }
 
@@ -519,7 +566,10 @@ pub fn generate_html_report(report: &ValidationReport) -> String {
     html.push_str("</table>\n");
 
     html.push_str("<div style=\"margin-top: 40px; color: #7f8c8d; font-size: 12px;\">\n");
-    html.push_str(&format!("Generated: {}<br>\n", chrono::Local::now().format("%Y-%m-%d %H:%M:%S")));
+    html.push_str(&format!(
+        "Generated: {}<br>\n",
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+    ));
     html.push_str("Reference: U.S. Naval Observatory Astronomical Applications Department<br>\n");
     html.push_str("https://aa.usno.navy.mil/\n");
     html.push_str("</div>\n");

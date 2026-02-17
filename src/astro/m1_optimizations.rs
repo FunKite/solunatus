@@ -21,7 +21,7 @@
 /// Performance Benefits:
 /// - Expected: 15-25% improvement over generic ARM64
 /// - Specific: 40-50% improvement in batch operations
-use super::{sun, moon};
+use super::{moon, sun};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Thread pool for M1 Max multi-core utilization

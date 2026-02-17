@@ -178,12 +178,8 @@ fn calculate_dark_windows(
     const MOON_GLOW_BUFFER_MINUTES: i64 = 15; // Buffer for moon glow to fade
     const SAMPLE_INTERVAL_MINUTES: i64 = 1; // 1-minute sampling for precision
 
-    let start_time = reference
-        .checked_sub_signed(window)
-        .unwrap_or(*reference);
-    let end_time = reference
-        .checked_add_signed(window)
-        .unwrap_or(*reference);
+    let start_time = reference.checked_sub_signed(window).unwrap_or(*reference);
+    let end_time = reference.checked_add_signed(window).unwrap_or(*reference);
 
     let mut events = Vec::new();
     let mut in_dark_window = false;
@@ -197,7 +193,8 @@ fn calculate_dark_windows(
         let sun_dark = sun_pos.altitude < -18.0;
 
         // Check moon conditions (DSD standard: moon below horizon with glow buffer)
-        let moon_dark = is_moon_sufficiently_dark(location, &current_time, MOON_GLOW_BUFFER_MINUTES);
+        let moon_dark =
+            is_moon_sufficiently_dark(location, &current_time, MOON_GLOW_BUFFER_MINUTES);
 
         let is_dark = sun_dark && moon_dark;
 
@@ -205,14 +202,18 @@ fn calculate_dark_windows(
         if is_dark && !in_dark_window {
             if !first_sample {
                 // Check if moon was already suitable at prev_time
-                let prev_moon_dark = is_moon_sufficiently_dark(location, &prev_time, MOON_GLOW_BUFFER_MINUTES);
+                let prev_moon_dark =
+                    is_moon_sufficiently_dark(location, &prev_time, MOON_GLOW_BUFFER_MINUTES);
 
                 // If moon conditions unchanged, use the exact astro dusk time from events
                 if prev_moon_dark && moon_dark {
                     // Moon not limiting - use the provided astronomical dusk time
                     if let Some(ref dusk_time) = astro_dusk {
                         // Verify it's near our transition point
-                        let time_diff = dusk_time.signed_duration_since(prev_time).num_seconds().abs();
+                        let time_diff = dusk_time
+                            .signed_duration_since(prev_time)
+                            .num_seconds()
+                            .abs();
                         if time_diff <= 120 {
                             events.push((*dusk_time, "🌌 Dark win start"));
                             in_dark_window = true;
@@ -227,12 +228,8 @@ fn calculate_dark_windows(
                 }
 
                 // Otherwise refine with bisection (moon was the limiting factor)
-                let refined_time = refine_dark_window_transition(
-                    location,
-                    &prev_time,
-                    &current_time,
-                    true,
-                );
+                let refined_time =
+                    refine_dark_window_transition(location, &prev_time, &current_time, true);
                 events.push((refined_time, "🌌 Dark win start"));
             }
             in_dark_window = true;
@@ -242,7 +239,10 @@ fn calculate_dark_windows(
                 if moon_dark {
                     // Moon still not limiting - use the provided astronomical dawn time
                     if let Some(ref dawn_time) = astro_dawn {
-                        let time_diff = dawn_time.signed_duration_since(prev_time).num_seconds().abs();
+                        let time_diff = dawn_time
+                            .signed_duration_since(prev_time)
+                            .num_seconds()
+                            .abs();
                         if time_diff <= 120 {
                             events.push((*dawn_time, "🌄 Dark win end"));
                             in_dark_window = false;
@@ -257,12 +257,8 @@ fn calculate_dark_windows(
                 }
 
                 // Use bisection for moon-limited transitions
-                let refined_time = refine_dark_window_transition(
-                    location,
-                    &prev_time,
-                    &current_time,
-                    false,
-                );
+                let refined_time =
+                    refine_dark_window_transition(location, &prev_time, &current_time, false);
                 events.push((refined_time, "🌄 Dark win end"));
             }
             in_dark_window = false;

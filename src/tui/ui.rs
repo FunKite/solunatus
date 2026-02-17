@@ -1,8 +1,8 @@
 // UI rendering
 
-use super::app::{App, CalendarField, LocationInputField, SettingsField};
 #[cfg(feature = "ai-insights")]
 use super::app::{AiConfigField, AiServerStatus};
+use super::app::{App, CalendarField, LocationInputField, SettingsField};
 use crate::astro::*;
 use crate::time_sync;
 use chrono::{Offset, Utc};
@@ -141,14 +141,17 @@ fn sanitized_event_label<'a>(app: &App, label: &'a str) -> Cow<'a, str> {
 }
 
 fn render_title(f: &mut Frame, area: Rect, app: &App) {
-    let title = Paragraph::new(format!("Solunatus {} — github.com/FunKite/solunatus", env!("CARGO_PKG_VERSION")))
-        .style(
-            Style::default()
-                .fg(get_color(app, Color::Cyan))
-                .add_modifier(Modifier::BOLD),
-        )
-        .alignment(Alignment::Center)
-        .block(bordered_block(app));
+    let title = Paragraph::new(format!(
+        "Solunatus {} — github.com/FunKite/solunatus",
+        env!("CARGO_PKG_VERSION")
+    ))
+    .style(
+        Style::default()
+            .fg(get_color(app, Color::Cyan))
+            .add_modifier(Modifier::BOLD),
+    )
+    .alignment(Alignment::Center)
+    .block(bordered_block(app));
 
     f.render_widget(title, area);
 }
@@ -1245,7 +1248,9 @@ fn render_settings(f: &mut Frame, app: &App) {
     // Location section
     lines.push(Line::from(Span::styled(
         "— Location —",
-        Style::default().fg(get_color(app, Color::Yellow)).add_modifier(Modifier::BOLD),
+        Style::default()
+            .fg(get_color(app, Color::Yellow))
+            .add_modifier(Modifier::BOLD),
     )));
 
     let location_mode_str = match draft.location_mode {
@@ -1268,40 +1273,23 @@ fn render_settings(f: &mut Frame, app: &App) {
     // Display selected city or nearest city if location is set
     if draft.location_mode == crate::config::LocationMode::City {
         if let Some(city) = &app.city_name {
-            render_setting_field(
-                &mut lines,
-                app,
-                false,
-                "Selected City",
-                city.clone(),
-                None,
-            );
+            render_setting_field(&mut lines, app, false, "Selected City", city.clone(), None);
         }
     } else {
         // Manual mode - show nearest city if available
         if let Some((nearest_city, distance_km, _bearing)) = &app.nearest_city_info {
             let distance_str = format!("{} ({:.1} km away)", nearest_city, distance_km);
-            render_setting_field(
-                &mut lines,
-                app,
-                false,
-                "Nearest City",
-                distance_str,
-                None,
-            );
+            render_setting_field(&mut lines, app, false, "Nearest City", distance_str, None);
         }
     }
 
     // Always display current coordinates and timezone
-    let coords_str = format!("{:.3}, {:.3}", app.location.lat_degrees(), app.location.lon_degrees());
-    render_setting_field(
-        &mut lines,
-        app,
-        false,
-        "Coordinates",
-        coords_str,
-        None,
+    let coords_str = format!(
+        "{:.3}, {:.3}",
+        app.location.lat_degrees(),
+        app.location.lon_degrees()
     );
+    render_setting_field(&mut lines, app, false, "Coordinates", coords_str, None);
 
     render_setting_field(
         &mut lines,
@@ -1317,10 +1305,16 @@ fn render_settings(f: &mut Frame, app: &App) {
     // Time Sync section
     lines.push(Line::from(Span::styled(
         "— Time Sync —",
-        Style::default().fg(get_color(app, Color::Yellow)).add_modifier(Modifier::BOLD),
+        Style::default()
+            .fg(get_color(app, Color::Yellow))
+            .add_modifier(Modifier::BOLD),
     )));
 
-    let time_sync_enabled_str = if draft.time_sync_enabled { "[x] Enabled" } else { "[ ] Disabled" };
+    let time_sync_enabled_str = if draft.time_sync_enabled {
+        "[x] Enabled"
+    } else {
+        "[ ] Disabled"
+    };
     render_setting_field(
         &mut lines,
         app,
@@ -1345,7 +1339,9 @@ fn render_settings(f: &mut Frame, app: &App) {
     // Panel Visibility section
     lines.push(Line::from(Span::styled(
         "— Panel Visibility —",
-        Style::default().fg(get_color(app, Color::Yellow)).add_modifier(Modifier::BOLD),
+        Style::default()
+            .fg(get_color(app, Color::Yellow))
+            .add_modifier(Modifier::BOLD),
     )));
 
     render_setting_field(
@@ -1353,7 +1349,12 @@ fn render_settings(f: &mut Frame, app: &App) {
         app,
         current_field == SettingsField::ShowLocationDate,
         "Location & Date",
-        if draft.show_location_date { "[x] Show" } else { "[ ] Hide" }.to_string(),
+        if draft.show_location_date {
+            "[x] Show"
+        } else {
+            "[ ] Hide"
+        }
+        .to_string(),
         None,
     );
 
@@ -1362,7 +1363,12 @@ fn render_settings(f: &mut Frame, app: &App) {
         app,
         current_field == SettingsField::ShowEvents,
         "Events",
-        if draft.show_events { "[x] Show" } else { "[ ] Hide" }.to_string(),
+        if draft.show_events {
+            "[x] Show"
+        } else {
+            "[ ] Hide"
+        }
+        .to_string(),
         None,
     );
 
@@ -1371,7 +1377,12 @@ fn render_settings(f: &mut Frame, app: &App) {
         app,
         current_field == SettingsField::ShowPositions,
         "Positions",
-        if draft.show_positions { "[x] Show" } else { "[ ] Hide" }.to_string(),
+        if draft.show_positions {
+            "[x] Show"
+        } else {
+            "[ ] Hide"
+        }
+        .to_string(),
         None,
     );
 
@@ -1380,7 +1391,12 @@ fn render_settings(f: &mut Frame, app: &App) {
         app,
         current_field == SettingsField::ShowMoon,
         "Moon Details",
-        if draft.show_moon { "[x] Show" } else { "[ ] Hide" }.to_string(),
+        if draft.show_moon {
+            "[x] Show"
+        } else {
+            "[ ] Hide"
+        }
+        .to_string(),
         None,
     );
 
@@ -1389,7 +1405,12 @@ fn render_settings(f: &mut Frame, app: &App) {
         app,
         current_field == SettingsField::ShowLunarPhases,
         "Lunar Phases",
-        if draft.show_lunar_phases { "[x] Show" } else { "[ ] Hide" }.to_string(),
+        if draft.show_lunar_phases {
+            "[x] Show"
+        } else {
+            "[ ] Hide"
+        }
+        .to_string(),
         None,
     );
     lines.push(Line::from(""));
@@ -1397,7 +1418,9 @@ fn render_settings(f: &mut Frame, app: &App) {
     // Display section
     lines.push(Line::from(Span::styled(
         "— Display —",
-        Style::default().fg(get_color(app, Color::Yellow)).add_modifier(Modifier::BOLD),
+        Style::default()
+            .fg(get_color(app, Color::Yellow))
+            .add_modifier(Modifier::BOLD),
     )));
 
     render_setting_field(
@@ -1405,7 +1428,12 @@ fn render_settings(f: &mut Frame, app: &App) {
         app,
         current_field == SettingsField::NightMode,
         "Night Mode",
-        if draft.night_mode { "[x] Enabled (red)" } else { "[ ] Disabled" }.to_string(),
+        if draft.night_mode {
+            "[x] Enabled (red)"
+        } else {
+            "[ ] Disabled"
+        }
+        .to_string(),
         Some("Press Space or Enter to toggle".to_string()),
     );
     lines.push(Line::from(""));
@@ -1595,9 +1623,9 @@ fn render_reports_menu(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // Title
-            Constraint::Min(10),    // Menu items
-            Constraint::Length(2),  // Footer
+            Constraint::Length(3), // Title
+            Constraint::Min(10),   // Menu items
+            Constraint::Length(2), // Footer
         ])
         .split(f.area());
 

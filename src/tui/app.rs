@@ -23,7 +23,10 @@ use std::{
 
 // Re-export types from submodules
 pub use super::cache::{CachedEvents, CachedMoonDetails, CachedPositions, MoonAltitudeTrend};
-pub use super::drafts::{CalendarDraft, CalendarField, LocationInputDraft, LocationInputField, SettingsDraft, SettingsField};
+pub use super::drafts::{
+    CalendarDraft, CalendarField, LocationInputDraft, LocationInputField, SettingsDraft,
+    SettingsField,
+};
 
 #[cfg(feature = "ai-insights")]
 pub use super::drafts::{AiConfigDraft, AiConfigField, AiServerStatus};
@@ -1000,7 +1003,10 @@ impl App {
                     return;
                 }
 
-                if let Some(idx) = models.iter().position(|name| name == &self.settings_draft.ai_model) {
+                if let Some(idx) = models
+                    .iter()
+                    .position(|name| name == &self.settings_draft.ai_model)
+                {
                     self.settings_draft.ai_model_index = Some(idx);
                     self.settings_draft.ai_model = models[idx].clone();
                 } else {

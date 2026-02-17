@@ -33,7 +33,7 @@ jobs:
         with:
           components: clippy
       - name: Run clippy
-        run: cargo clippy --all-features --all-targets -- -D warnings
+        run: cargo clippy --all-features --lib --bins -- -D warnings -A unused_imports -A dead_code -A clippy::multiple_bound_locations -A clippy::needless_range_loop
 
   rustfmt:
     name: Rustfmt

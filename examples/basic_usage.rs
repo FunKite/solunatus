@@ -5,9 +5,9 @@
 //! cargo run --example basic_usage
 //! ```
 
-use solunatus::prelude::*;
 use chrono::Local;
 use chrono_tz::America::New_York;
+use solunatus::prelude::*;
 
 fn main() {
     println!("=== Solunatus Library - Basic Usage ===\n");
@@ -53,8 +53,11 @@ fn main() {
     let sun_pos = solar_position(&location, &now);
     println!("\n--- Current Sun Position ---");
     println!("Altitude:    {:.2}°", sun_pos.altitude);
-    println!("Azimuth:     {:.2}° ({})", sun_pos.azimuth,
-        solunatus::astro::coordinates::azimuth_to_compass(sun_pos.azimuth));
+    println!(
+        "Azimuth:     {:.2}° ({})",
+        sun_pos.azimuth,
+        solunatus::astro::coordinates::azimuth_to_compass(sun_pos.azimuth)
+    );
 
     // Calculate moon information
     println!("\n--- Lunar Events ---");
@@ -79,8 +82,11 @@ fn main() {
     println!("Illumination: {:.1}%", moon_pos.illumination * 100.0);
     println!("Distance:     {:.0} km", moon_pos.distance);
     println!("Altitude:     {:.2}°", moon_pos.altitude);
-    println!("Azimuth:      {:.2}° ({})", moon_pos.azimuth,
-        solunatus::astro::coordinates::azimuth_to_compass(moon_pos.azimuth));
+    println!(
+        "Azimuth:      {:.2}° ({})",
+        moon_pos.azimuth,
+        solunatus::astro::coordinates::azimuth_to_compass(moon_pos.azimuth)
+    );
 
     println!("\n✓ Calculations complete!");
 }

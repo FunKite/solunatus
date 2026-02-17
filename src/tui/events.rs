@@ -1,8 +1,8 @@
 // Event handling for TUI
 
-use super::app::{App, AppMode, CalendarField};
 #[cfg(feature = "ai-insights")]
 use super::app::AiConfigField;
+use super::app::{App, AppMode, CalendarField};
 use crate::location_source::LocationSource;
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
@@ -127,13 +127,15 @@ fn handle_settings_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                 app.probe_ai_server_for_settings();
             }
         }
-        KeyCode::Left => {
+        KeyCode::Left =>
+        {
             #[cfg(feature = "ai-insights")]
             if app.settings_draft.current_field() == SettingsField::AiModel {
                 app.cycle_ai_model_in_settings(-1);
             }
         }
-        KeyCode::Right => {
+        KeyCode::Right =>
+        {
             #[cfg(feature = "ai-insights")]
             if app.settings_draft.current_field() == SettingsField::AiModel {
                 app.cycle_ai_model_in_settings(1);
@@ -183,7 +185,8 @@ fn handle_settings_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                         app.probe_ai_server_for_settings();
                     } else if was_enabled && !app.settings_draft.ai_enabled {
                         // Reset AI server status when disabling
-                        app.settings_draft.ai_server_status = crate::tui::app::AiServerStatus::Unknown;
+                        app.settings_draft.ai_server_status =
+                            crate::tui::app::AiServerStatus::Unknown;
                         app.settings_draft.ai_models.clear();
                         app.settings_draft.ai_model_index = None;
                     }
@@ -287,7 +290,9 @@ fn handle_location_input_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                                         }
                                     }
                                     // Check if we should return to settings
-                                    if app.settings_draft.location_mode == crate::config::LocationMode::Manual {
+                                    if app.settings_draft.location_mode
+                                        == crate::config::LocationMode::Manual
+                                    {
                                         app.mode = AppMode::Settings;
                                     } else {
                                         app.mode = AppMode::Watch;
@@ -519,7 +524,10 @@ fn handle_reports_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                                         ));
                                     }
                                     Err(e) => {
-                                        app.set_status_message(format!("Error saving report: {}", e));
+                                        app.set_status_message(format!(
+                                            "Error saving report: {}",
+                                            e
+                                        ));
                                     }
                                 }
                             }
