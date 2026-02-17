@@ -29,7 +29,7 @@ fn main() -> Result<()> {
     let skip_time_sync = env::var("SOLUNATUS_SKIP_TIME_SYNC").is_ok();
     let time_sync_info = if skip_time_sync {
         time_sync::TimeSyncInfo {
-            source: time_sync::PRIMARY_SOURCE_LABEL,
+            source: time_sync::PRIMARY_SOURCE_LABEL.to_string(),
             delta: None,
             error: Some("time sync skipped by SOLUNATUS_SKIP_TIME_SYNC".into()),
         }
@@ -286,7 +286,9 @@ fn determine_location(
     // Check CLI arguments
     if let (Some(lat), Some(lon)) = (args.lat, args.lon) {
         let tz_str = args.tz.clone().unwrap_or_else(|| "UTC".to_string());
-        let tz: Tz = tz_str.parse().unwrap_or(chrono_tz::UTC);
+        let tz: Tz = tz_str
+            .parse()
+            .with_context(|| format!("Invalid timezone '{}'", tz_str))?;
         let location =
             astro::Location::new(lat, lon).map_err(|e| anyhow!("Invalid location: {}", e))?;
         return Ok((location, tz, None, LocationSource::ManualCli));

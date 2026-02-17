@@ -78,7 +78,7 @@ pub fn default_servers() -> Vec<(String, String)> {
 #[derive(Debug, Clone)]
 pub struct TimeSyncInfo {
     /// The NTP server source used (e.g., "time.google.com (NTP)")
-    pub source: &'static str,
+    pub source: String,
     /// The measured clock delta (None if sync failed)
     pub delta: Option<ChronoDuration>,
     /// Error message if synchronization failed
@@ -148,7 +148,7 @@ pub fn check_time_sync_with_servers(custom_server: Option<&str>) -> TimeSyncInfo
         {
             let delta = ChronoDuration::microseconds(cache.delta_micros);
             return TimeSyncInfo {
-                source: PRIMARY_SOURCE_LABEL, // Use static label for consistency
+                source: cache.source,
                 delta: Some(delta),
                 error: None,
             };
@@ -175,7 +175,7 @@ pub fn check_time_sync_with_servers(custom_server: Option<&str>) -> TimeSyncInfo
             }
         }
         Err(err) => TimeSyncInfo {
-            source: PRIMARY_SOURCE_LABEL,
+            source: target_server.to_string(),
             delta: None,
             error: Some(err.to_string()),
         },
@@ -267,9 +267,7 @@ pub fn direction_code(direction: TimeSyncDirection) -> &'static str {
 }
 
 /// Returns (delta, label, server_address)
-fn fetch_delta(
-    custom_server: Option<&str>,
-) -> anyhow::Result<(ChronoDuration, &'static str, String)> {
+fn fetch_delta(custom_server: Option<&str>) -> anyhow::Result<(ChronoDuration, String, String)> {
     let mut last_err: Option<anyhow::Error> = None;
 
     // If custom server is specified, try it first
@@ -286,8 +284,12 @@ fn fetch_delta(
                 Ok(server_time) => {
                     let system_time = Utc::now();
                     let delta = system_time.signed_duration_since(server_time);
-                    // Return server address for cache tracking
-                    return Ok((delta, PRIMARY_SOURCE_LABEL, server_trimmed.to_string()));
+                    // Return server address and label for cache tracking/display.
+                    return Ok((
+                        delta,
+                        server_trimmed.to_string(),
+                        server_trimmed.to_string(),
+                    ));
                 }
                 Err(err) => {
                     last_err = Some(anyhow!("{} query failed: {}", server_trimmed, err));
@@ -304,7 +306,7 @@ fn fetch_delta(
                 let delta = system_time.signed_duration_since(server_time);
                 // Extract server address without port for cache tracking
                 let server_addr = server.split(':').next().unwrap_or(server).to_string();
-                return Ok((delta, *label, server_addr));
+                return Ok((delta, (*label).to_string(), server_addr));
             }
             Err(err) => {
                 last_err = Some(anyhow!("{} query failed: {}", label, err));

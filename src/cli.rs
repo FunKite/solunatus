@@ -22,7 +22,7 @@ pub struct Args {
     #[arg(long)]
     pub lon: Option<f64>,
 
-    /// Timezone (IANA timezone name or UTC offset like -07:00)
+    /// Timezone (IANA timezone name, e.g. America/New_York)
     #[arg(long)]
     pub tz: Option<String>,
 

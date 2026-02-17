@@ -83,10 +83,10 @@ if [[ ${RUN_SECURITY} -eq 1 ]]; then
     echo "==> Security check: cargo audit"
     if ! cargo audit; then
       if [[ ${OFFLINE} -eq 1 ]]; then
-        echo "Warning: cargo audit failed in offline mode. Re-run with --allow-network to refresh advisories." >&2
-      else
-        exit 1
+        echo "cargo audit failed in offline mode." >&2
+        echo "Re-run with --allow-network to refresh advisories, or use --skip-security to bypass explicitly." >&2
       fi
+      exit 1
     fi
   else
     echo "Skipping security check (cargo-audit not installed)."

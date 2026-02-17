@@ -60,102 +60,57 @@ where
     let end = start.clone() + Duration::hours(24);
     let step = Duration::minutes(5);
 
-    // Phase 1: Coarse sweep with batch altitude checks
-    let mut moonrise_candidates: Vec<(DateTime<T>, f64)> = Vec::new();
-    let mut moonset_candidates: Vec<(DateTime<T>, f64)> = Vec::new();
+    // Phase 1: Coarse sweep with contiguous comparisons.
     let mut calculations = 0;
+    let mut prev_time = start.clone();
+    let mut prev_alt = moon::lunar_position(location, &prev_time).altitude - threshold;
+    calculations += 1;
 
-    let mut prev_alts = [0.0; 4];
-    let mut prev_times: Vec<DateTime<T>> = vec![];
+    let mut rise_bracket: Option<((DateTime<T>, f64), (DateTime<T>, f64))> = None;
+    let mut set_bracket: Option<((DateTime<T>, f64), (DateTime<T>, f64))> = None;
 
-    // Initialize: calculate first batch
-    for i in 0..4 {
-        let t = start.clone() + (step * i as i32);
-        if t <= end {
-            let pos = moon::lunar_position(location, &t);
-            prev_alts[i] = pos.altitude;
-            prev_times.push(t);
-        }
-    }
-    calculations += 4;
-
-    // Main sweep loop - process 4 time points per iteration
-    loop {
-        let mut current_alts = [0.0; 4];
-        let mut current_times: Vec<DateTime<T>> = vec![];
-
+    let mut batch_start = start.clone() + step;
+    while batch_start <= end {
+        let mut times: Vec<DateTime<T>> = Vec::with_capacity(4);
         for i in 0..4 {
-            let idx = prev_times.len() + i;
-            let t = start.clone() + (step * idx as i32);
+            let t = batch_start.clone() + (step * i as i32);
             if t > end {
                 break;
             }
-            let pos = moon::lunar_position(location, &t);
-            current_alts[i] = pos.altitude;
-            current_times.push(t.clone());
+            times.push(t);
         }
-
-        if current_times.is_empty() {
+        if times.is_empty() {
             break;
         }
-        calculations += current_times.len();
 
-        // Check for crossings in the batch
-        for i in 0..current_times.len().min(4) {
-            if i >= prev_times.len() {
-                continue;
-            }
+        let mut alts = [0.0; 4];
+        for (i, t) in times.iter().enumerate() {
+            alts[i] = moon::lunar_position(location, t).altitude - threshold;
+        }
+        calculations += times.len();
 
-            let prev_alt = prev_alts[i] - threshold;
-            let curr_alt = current_alts[i] - threshold;
+        for (i, t) in times.iter().enumerate() {
+            let curr_alt = alts[i];
 
-            // Moonrise: crossing from below to above
             if prev_alt < 0.0 && curr_alt >= 0.0 {
-                moonrise_candidates.push((prev_times[i].clone(), prev_alt));
-                moonrise_candidates.push((current_times[i].clone(), curr_alt));
+                rise_bracket = Some(((prev_time.clone(), prev_alt), (t.clone(), curr_alt)));
             }
-
-            // Moonset: crossing from above to below
             if prev_alt >= 0.0 && curr_alt < 0.0 {
-                moonset_candidates.push((prev_times[i].clone(), prev_alt));
-                moonset_candidates.push((current_times[i].clone(), curr_alt));
+                set_bracket = Some(((prev_time.clone(), prev_alt), (t.clone(), curr_alt)));
             }
+
+            prev_time = t.clone();
+            prev_alt = curr_alt;
         }
 
-        // Prepare for next iteration
-        prev_alts = current_alts;
-        prev_times = current_times;
-
-        // Move to next batch
-        if prev_times.len() >= 4 {
-            break;
-        }
+        batch_start = batch_start + (step * 4);
     }
 
-    // Phase 2: Binary refinement for candidate crossings
-    let moonrise = if moonrise_candidates.len() >= 2 {
-        Some(batch_refine_crossing(
-            location,
-            &moonrise_candidates[moonrise_candidates.len() - 2],
-            &moonrise_candidates[moonrise_candidates.len() - 1],
-            threshold,
-            true,
-        ))
-    } else {
-        None
-    };
-
-    let moonset = if moonset_candidates.len() >= 2 {
-        Some(batch_refine_crossing(
-            location,
-            &moonset_candidates[moonset_candidates.len() - 2],
-            &moonset_candidates[moonset_candidates.len() - 1],
-            threshold,
-            false,
-        ))
-    } else {
-        None
-    };
+    // Phase 2: Binary refinement for candidate crossings.
+    let moonrise = rise_bracket
+        .map(|(low, high)| batch_refine_crossing(location, &low, &high, threshold, true));
+    let moonset = set_bracket
+        .map(|(low, high)| batch_refine_crossing(location, &low, &high, threshold, false));
 
     BatchRiseSetResult {
         moonrise,
@@ -253,7 +208,6 @@ mod tests {
     use chrono_tz::Tz;
 
     #[test]
-    #[ignore] // TODO: Fix this test - currently fails on some dates
     fn test_batch_search_returns_valid_times() {
         let location = Location::new_unchecked(40.7128, -74.0060); // New York
         let date = Utc.with_ymd_and_hms(2025, 1, 15, 12, 0, 0).unwrap();
@@ -262,9 +216,10 @@ mod tests {
 
         let result = batch_search_rise_and_set(&location, &date_tz, -0.834);
 
-        // Should find both moonrise and moonset on most days
+        // Must scan the full day, not exit after the first batch.
+        assert!(result.calculations_performed > 200);
+        // Should find at least one event on most days.
         assert!(result.moonrise.is_some() || result.moonset.is_some());
-        assert!(result.calculations_performed > 0);
     }
 
     #[test]

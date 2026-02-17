@@ -1,6 +1,7 @@
 # Rust
 /target/
 /target-m1max/
+/target-safe-local/
 **/*.rs.bk
 
 # IDE
@@ -23,6 +24,7 @@ dist/linux-binaries-v0.2.2/
 # Local development files and notes
 CLAUDE.md
 .claude/
+.codex/
 PRIVATE_FILES_SUMMARY.md
 BUILD_CPU_OPTIMIZATIONS.md
 LIBRARY_REFACTORING.md

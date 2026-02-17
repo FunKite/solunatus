@@ -47,3 +47,74 @@ jobs:
             echo "One or more workflow actions are not pinned to commit SHAs."
             exit 1
           fi
+
+  pin_drift_check:
+    name: Pin Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Validate pinned SHAs match tracked major tags
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          resolve_tag_commit() {
+            local repo="$1"
+            local tag="$2"
+            local sha
+            sha="$(git ls-remote "https://github.com/${repo}.git" "refs/tags/${tag}^{}" | awk '{print $1}')"
+            if [[ -z "${sha}" ]]; then
+              sha="$(git ls-remote "https://github.com/${repo}.git" "refs/tags/${tag}" | awk '{print $1}')"
+            fi
+            if [[ -z "${sha}" ]]; then
+              echo "Unable to resolve ${repo}@${tag}" >&2
+              exit 1
+            fi
+            echo "${sha}"
+          }
+
+          resolve_local_pin() {
+            local pattern="$1"
+            local sha
+            sha="$(grep -RhoE "${pattern}" .github/workflows | sed -E 's/.*@//' | sort -u)"
+            if [[ -z "${sha}" ]]; then
+              echo "No local pin found for pattern: ${pattern}" >&2
+              exit 1
+            fi
+            if [[ "$(echo "${sha}" | wc -l | tr -d ' ')" -ne 1 ]]; then
+              echo "Multiple local SHAs found for pattern ${pattern}:" >&2
+              echo "${sha}" >&2
+              exit 1
+            fi
+            echo "${sha}"
+          }
+
+          failures=0
+
+          checkout_expected="$(resolve_tag_commit "actions/checkout" "v6")"
+          checkout_pinned="$(resolve_local_pin 'uses:[[:space:]]*actions/checkout@[a-f0-9]{40}')"
+          if [[ "${checkout_pinned}" != "${checkout_expected}" ]]; then
+            echo "Pin drift: actions/checkout"
+            echo "  pinned:   ${checkout_pinned}"
+            echo "  expected: ${checkout_expected} (v6)"
+            failures=1
+          else
+            echo "OK: actions/checkout matches v6 (${checkout_expected})"
+          fi
+
+          codeql_expected="$(resolve_tag_commit "github/codeql-action" "v4")"
+          codeql_pinned="$(resolve_local_pin 'uses:[[:space:]]*github/codeql-action/(init|analyze)@[a-f0-9]{40}')"
+          if [[ "${codeql_pinned}" != "${codeql_expected}" ]]; then
+            echo "Pin drift: github/codeql-action (init/analyze)"
+            echo "  pinned:   ${codeql_pinned}"
+            echo "  expected: ${codeql_expected} (v4)"
+            failures=1
+          else
+            echo "OK: github/codeql-action matches v4 (${codeql_expected})"
+          fi
+
+          if [[ "${failures}" -ne 0 ]]; then
+            echo "One or more workflow action pins have drifted."
+            exit 1
+          fi
