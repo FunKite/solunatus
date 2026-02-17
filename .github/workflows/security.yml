@@ -42,7 +42,7 @@ jobs:
               echo "Non-SHA-pinned action reference: ${file}:${line}: ${text}"
               bad=1
             fi
-          done < <(grep -RInE '^[[:space:]]*uses:[[:space:]]*[^[:space:]]+@[^[:space:]]+$' .github/workflows)
+          done < <(grep -RInE '^[[:space:]]*(-[[:space:]]*)?uses:[[:space:]]*[^[:space:]]+@[^[:space:]]+$' .github/workflows)
           if [[ "$bad" -ne 0 ]]; then
             echo "One or more workflow actions are not pinned to commit SHAs."
             exit 1
