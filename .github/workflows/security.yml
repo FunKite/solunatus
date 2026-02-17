@@ -1,0 +1,47 @@
+name: Security
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  Rust Security Audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Run cargo audit
+        run: cargo audit
+
+  Security Workflow Audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Ensure workflow actions are SHA pinned
+        run: |
+          set -euo pipefail
+          bad=0
+          while IFS=: read -r file line text; do
+            if [[ ! "$text" =~ @([a-f0-9]{40})$ ]]; then
+              echo "Non-SHA-pinned action reference: ${file}:${line}: ${text}"
+              bad=1
+            fi
+          done < <(grep -RInE '^[[:space:]]*uses:[[:space:]]*[^[:space:]]+@[^[:space:]]+$' .github/workflows)
+          if [[ "$bad" -ne 0 ]]; then
+            echo "One or more workflow actions are not pinned to commit SHAs."
+            exit 1
+          fi

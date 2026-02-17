@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Dependencies**: Updated `clap` to 4.5.58 (Dependabot PR #29)
+- **CI**: Added Rust CI and security workflows with SHA-pinned actions and required checks (`Build`, `Clippy`, `Rustfmt`, `Feature Tests`, `Documentation`, `Rust Security Audit`, `Security Workflow Audit`)
+- **Security**: Hardened GitHub Actions policy to selected actions with SHA pinning required
+
+### Added
+- **Developer Safety**: Added `scripts/safe_local_test.sh` for safer local testing (offline by default, credential scrubbing, isolated target directory)
 
 ## [0.3.3] - Unreleased
 
