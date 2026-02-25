@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **CI**: Updated `github/codeql-action` from 4.32.3 to 4.32.4 (Dependabot PR #34)
+
 ## [0.3.3] - 2026-02-17
 
 ### Changed
