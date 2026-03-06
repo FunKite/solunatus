@@ -34,9 +34,15 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "daily"
       time: "09:00"
+    open-pull-requests-limit: 3
     labels:
       - "dependencies"
       - "ci"
+    reviewers:
+      - "FunKite"
+    groups:
+      workflow-dependencies:
+        patterns:
+          - "*"
