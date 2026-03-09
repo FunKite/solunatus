@@ -94,9 +94,9 @@ jobs:
             fi
           }
 
-          check_case "San Diego" "2026-01-15" "san-diego"
-          check_case "Reykjavik" "2026-03-21" "reykjavik"
-          check_case "Sydney" "2026-12-21" "sydney"
+          while IFS='|' read -r city date slug; do
+            check_case "${city}" "${date}" "${slug}"
+          done < <(./scripts/usno_drift_cases.sh)
 
           echo ""
           echo "USNO drift validation gates passed."

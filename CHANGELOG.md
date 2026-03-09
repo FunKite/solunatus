@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **CI**: Refreshed `github/codeql-action` pinned SHAs to the current `v4` tag and kept the drift gate aligned
 - **CI**: Tightened Dependabot GitHub Actions updates to run daily with grouped maintainer-reviewed workflow pin PRs
+- **CI**: Moved the Reykjavik USNO drift validation case off a seasonal boundary date and extracted USNO drift cases into `scripts/usno_drift_cases.sh` for easier maintenance
 - **Dependencies**: Updated `clap` to 4.5.60 and `anyhow` to 1.0.102 (Dependabot PR #35)
 - **Dependencies**: Updated `chrono` to 0.4.44 (supersedes Dependabot PR #36)
 
