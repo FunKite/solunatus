@@ -25,17 +25,10 @@ fn main() -> Result<()> {
     // Load or create configuration
     let mut config = config::Config::load().ok().flatten();
 
-    // Check system clock against authoritative source (unless explicitly skipped)
-    let skip_time_sync = env::var("SOLUNATUS_SKIP_TIME_SYNC").is_ok();
-    let time_sync_info = if skip_time_sync {
-        time_sync::TimeSyncInfo {
-            source: time_sync::PRIMARY_SOURCE_LABEL.to_string(),
-            delta: None,
-            error: Some("time sync skipped by SOLUNATUS_SKIP_TIME_SYNC".into()),
-        }
-    } else {
-        time_sync::check_time_sync()
-    };
+    // Check system clock against authoritative source unless disabled by env/config.
+    let env_skips_time_sync = env::var("SOLUNATUS_SKIP_TIME_SYNC").is_ok();
+    let (time_sync_info, time_sync_disabled, time_sync_server) =
+        resolve_time_sync_state(config.as_ref(), env_skips_time_sync);
 
     #[cfg(feature = "ai-insights")]
     let mut ai_config = ai::AiConfig::from_args(&args)?;
@@ -183,10 +176,6 @@ fn main() -> Result<()> {
         println!("{}", json);
     } else if args.should_watch() {
         // Interactive watch mode
-        let time_sync_server = config
-            .as_ref()
-            .map(|cfg| cfg.time_sync.server.clone())
-            .unwrap_or_default();
         #[cfg(feature = "ai-insights")]
         let app_config = tui::AppConfig {
             location,
@@ -198,8 +187,8 @@ fn main() -> Result<()> {
                 .map(|cfg| cfg.location_mode)
                 .unwrap_or(solunatus::config::LocationMode::City),
             time_sync: time_sync_info.clone(),
-            time_sync_disabled: skip_time_sync,
-            time_sync_server,
+            time_sync_disabled,
+            time_sync_server: time_sync_server.clone(),
             ai_config: ai_config.clone(),
             watch_prefs: config.as_ref().map(|cfg| cfg.watch.clone()),
         };
@@ -214,8 +203,8 @@ fn main() -> Result<()> {
                 .map(|cfg| cfg.location_mode)
                 .unwrap_or(solunatus::config::LocationMode::City),
             time_sync: time_sync_info.clone(),
-            time_sync_disabled: skip_time_sync,
-            time_sync_server,
+            time_sync_disabled,
+            time_sync_server: time_sync_server.clone(),
             watch_prefs: config.as_ref().map(|cfg| cfg.watch.clone()),
         };
         run_watch_mode(app_config)?;
@@ -244,20 +233,100 @@ fn main() -> Result<()> {
 
     // Save config if requested
     if !args.should_watch() && !args.no_save {
-        if let Some(cfg) = config {
-            let _ = cfg.save();
-        } else {
-            let new_config = config::Config::new(
-                location.latitude.value(),
-                location.longitude.value(),
-                timezone.name().to_string(),
-                city_name,
-            );
-            let _ = new_config.save();
-        }
+        let saved_config = build_saved_config(
+            config.as_ref(),
+            &location,
+            &timezone,
+            city_name,
+            location_source,
+        );
+        let _ = saved_config.save();
     }
 
     Ok(())
+}
+
+fn resolve_time_sync_state(
+    config: Option<&config::Config>,
+    env_skips_time_sync: bool,
+) -> (time_sync::TimeSyncInfo, bool, String) {
+    let configured_server = config
+        .map(|cfg| cfg.time_sync.server.trim().to_string())
+        .unwrap_or_default();
+    let configured_enabled = config.map(|cfg| cfg.time_sync.enabled).unwrap_or(true);
+
+    if env_skips_time_sync {
+        return (
+            time_sync::TimeSyncInfo {
+                source: display_time_sync_source(&configured_server),
+                delta: None,
+                error: Some("time sync skipped by SOLUNATUS_SKIP_TIME_SYNC".into()),
+            },
+            true,
+            configured_server,
+        );
+    }
+
+    if !configured_enabled {
+        return (
+            time_sync::TimeSyncInfo {
+                source: display_time_sync_source(&configured_server),
+                delta: None,
+                error: Some("time sync disabled in saved config".into()),
+            },
+            true,
+            configured_server,
+        );
+    }
+
+    let server = if configured_server.is_empty() {
+        None
+    } else {
+        Some(configured_server.as_str())
+    };
+
+    (
+        time_sync::check_time_sync_with_servers(server),
+        false,
+        configured_server,
+    )
+}
+
+fn display_time_sync_source(configured_server: &str) -> String {
+    if configured_server.is_empty() {
+        time_sync::PRIMARY_SOURCE_LABEL.to_string()
+    } else {
+        configured_server.to_string()
+    }
+}
+
+fn build_saved_config(
+    existing: Option<&config::Config>,
+    location: &astro::Location,
+    timezone: &Tz,
+    city_name: Option<String>,
+    location_source: LocationSource,
+) -> config::Config {
+    let mut saved = existing.cloned().unwrap_or_else(|| {
+        config::Config::new(
+            location.latitude.value(),
+            location.longitude.value(),
+            timezone.name().to_string(),
+            city_name.clone(),
+        )
+    });
+
+    saved.lat = location.latitude.value();
+    saved.lon = location.longitude.value();
+    saved.tz = timezone.name().to_string();
+    saved.city = city_name;
+    saved.location_mode = match location_source {
+        LocationSource::ManualCli => config::LocationMode::Manual,
+        LocationSource::CityDatabase => config::LocationMode::City,
+        LocationSource::SavedConfig => saved.location_mode,
+    };
+
+    saved
 }
 
 fn determine_location(

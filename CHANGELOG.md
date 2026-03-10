@@ -10,9 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **CI**: Refreshed `github/codeql-action` pinned SHAs to the current `v4` tag and kept the drift gate aligned
 - **CI**: Tightened Dependabot GitHub Actions updates to run daily with grouped maintainer-reviewed workflow pin PRs
-- **CI**: Moved the Reykjavik USNO drift validation case off a seasonal boundary date and extracted USNO drift cases into `scripts/usno_drift_cases.sh` for easier maintenance
+- **CI**: Moved the Reykjavik USNO drift validation case off a seasonal boundary date, extracted USNO drift cases into `scripts/usno_drift_cases.sh` for easier maintenance, and hardened the workflow to fail closed if the case list cannot be loaded
+- **CLI**: Non-watch runs now honor saved time-sync settings and persist explicit `--city` / `--lat` / `--lon` location changes back to the user config
 - **Dependencies**: Updated `clap` to 4.5.60 and `anyhow` to 1.0.102 (Dependabot PR #35)
 - **Dependencies**: Updated `chrono` to 0.4.44 (supersedes Dependabot PR #36)
+
+### Security
+- **Dependencies**: Updated `quinn-proto` to 0.11.14 to remediate RustSec advisory `RUSTSEC-2026-0037`
 
 ## [0.3.3] - 2026-02-17
 

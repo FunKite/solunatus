@@ -94,9 +94,23 @@ jobs:
             fi
           }
 
-          while IFS='|' read -r city date slug; do
+          if ! drift_cases_raw="$(./scripts/usno_drift_cases.sh)"; then
+            echo "Failed to load USNO drift validation cases" >&2
+            exit 1
+          fi
+          if [[ -z "${drift_cases_raw}" ]]; then
+            echo "USNO drift validation case list is empty" >&2
+            exit 1
+          fi
+
+          while IFS= read -r drift_case; do
+            IFS='|' read -r city date slug <<<"${drift_case}"
+            if [[ -z "${city}" || -z "${date}" || -z "${slug}" ]]; then
+              echo "Invalid USNO drift validation case: ${drift_case}" >&2
+              exit 1
+            fi
             check_case "${city}" "${date}" "${slug}"
-          done < <(./scripts/usno_drift_cases.sh)
+          done <<<"${drift_cases_raw}"
 
           echo ""
           echo "USNO drift validation gates passed."
