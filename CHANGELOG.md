@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - **Dependencies**: Updated `quinn-proto` to 0.11.14 to remediate RustSec advisory `RUSTSEC-2026-0037`
+- **Dependencies**: Updated `rustls-webpki` to 0.103.10 to remediate GHSA-pwjx-qhcg-rvj4 (supersedes Dependabot PR #43)
 
 ## [0.3.3] - 2026-02-17
 
