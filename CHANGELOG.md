@@ -13,10 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: Moved the Reykjavik USNO drift validation case off a seasonal boundary date, extracted USNO drift cases into `scripts/usno_drift_cases.sh` for easier maintenance, and hardened the workflow to fail closed if the case list cannot be loaded
 - **CLI**: Non-watch runs now honor saved time-sync settings and persist explicit `--city` / `--lat` / `--lon` location changes back to the user config
 - **Dependencies**: Updated `clap` to 4.5.60 and `anyhow` to 1.0.102 (Dependabot PR #35)
+- **Dependencies**: Updated `clap` to 4.6.0 (supersedes Dependabot PR #42)
 - **Dependencies**: Updated `chrono` to 0.4.44 (supersedes Dependabot PR #36)
 
 ### Security
 - **Dependencies**: Updated `quinn-proto` to 0.11.14 to remediate RustSec advisory `RUSTSEC-2026-0037`
+- **Dependencies**: Updated `rustls-webpki` to 0.103.10 to remediate GHSA-pwjx-qhcg-rvj4 (supersedes Dependabot PR #43)
 
 ## [0.3.3] - 2026-02-17
 
