@@ -4,10 +4,13 @@ Get your development environment ready for building Solunatus from source.
 
 ## Prerequisites
 
-- **Rust 1.70+** - [Install Rust](https://www.rust-lang.org/tools/install)
+- **Latest stable Rust recommended** - [Install Rust](https://www.rust-lang.org/tools/install)
+- **Minimum supported Rust version: 1.91**
 - **Git** - Version control
 - **Text editor or IDE** - VS Code recommended
 - **macOS, Linux, or Windows** with development tools
+
+Solunatus targets the latest stable Rust release and supports stable Rust releases from the last 6 months.
 
 ## Installing Rust
 

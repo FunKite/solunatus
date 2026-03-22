@@ -21,9 +21,12 @@ See [Quick Start Guide](quick-start.md) for detailed steps.
 ### 1. Build from Source (Recommended for Developers)
 
 **Requirements:**
-- Rust 1.70 or later
+- Latest stable Rust recommended
+- Minimum supported Rust version: 1.91
 - Cargo (included with Rust)
 - Git
+
+Solunatus targets the latest stable Rust release and supports stable Rust releases from the last 6 months.
 
 **Steps:**
 
