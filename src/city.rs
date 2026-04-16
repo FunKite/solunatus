@@ -190,7 +190,7 @@ impl CityDatabase {
         }
 
         // Sort by score descending (highest scores first)
-        results.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+        results.sort_unstable_by_key(|entry| std::cmp::Reverse(entry.1));
         results
     }
 }

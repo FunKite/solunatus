@@ -411,7 +411,7 @@ pub fn lunar_phases(year: i32, month: u32) -> Vec<LunarPhase> {
         }
     }
 
-    phases.sort_by(|a, b| a.datetime.cmp(&b.datetime));
+    phases.sort_by_key(|a| a.datetime);
     phases.dedup_by(|a, b| a.datetime == b.datetime && a.phase_type == b.phase_type);
     phases
 }

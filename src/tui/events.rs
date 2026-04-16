@@ -51,12 +51,10 @@ fn handle_watch_mode_keys(app: &mut App, key: KeyEvent) -> Result<()> {
             app.reports_selected_item = super::app::ReportsMenuItem::Calendar;
         }
         #[cfg(feature = "ai-insights")]
-        KeyCode::Char('f') | KeyCode::Char('F') => {
+        KeyCode::Char('f') | KeyCode::Char('F') if app.ai_config.enabled => {
             // Fetch AI insights manually
-            if app.ai_config.enabled {
-                app.refresh_ai_insights();
-                app.set_status_message("Refreshing AI insights...");
-            }
+            app.refresh_ai_insights();
+            app.set_status_message("Refreshing AI insights...");
         }
         _ => {}
     }
@@ -127,39 +125,29 @@ fn handle_settings_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                 app.probe_ai_server_for_settings();
             }
         }
-        KeyCode::Left =>
-        {
-            #[cfg(feature = "ai-insights")]
-            if app.settings_draft.current_field() == SettingsField::AiModel {
-                app.cycle_ai_model_in_settings(-1);
-            }
+        #[cfg(feature = "ai-insights")]
+        KeyCode::Left if app.settings_draft.current_field() == SettingsField::AiModel => {
+            app.cycle_ai_model_in_settings(-1);
         }
-        KeyCode::Right =>
-        {
-            #[cfg(feature = "ai-insights")]
-            if app.settings_draft.current_field() == SettingsField::AiModel {
-                app.cycle_ai_model_in_settings(1);
-            }
+        KeyCode::Left => {}
+        #[cfg(feature = "ai-insights")]
+        KeyCode::Right if app.settings_draft.current_field() == SettingsField::AiModel => {
+            app.cycle_ai_model_in_settings(1);
+        }
+        KeyCode::Right => {}
+        #[cfg(feature = "ai-insights")]
+        KeyCode::Char('[') if app.settings_draft.current_field() == SettingsField::AiModel => {
+            app.cycle_ai_model_in_settings(-1);
         }
         KeyCode::Char('[') => {
-            #[cfg(feature = "ai-insights")]
-            if app.settings_draft.current_field() == SettingsField::AiModel {
-                app.cycle_ai_model_in_settings(-1);
-            }
-            #[cfg(not(feature = "ai-insights"))]
-            {
-                app.settings_draft.input_char('[');
-            }
+            app.settings_draft.input_char('[');
+        }
+        #[cfg(feature = "ai-insights")]
+        KeyCode::Char(']') if app.settings_draft.current_field() == SettingsField::AiModel => {
+            app.cycle_ai_model_in_settings(1);
         }
         KeyCode::Char(']') => {
-            #[cfg(feature = "ai-insights")]
-            if app.settings_draft.current_field() == SettingsField::AiModel {
-                app.cycle_ai_model_in_settings(1);
-            }
-            #[cfg(not(feature = "ai-insights"))]
-            {
-                app.settings_draft.input_char(']');
-            }
+            app.settings_draft.input_char(']');
         }
         KeyCode::Char(' ') => {
             let current = app.settings_draft.current_field();
@@ -362,16 +350,14 @@ fn handle_calendar_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         KeyCode::BackTab | KeyCode::Up => {
             app.calendar_draft.prev_field();
         }
-        KeyCode::Left => {
-            if app.calendar_draft.current_field() == CalendarField::Format {
-                app.calendar_draft.cycle_format(-1);
-            }
+        KeyCode::Left if app.calendar_draft.current_field() == CalendarField::Format => {
+            app.calendar_draft.cycle_format(-1);
         }
-        KeyCode::Right => {
-            if app.calendar_draft.current_field() == CalendarField::Format {
-                app.calendar_draft.cycle_format(1);
-            }
+        KeyCode::Left => {}
+        KeyCode::Right if app.calendar_draft.current_field() == CalendarField::Format => {
+            app.calendar_draft.cycle_format(1);
         }
+        KeyCode::Right => {}
         KeyCode::Char(' ') => {
             if app.calendar_draft.current_field() == CalendarField::Format {
                 app.calendar_draft.cycle_format(1);
