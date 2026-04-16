@@ -282,7 +282,7 @@ impl App {
         phases.extend(moon::lunar_phases(prev_year, prev_month));
         phases.extend(moon::lunar_phases(year, month));
         phases.extend(moon::lunar_phases(next_year, next_month));
-        phases.sort_by(|a, b| a.datetime.cmp(&b.datetime));
+        phases.sort_by_key(|a| a.datetime);
         phases.dedup_by(|a, b| a.datetime == b.datetime && a.phase_type == b.phase_type);
         phases
     }
@@ -657,10 +657,8 @@ impl App {
                     self.ai_config_draft.reset_detection();
                 }
             }
-            AiConfigField::Server => {
-                if self.ai_config_draft.enabled {
-                    self.probe_ai_server_for_draft();
-                }
+            AiConfigField::Server if self.ai_config_draft.enabled => {
+                self.probe_ai_server_for_draft();
             }
             _ => {}
         }

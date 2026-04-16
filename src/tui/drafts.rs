@@ -723,10 +723,10 @@ impl SettingsDraft {
                 self.ai_model.push(c);
             }
             #[cfg(feature = "ai-insights")]
-            SettingsField::AiRefreshMinutes => {
-                if c.is_ascii_digit() && self.ai_refresh_minutes.len() < 2 {
-                    self.ai_refresh_minutes.push(c);
-                }
+            SettingsField::AiRefreshMinutes
+                if c.is_ascii_digit() && self.ai_refresh_minutes.len() < 2 =>
+            {
+                self.ai_refresh_minutes.push(c);
             }
             _ => {}
         }
