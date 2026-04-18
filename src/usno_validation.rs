@@ -193,7 +193,6 @@ fn fetch_usno_data_with_policy(
         location.latitude.value(),
         location.longitude.value()
     );
-    let url = format!("{}?date={}&coords={}", USNO_API_BASE, date_str, coords);
     let client = reqwest::blocking::Client::builder()
         .timeout(policy.timeout)
         .build()
@@ -201,7 +200,13 @@ fn fetch_usno_data_with_policy(
 
     let mut last_error = None;
     for attempt in 1..=policy.attempts {
-        match client.get(&url).send() {
+        // Keep the endpoint fixed and attach the required query parameters via reqwest
+        // so we do not manually construct a full URL containing location data.
+        match client
+            .request(reqwest::Method::GET, USNO_API_BASE)
+            .query(&[("date", date_str.as_str()), ("coords", coords.as_str())])
+            .send()
+        {
             Ok(response) => {
                 let status = response.status();
                 if !status.is_success() {
@@ -233,13 +238,13 @@ fn fetch_usno_data_with_policy(
                     }
                     continue;
                 }
-                return Err(err).with_context(|| format!("Failed to fetch USNO data from {}", url));
+                return Err(err).context("Failed to fetch USNO data from USNO API");
             }
         }
     }
 
     Err(last_error.unwrap_or_else(|| anyhow!("USNO request exhausted retries")))
-        .with_context(|| format!("Failed to fetch USNO data from {}", url))
+        .context("Failed to fetch USNO data from USNO API")
 }
 
 fn fetch_primary_usno_data(location: &Location, date: &DateTime<Tz>) -> Result<UsnoData> {
