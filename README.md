@@ -27,6 +27,12 @@ Solunatus runs offline for core calculations and supports historical/future date
 
 Solunatus targets the latest stable Rust release for active development. The current release line supports stable Rust versions compatible with `rust-version = "1.91"`, and that floor may rise in a minor release when security, dependency compatibility, or maintainability require it. If you need an older Rust toolchain, use an older Solunatus release that still supports it.
 
+To upgrade an existing installation from crates.io:
+
+```bash
+cargo install solunatus --force
+```
+
 ### From crates.io
 
 ```bash
@@ -150,7 +156,7 @@ Add dependency:
 
 ```toml
 [dependencies]
-solunatus = "0.3.2"
+solunatus = "0.4.0"
 chrono = "0.4"
 chrono-tz = "0.10"
 ```
@@ -197,6 +203,16 @@ CLI settings are saved to:
 ```
 
 Use `--no-save` to avoid writing configuration.
+
+## Releases
+
+Crates.io is the supported distribution channel for published releases:
+
+```bash
+cargo install solunatus
+```
+
+GitHub Releases are used for tags and release notes for each published version. They should not be treated as a guaranteed source of fresh binary artifacts unless a specific release explicitly says otherwise.
 
 ## Development
 

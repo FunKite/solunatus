@@ -131,7 +131,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-solunatus = "0.2"
+solunatus = "0.4.0"
 chrono = "0.4"
 chrono-tz = "0.10"
 ```

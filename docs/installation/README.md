@@ -62,18 +62,20 @@ If you want to use Solunatus as a library in your Rust project:
 
 ```toml
 [dependencies]
-solunatus = "0.2"
+solunatus = "0.4.0"
 chrono = "0.4"
 chrono-tz = "0.10"
 ```
 
 See the [examples directory](../../examples/) for usage patterns.
 
-### 3. Download Pre-built Binary (Linux)
+### 3. Review GitHub Release Notes
 
-Pre-built binaries for Linux are available on the [GitHub Releases](https://github.com/FunKite/solunatus/releases) page.
+GitHub Releases are used for tags and release notes for published versions:
 
-Check the releases page for available architectures and download instructions.
+- [GitHub Releases](https://github.com/FunKite/solunatus/releases)
+
+Installable releases are published on crates.io. Do not assume a GitHub Release includes fresh binary artifacts unless that specific release explicitly documents them.
 
 ## Platform Support
 
