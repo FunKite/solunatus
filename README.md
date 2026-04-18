@@ -25,7 +25,7 @@ Solunatus runs offline for core calculations and supports historical/future date
 
 ## Install
 
-Solunatus targets the latest stable Rust release and supports stable Rust releases from the last 6 months. The current minimum supported Rust version is `1.91`.
+Solunatus targets the latest stable Rust release for active development. The current release line supports stable Rust versions compatible with `rust-version = "1.91"`, and that floor may rise in a minor release when security, dependency compatibility, or maintainability require it. If you need an older Rust toolchain, use an older Solunatus release that still supports it.
 
 ### From crates.io
 

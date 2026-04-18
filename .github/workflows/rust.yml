@@ -23,6 +23,22 @@ jobs:
       - name: Build
         run: cargo build --verbose --locked
 
+  msrv:
+    name: MSRV (1.91)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+        with:
+          toolchain: 1.91.1
+      - name: Build with MSRV
+        run: cargo build --verbose --locked
+      - name: Test default features with MSRV
+        run: cargo test --verbose --locked
+      - name: Test all features with MSRV
+        run: cargo test --verbose --all-features --locked
+
   clippy:
     name: Clippy
     runs-on: ubuntu-latest

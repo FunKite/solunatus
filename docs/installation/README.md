@@ -26,7 +26,7 @@ See [Quick Start Guide](quick-start.md) for detailed steps.
 - Cargo (included with Rust)
 - Git
 
-Solunatus targets the latest stable Rust release and supports stable Rust releases from the last 6 months.
+Solunatus targets the latest stable Rust release for active development. The current release line supports stable Rust versions compatible with `rust-version = "1.91"`, and that floor may rise in a minor release when security, dependency compatibility, or maintainability require it. If you need an older Rust toolchain, use an older Solunatus release that still supports it.
 
 **Steps:**
 
