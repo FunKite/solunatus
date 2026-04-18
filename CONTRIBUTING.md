@@ -57,20 +57,6 @@ Clear documentation benefits everyone.
 
 ---
 
-## Maintainer Dependency Policy
-
-Solunatus aims to **minimize dependencies where feasible without negatively impacting the program**.
-
-This means:
-
-- New dependencies should provide clear, durable value relative to their maintenance cost.
-- Mature, high-value dependencies may be kept when replacing them would increase complexity or risk.
-- If a dependency is lightly used and its behavior is simple, equivalent in-tree code may be preferred when that reduces long-term maintenance burden.
-- Optional or default-enabled dependency features should **not** be pruned automatically when users may rely on them. Any such pruning should be treated as a product decision and confirmed with the maintainer first.
-- Dependency reduction should prioritize maintainability, user experience, release stability, and security over dependency count alone.
-
----
-
 ## Can I Use Solunatus in My Own Project?
 
 **Yes!** Solunatus is MIT licensed. You're free to:

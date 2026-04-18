@@ -2,6 +2,7 @@
 //!
 //! Handles loading, saving, and managing user configuration including
 //! location preferences, AI settings, and time synchronization.
+
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};

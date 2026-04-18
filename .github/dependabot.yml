@@ -46,7 +46,3 @@ updates:
       workflow-dependencies:
         patterns:
           - "*"
-    ignore:
-      # Dependabot's github-actions updater is currently erroring on this action.
-      # Keep the rest of the workflow dependency updates enabled.
-      - dependency-name: "dtolnay/rust-toolchain"
