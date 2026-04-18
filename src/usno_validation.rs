@@ -42,8 +42,28 @@ use chrono::{DateTime, Duration as ChronoDuration, NaiveDate, NaiveTime, TimeZon
 use chrono_tz::Tz;
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::{thread, time::Duration};
 
 const USNO_API_BASE: &str = "https://aa.usno.navy.mil/api/rstt/oneday";
+
+#[derive(Clone, Copy)]
+struct UsnoFetchPolicy {
+    attempts: u32,
+    timeout: Duration,
+    retry_delay: Duration,
+}
+
+const USNO_PRIMARY_FETCH_POLICY: UsnoFetchPolicy = UsnoFetchPolicy {
+    attempts: 3,
+    timeout: Duration::from_secs(10),
+    retry_delay: Duration::from_secs(1),
+};
+
+const USNO_CONTEXT_FETCH_POLICY: UsnoFetchPolicy = UsnoFetchPolicy {
+    attempts: 1,
+    timeout: Duration::from_secs(3),
+    retry_delay: Duration::from_secs(0),
+};
 
 #[derive(Debug, Deserialize)]
 struct UsnoResponse {
@@ -161,28 +181,78 @@ pub struct ValidationReport {
     pub results: Vec<ValidationResult>,
 }
 
-/// Fetch USNO data for the given location and date
-fn fetch_usno_data(location: &Location, date: &DateTime<Tz>) -> Result<UsnoData> {
+/// Fetch USNO data for the given location and date using a bounded retry policy.
+fn fetch_usno_data_with_policy(
+    location: &Location,
+    date: &DateTime<Tz>,
+    policy: UsnoFetchPolicy,
+) -> Result<UsnoData> {
     let date_str = date.format("%Y-%m-%d").to_string();
     let coords = format!(
         "{:.5},{:.5}",
         location.latitude.value(),
         location.longitude.value()
     );
-    let url = format!("{}?date={}&coords={}", USNO_API_BASE, date_str, coords);
+    let client = reqwest::blocking::Client::builder()
+        .timeout(policy.timeout)
+        .build()
+        .context("Failed to build USNO HTTP client")?;
 
-    let response = reqwest::blocking::get(&url)
-        .with_context(|| format!("Failed to fetch USNO data from {}", url))?;
+    let mut last_error = None;
+    for attempt in 1..=policy.attempts {
+        // Keep the endpoint fixed and attach the required query parameters via reqwest
+        // so we do not manually construct a full URL containing location data.
+        match client
+            .request(reqwest::Method::GET, USNO_API_BASE)
+            .query(&[("date", date_str.as_str()), ("coords", coords.as_str())])
+            .send()
+        {
+            Ok(response) => {
+                let status = response.status();
+                if !status.is_success() {
+                    if attempt < policy.attempts
+                        && (status.is_server_error() || status.as_u16() == 429)
+                    {
+                        last_error = Some(anyhow!("USNO API returned error: {}", status));
+                        if policy.retry_delay > Duration::from_secs(0) {
+                            thread::sleep(policy.retry_delay);
+                        }
+                        continue;
+                    }
+                    return Err(anyhow!("USNO API returned error: {}", status));
+                }
 
-    if !response.status().is_success() {
-        return Err(anyhow!("USNO API returned error: {}", response.status()));
+                let usno_response: UsnoResponse = response
+                    .json()
+                    .context("Failed to parse USNO JSON response")?;
+
+                return Ok(usno_response.properties.data);
+            }
+            Err(err) => {
+                if attempt < policy.attempts
+                    && (err.is_connect() || err.is_timeout() || err.is_request())
+                {
+                    last_error = Some(err.into());
+                    if policy.retry_delay > Duration::from_secs(0) {
+                        thread::sleep(policy.retry_delay);
+                    }
+                    continue;
+                }
+                return Err(err).context("Failed to fetch USNO data from USNO API");
+            }
+        }
     }
 
-    let usno_response: UsnoResponse = response
-        .json()
-        .context("Failed to parse USNO JSON response")?;
+    Err(last_error.unwrap_or_else(|| anyhow!("USNO request exhausted retries")))
+        .context("Failed to fetch USNO data from USNO API")
+}
 
-    Ok(usno_response.properties.data)
+fn fetch_primary_usno_data(location: &Location, date: &DateTime<Tz>) -> Result<UsnoData> {
+    fetch_usno_data_with_policy(location, date, USNO_PRIMARY_FETCH_POLICY)
+}
+
+fn fetch_context_usno_data(location: &Location, date: &DateTime<Tz>) -> Result<UsnoData> {
+    fetch_usno_data_with_policy(location, date, USNO_CONTEXT_FETCH_POLICY)
 }
 
 /// Parse USNO time string (HH:MM) as UTC and convert to local timezone
@@ -237,6 +307,33 @@ fn should_include_in_report(event_name: &str) -> bool {
         && !event_name.contains("Dark win")
 }
 
+fn insert_usno_events(
+    usno_events: &mut HashMap<(NaiveDate, String), DateTime<Tz>>,
+    usno_data: &UsnoData,
+    timezone: &Tz,
+) -> Result<()> {
+    let usno_date = NaiveDate::from_ymd_opt(usno_data.year, usno_data.month, usno_data.day)
+        .ok_or_else(|| anyhow!("Invalid USNO date"))?;
+
+    for event in &usno_data.sundata {
+        if let Some(event_name) = map_usno_event_name(&event.phen, true) {
+            if let Some(dt) = parse_usno_time_to_local(&event.time, usno_date, timezone) {
+                usno_events.insert((usno_date, event_name), dt);
+            }
+        }
+    }
+
+    for event in &usno_data.moondata {
+        if let Some(event_name) = map_usno_event_name(&event.phen, false) {
+            if let Some(dt) = parse_usno_time_to_local(&event.time, usno_date, timezone) {
+                usno_events.insert((usno_date, event_name), dt);
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Generate validation report comparing astrotimes calculations with USNO data
 pub fn generate_validation_report(
     location: &Location,
@@ -266,42 +363,20 @@ pub fn generate_validation_report(
         }
     }
 
-    // Determine date range to fetch USNO data for (yesterday, today, tomorrow)
-    // This ensures we have USNO data for all events in the ±13 hour window
-
-    // Fetch USNO data for all three days and build a map of events by date and name
+    // Fetch the primary day with bounded retries, then reuse it for both metadata and
+    // same-day event matching. Surrounding days are best-effort only.
     let mut usno_events: HashMap<(NaiveDate, String), DateTime<Tz>> = HashMap::new();
+    let usno_data =
+        fetch_primary_usno_data(location, date).context("Failed to fetch USNO reference data")?;
+    insert_usno_events(&mut usno_events, &usno_data, timezone)?;
 
-    for day_offset in -1..=1 {
+    for day_offset in [-1, 1] {
         let fetch_date = *date + ChronoDuration::days(day_offset);
 
-        if let Ok(usno_data) = fetch_usno_data(location, &fetch_date) {
-            let usno_date = NaiveDate::from_ymd_opt(usno_data.year, usno_data.month, usno_data.day)
-                .ok_or_else(|| anyhow!("Invalid USNO date"))?;
-
-            // Parse sun events
-            for event in &usno_data.sundata {
-                if let Some(event_name) = map_usno_event_name(&event.phen, true) {
-                    if let Some(dt) = parse_usno_time_to_local(&event.time, usno_date, timezone) {
-                        usno_events.insert((usno_date, event_name), dt);
-                    }
-                }
-            }
-
-            // Parse moon events
-            for event in &usno_data.moondata {
-                if let Some(event_name) = map_usno_event_name(&event.phen, false) {
-                    if let Some(dt) = parse_usno_time_to_local(&event.time, usno_date, timezone) {
-                        usno_events.insert((usno_date, event_name), dt);
-                    }
-                }
-            }
+        if let Ok(context_usno_data) = fetch_context_usno_data(location, &fetch_date) {
+            insert_usno_events(&mut usno_events, &context_usno_data, timezone)?;
         }
     }
-
-    // Fetch primary day data for metadata
-    let usno_data =
-        fetch_usno_data(location, date).context("Failed to fetch USNO reference data")?;
 
     let mut results = Vec::new();
 
@@ -381,6 +456,40 @@ pub fn generate_validation_report(
             .unwrap_or_else(|| "unknown".to_string()),
         results,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{UsnoFetchPolicy, USNO_CONTEXT_FETCH_POLICY, USNO_PRIMARY_FETCH_POLICY};
+    use std::time::Duration;
+
+    fn worst_case_wait(policy: UsnoFetchPolicy) -> Duration {
+        let attempts = u64::from(policy.attempts);
+        let retries = u64::from(policy.attempts.saturating_sub(1));
+        Duration::from_secs(
+            policy.timeout.as_secs() * attempts + policy.retry_delay.as_secs() * retries,
+        )
+    }
+
+    #[test]
+    fn context_fetch_is_fast_best_effort() {
+        assert_eq!(USNO_CONTEXT_FETCH_POLICY.attempts, 1);
+        assert_eq!(
+            worst_case_wait(USNO_CONTEXT_FETCH_POLICY),
+            Duration::from_secs(3)
+        );
+    }
+
+    #[test]
+    fn combined_report_budget_stays_bounded() {
+        let total_budget = worst_case_wait(USNO_PRIMARY_FETCH_POLICY)
+            + worst_case_wait(USNO_CONTEXT_FETCH_POLICY) * 2;
+        assert_eq!(
+            worst_case_wait(USNO_PRIMARY_FETCH_POLICY),
+            Duration::from_secs(32)
+        );
+        assert!(total_budget <= Duration::from_secs(38));
+    }
 }
 
 /// Generate HTML report from validation results
