@@ -1,199 +1,31 @@
-# PKG Installer - Installation Guide
+# PKG Installer Notes
 
-## Astrotimes v0.1.0 - macOS ARM64 PKG Installer
+This file is retained for historical context only.
 
-### What is a PKG?
+## Current Release Policy
 
-A `.pkg` file is a native macOS installer package that provides a GUI installation wizard. It's the standard way to install command-line tools on macOS.
+Solunatus does not currently treat macOS PKG installers as part of the default release flow. The standard modern release path is:
 
----
+1. Publish the crate on crates.io.
+2. Tag the matching version in GitHub.
+3. Create a GitHub Release with notes only unless a release explicitly includes packaged artifacts.
 
-## Installation Methods
+## Recommended Installation Paths
 
-### Method 1: Graphical Installation (Recommended)
-
-1. **Download the PKG:**
-   ```bash
-   curl -L https://github.com/FunKite/solunatus/releases/download/v0.1.0-beta/solunatus-0.1.0-macos-arm64.pkg -o solunatus.pkg
-   ```
-
-2. **Double-click** `solunatus.pkg` in Finder
-
-3. **Follow the installation wizard:**
-   - Click "Continue"
-   - Read and accept the license (if prompted)
-   - Click "Install"
-   - Enter your password when prompted (required to install to `/usr/local/bin`)
-   - Click "Close" when complete
-
-4. **Verify installation:**
-   ```bash
-   solunatus --help
-   ```
-
-### Method 2: Command-Line Installation
+Install or upgrade from crates.io:
 
 ```bash
-# Download
-curl -L https://github.com/FunKite/solunatus/releases/download/v0.1.0-beta/solunatus-0.1.0-macos-arm64.pkg -o solunatus.pkg
-
-# Install
-sudo installer -pkg solunatus.pkg -target /
-
-# Verify
-solunatus --help
+cargo install solunatus --force
 ```
 
----
-
-## Verification
-
-### Verify Download Integrity
+Or build from source:
 
 ```bash
-# Download checksum
-curl -L https://github.com/FunKite/solunatus/releases/download/v0.1.0-beta/solunatus-0.1.0-macos-arm64.pkg.sha256 -o checksum.sha256
-
-# Verify
-shasum -a 256 -c checksum.sha256
+git clone https://github.com/FunKite/solunatus.git
+cd solunatus
+cargo install --path .
 ```
 
-Expected output: `solunatus-0.1.0-macos-arm64.pkg: OK`
+## Historical Artifacts
 
-**SHA256:** `23ec07ccac1b62eb33cdbf51c8518a01be962e795f02ab300be51a8f62dade11`
-
----
-
-## What Gets Installed
-
-- **Binary:** `/usr/local/bin/solunatus`
-- **Documentation:** `/usr/local/bin/README.txt`
-- **Size:** 3.9 MB (binary)
-
-The installer automatically adds `/usr/local/bin` to your PATH, so `solunatus` will be immediately available after installation.
-
----
-
-## Uninstallation
-
-To uninstall solunatus:
-
-```bash
-sudo rm /usr/local/bin/solunatus
-sudo rm /usr/local/bin/README.txt
-
-# Optional: Remove configuration
-rm ~/.astro_times.json
-```
-
-Or use `pkgutil` to check what was installed:
-
-```bash
-# List installed files
-pkgutil --files com.funkite.solunatus
-
-# Uninstall (removes package receipt)
-sudo pkgutil --forget com.funkite.solunatus
-```
-
----
-
-## Security Notes
-
-### Unsigned Package Warning
-
-This package is **unsigned** because it doesn't have an Apple Developer ID certificate. When you try to install it, macOS may show:
-
-> "solunatus-0.1.0-macos-arm64.pkg" cannot be opened because it is from an unidentified developer.
-
-**To bypass this (macOS 13+):**
-1. Right-click the PKG file
-2. Select "Open With" → "Installer"
-3. Click "Open" in the security dialog
-
-**Alternative:**
-```bash
-sudo installer -pkg solunatus.pkg -target / -allowUntrusted
-```
-
-**Why unsigned?**
-- Apple Developer ID certificates cost $99/year
-- This is a beta/private release
-- You can verify the checksum to ensure integrity
-
----
-
-## Comparison: PKG vs Tarball
-
-| Feature | PKG | Tarball (.tar.gz) |
-|---------|-----|-------------------|
-| Installation | GUI wizard | Manual copy |
-| PATH setup | Automatic | Manual |
-| Uninstallation | `pkgutil --forget` | Manual delete |
-| Root required | Yes | Only if installing to /usr/local/bin |
-| macOS native | Yes | No |
-| File size | 1.4 MB | 1.4 MB |
-
-**Recommendation:** Use PKG for simplest installation. Use tarball if you want more control over installation location.
-
----
-
-## Troubleshooting
-
-### "Package does not exist"
-- Ensure you downloaded the complete file (1.4 MB)
-- Try re-downloading
-
-### "Installation failed"
-- Check you have admin privileges
-- Ensure `/usr/local/bin` exists: `sudo mkdir -p /usr/local/bin`
-- Try command-line installation with verbose output:
-  ```bash
-  sudo installer -pkg solunatus.pkg -target / -verbose
-  ```
-
-### "Command not found" after installation
-- Verify installation: `ls -la /usr/local/bin/solunatus`
-- Check PATH: `echo $PATH | grep /usr/local/bin`
-- Restart terminal or run: `source ~/.zshrc`
-
----
-
-## System Requirements
-
-- **macOS:** 11.0 (Big Sur) or later
-- **Processor:** Apple Silicon (M1/M2/M3)
-- **Architecture:** ARM64
-- **Disk Space:** ~4 MB
-
-**Intel Macs:** This PKG is for Apple Silicon only. Build from source for Intel Macs.
-
----
-
-## Getting Started
-
-After installation:
-
-```bash
-# Auto-detect location
-solunatus
-
-# Specify a city
-solunatus --city "Tokyo"
-
-# Use coordinates
-solunatus --lat 40.7128 --lon=-74.0060
-
-# JSON output
-solunatus --city "Paris" --json
-
-# Help
-solunatus --help
-```
-
----
-
-**Release:** v0.1.0-beta (Pre-release)
-**Package ID:** com.funkite.solunatus
-**Created:** October 8, 2025
-**Built with:** Rust + Claude Code
+Older PKG and tarball assets under `dist/` were produced for earlier experiments and should not be treated as the supported install path for current releases.

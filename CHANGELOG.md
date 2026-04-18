@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-18
+
 ### Changed
 - **CI**: Refreshed `github/codeql-action` pinned SHAs to the current `v4` tag and kept the drift gate aligned
 - **CI**: Tightened Dependabot GitHub Actions updates to run daily with grouped maintainer-reviewed workflow pin PRs
