@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Dependencies**: Updated transitive `rand` 0.8.x usage to 0.8.6 to remediate GHSA-cq8v-f236-94qc / RUSTSEC-2026-0097 (supersedes Dependabot PR #55)
+
 ## [0.4.0] - 2026-04-18
 
 ### Changed
