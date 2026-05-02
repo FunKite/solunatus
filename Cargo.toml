@@ -62,7 +62,7 @@ anyhow = "1.0"
 dirs = "5.0"
 
 # Parallel processing (optional)
-rayon = { version = "1.10", optional = true }
+rayon = { version = "1.12", optional = true }
 
 # CPU Feature Flags for different architectures
 [features]
