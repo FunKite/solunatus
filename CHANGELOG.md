@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dependencies**: Bumped `clap` to 4.6.1 and `rayon` to 1.12.0 via the production-dependencies group (Dependabot PR #58)
+- **CI**: Refreshed `github/codeql-action` pinned SHA progression 4.35.2 → 4.35.3 → 4.35.4 → 4.35.5 (Dependabot PRs #59, #60, #61) to stay aligned with the tracked `v4` tag
+
 ### Security
 - **Dependencies**: Updated transitive `rand` 0.8.x usage to 0.8.6 to remediate GHSA-cq8v-f236-94qc / RUSTSEC-2026-0097 (supersedes Dependabot PR #55)
+- **Dependencies**: Updated `rustls-webpki` to 0.103.13 (Dependabot PR #56)
 
 ## [0.4.0] - 2026-04-18
 
