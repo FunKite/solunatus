@@ -93,6 +93,10 @@ fn main() -> Result<()> {
         } else {
             println!("{}", calendar_output);
         }
+
+        // Calendar generation is a terminal one-shot mode; don't fall through
+        // into validation/JSON/watch handling below.
+        return Ok(());
     }
     #[cfg(feature = "usno-validation")]
     if args.validate {
@@ -342,7 +346,8 @@ fn determine_location(
             .find_exact(city_name)
             .ok_or_else(|| anyhow!("City '{}' not found in database", city_name))?;
 
-        let location = astro::Location::new_unchecked(city.lat, city.lon);
+        let location = astro::Location::new(city.lat, city.lon)
+            .map_err(|e| anyhow!("City '{}' has invalid coordinates: {}", city.name, e))?;
         let tz: Tz = city.tz.parse()?;
         return Ok((
             location,
@@ -365,7 +370,13 @@ fn determine_location(
 
     // Check config file
     if let Some(cfg) = config {
-        let location = astro::Location::new_unchecked(cfg.lat, cfg.lon);
+        let location = astro::Location::new(cfg.lat, cfg.lon).map_err(|e| {
+            anyhow!(
+                "Saved configuration has invalid coordinates ({}); \
+                 fix or delete ~/.solunatus.json, or pass --lat/--lon/--tz or --city",
+                e
+            )
+        })?;
         let tz: Tz = cfg.tz.parse()?;
         return Ok((location, tz, cfg.city.clone(), LocationSource::SavedConfig));
     }
@@ -375,11 +386,40 @@ fn determine_location(
     ))
 }
 
+/// Restore the terminal to its normal state (leave raw mode / alternate screen).
+///
+/// Safe to call multiple times and on a terminal that is already restored.
+fn restore_terminal() -> io::Result<()> {
+    disable_raw_mode()?;
+    execute!(io::stdout(), LeaveAlternateScreen, crossterm::cursor::Show)?;
+    Ok(())
+}
+
+/// RAII guard that restores the terminal on every exit path of `run_watch_mode`,
+/// including early `?` returns.
+struct TerminalGuard;
+
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        let _ = restore_terminal();
+    }
+}
+
 fn run_watch_mode(config: tui::AppConfig) -> Result<()> {
+    // Restore the terminal before the default panic handler prints, so a panic
+    // inside the render/event loop can't leave the user's shell in raw mode.
+    let original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = restore_terminal();
+        original_hook(info);
+    }));
+
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
+    // From here on, the guard guarantees the terminal is restored on any return.
+    let _guard = TerminalGuard;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -428,11 +468,7 @@ fn run_watch_mode(config: tui::AppConfig) -> Result<()> {
         }
     }
 
-    // Restore terminal
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
-
+    // `_guard` restores the terminal (raw mode, alternate screen, cursor) on drop.
     Ok(())
 }
 

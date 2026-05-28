@@ -3,7 +3,7 @@ use solunatus::benchmark;
 
 fn main() {
     println!("Running benchmark across all cities...");
-    println!("");
+    println!();
 
     let result = benchmark::run_benchmark();
 
@@ -28,7 +28,7 @@ fn main() {
     );
 
     if !result.failed_cities.is_empty() {
-        println!("");
+        println!();
         println!("Failed cities: {}", result.failed_cities.len());
         for failed in result.failed_cities.iter().take(5) {
             println!("  - {}", failed);
@@ -39,7 +39,7 @@ fn main() {
     }
 
     // Generate HTML report
-    println!("");
+    println!();
     println!("Generating HTML report...");
     let html = benchmark::generate_html_report(&result);
     let filename = "benchmark_test.html";

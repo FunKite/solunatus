@@ -317,6 +317,33 @@ fn fetch_delta(custom_server: Option<&str>) -> anyhow::Result<(ChronoDuration, S
     Err(last_err.unwrap_or_else(|| anyhow!("all time sources failed")))
 }
 
+const NTP_UNIX_OFFSET: i64 = 2_208_988_800; // Seconds between 1900-01-01 and 1970-01-01
+
+/// Encode a UTC instant as a 64-bit NTP timestamp (32-bit seconds + 32-bit fraction).
+fn ntp_timestamp_bytes(instant: DateTime<Utc>) -> [u8; 8] {
+    let seconds = (instant.timestamp() + NTP_UNIX_OFFSET) as u32;
+    let fraction =
+        (((instant.timestamp_subsec_nanos() as u64) << 32) / 1_000_000_000u64) as u32;
+    let mut bytes = [0u8; 8];
+    bytes[..4].copy_from_slice(&seconds.to_be_bytes());
+    bytes[4..].copy_from_slice(&fraction.to_be_bytes());
+    bytes
+}
+
+/// Decode a 64-bit NTP timestamp from a packet field into a UTC instant.
+fn ntp_timestamp_to_utc(field: &[u8]) -> Option<DateTime<Utc>> {
+    let seconds = u32::from_be_bytes([field[0], field[1], field[2], field[3]]);
+    let fraction = u32::from_be_bytes([field[4], field[5], field[6], field[7]]);
+    let unix_seconds = seconds as i64 - NTP_UNIX_OFFSET;
+    if unix_seconds < 0 {
+        return None;
+    }
+    let nanos = ((fraction as u128) * 1_000_000_000u128 / (1u128 << 32)) as u32;
+    Utc.timestamp_opt(unix_seconds, nanos).single()
+}
+
+/// Returns the server time corrected for round-trip delay, evaluated at the moment
+/// the client received the reply (so the caller can compare against `Utc::now()`).
 fn query_ntp(server: &str) -> anyhow::Result<chrono::DateTime<Utc>> {
     let socket =
         UdpSocket::bind("0.0.0.0:0").context("failed to bind local UDP socket for time sync")?;
@@ -326,38 +353,63 @@ fn query_ntp(server: &str) -> anyhow::Result<chrono::DateTime<Utc>> {
     socket
         .set_write_timeout(Some(StdDuration::from_secs(3)))
         .context("failed to set write timeout")?;
+    // Connect so the kernel only delivers datagrams from this server, rejecting
+    // off-path injected replies.
+    socket
+        .connect(server)
+        .with_context(|| format!("failed to connect to {}", server))?;
 
     let mut packet = [0u8; 48];
     packet[0] = 0b00_100_011; // LI = 0, VN = 4, Mode = 3 (client)
 
+    // Stamp our transmit time as the originate timestamp; the server echoes it
+    // back, letting us reject stale or spoofed replies and measure round-trip time.
+    let t1 = Utc::now();
+    let originate = ntp_timestamp_bytes(t1);
+    packet[40..48].copy_from_slice(&originate);
+
     socket
-        .send_to(&packet, server)
+        .send(&packet)
         .with_context(|| format!("failed to send request to {}", server))?;
 
     let mut response = [0u8; 48];
-    let (len, _) = socket
-        .recv_from(&mut response)
+    let len = socket
+        .recv(&mut response)
         .with_context(|| format!("failed to receive response from {}", server))?;
+    let t4 = Utc::now();
 
     if len < 48 {
         return Err(anyhow!("incomplete NTP response ({} bytes)", len));
     }
 
-    let seconds = u32::from_be_bytes([response[40], response[41], response[42], response[43]]);
-    let fraction = u32::from_be_bytes([response[44], response[45], response[46], response[47]]);
-
-    const NTP_UNIX_OFFSET: i64 = 2_208_988_800; // Seconds between 1900-01-01 and 1970-01-01
-    let unix_seconds = seconds as i64 - NTP_UNIX_OFFSET;
-
-    if unix_seconds < 0 {
-        return Err(anyhow!("invalid NTP timestamp (pre-1970)"));
+    // Reject non-server replies and Kiss-o'-Death packets (stratum 0).
+    let mode = response[0] & 0b0000_0111;
+    if mode != 4 || response[1] == 0 {
+        return Err(anyhow!("unexpected NTP reply (mode {}, stratum {})", mode, response[1]));
     }
 
-    let nanos = ((fraction as u128) * 1_000_000_000u128 / (1u128 << 32)) as u32;
+    // The server must echo our originate timestamp in bytes 24..32.
+    if response[24..32] != originate {
+        return Err(anyhow!("NTP reply originate timestamp mismatch (possible spoof)"));
+    }
 
-    Utc.timestamp_opt(unix_seconds, nanos)
-        .single()
-        .ok_or_else(|| anyhow!("invalid timestamp from {}", server))
+    let t2 = ntp_timestamp_to_utc(&response[32..40])
+        .ok_or_else(|| anyhow!("invalid receive timestamp from {}", server))?;
+    let t3 = ntp_timestamp_to_utc(&response[40..48])
+        .ok_or_else(|| anyhow!("invalid transmit timestamp from {}", server))?;
+
+    // Clock offset (server - client) = ((T2 - T1) + (T3 - T4)) / 2.
+    let d1 = t2
+        .signed_duration_since(t1)
+        .num_nanoseconds()
+        .ok_or_else(|| anyhow!("NTP offset overflow"))?;
+    let d2 = t3
+        .signed_duration_since(t4)
+        .num_nanoseconds()
+        .ok_or_else(|| anyhow!("NTP offset overflow"))?;
+    let offset = ChronoDuration::nanoseconds((d1 + d2) / 2);
+
+    Ok(t4 + offset)
 }
 
 impl TimeSyncInfo {
@@ -400,10 +452,10 @@ impl TimeSyncInfo {
 
 fn summarize_error(err: &str) -> String {
     const MAX_LEN: usize = 60;
-    if err.len() <= MAX_LEN {
+    if err.chars().count() <= MAX_LEN {
         err.to_string()
     } else {
-        let truncated = &err[..MAX_LEN];
+        let truncated: String = err.chars().take(MAX_LEN).collect();
         format!("{}…", truncated.trim_end())
     }
 }
