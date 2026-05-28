@@ -494,3 +494,41 @@ fn format_lon(lon: f64) -> String {
         format!("{:.4}° W", -lon)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::astro::moon;
+    use chrono_tz::America::New_York;
+
+    /// The calendar must report the same moonrise/moonset as the canonical
+    /// `lunar_event_time` algorithm. This guards against reintroducing a separate
+    /// (and historically divergent) "optimized" calendar code path.
+    #[test]
+    fn calendar_lunar_events_match_canonical() {
+        let location = Location::new(40.7128, -74.0060).unwrap();
+        let tz = New_York;
+        let date = NaiveDate::from_ymd_opt(2025, 10, 15).unwrap();
+
+        let json =
+            generate_calendar(&location, &tz, Some("New York"), date, date, CalendarFormat::Json)
+                .unwrap();
+
+        let midday = resolve_midday(&tz, date).unwrap();
+
+        for (event, key) in [
+            (moon::LunarEvent::Moonrise, "moonrise"),
+            (moon::LunarEvent::Moonset, "moonset"),
+        ] {
+            let expected = moon::lunar_event_time(&location, &midday, event);
+            let needle = match expected {
+                Some(dt) => format!("\"{}\": \"{}\"", key, dt.format("%H:%M")),
+                None => format!("\"{}\": null", key),
+            };
+            assert!(
+                json.contains(&needle),
+                "calendar {key} should match canonical ({needle}); json:\n{json}"
+            );
+        }
+    }
+}

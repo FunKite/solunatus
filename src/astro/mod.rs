@@ -15,15 +15,9 @@
 //! - [`units`] - Type-safe angle and coordinate units
 //! - [`coordinates`] - Coordinate system transformations
 //! - [`time_utils`] - Time and Julian Day utilities
-//! - [`simd_math`] - SIMD-optimized mathematical operations
-//! - [`m1_optimizations`] - Apple Silicon specific optimizations
-//! - [`moon_batch_optimized`] - Batch lunar calculations with parallelization
 
 pub mod coordinates;
-pub mod m1_optimizations;
 pub mod moon;
-pub mod moon_batch_optimized;
-pub mod simd_math;
 pub mod sun;
 pub mod time_utils;
 pub mod units;

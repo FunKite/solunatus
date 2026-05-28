@@ -8,7 +8,6 @@
 //! - **NOAA Solar Calculations**: Sunrise, sunset, solar noon, and twilight times (civil, nautical, astronomical)
 //! - **Meeus Lunar Algorithms**: Moonrise, moonset, lunar phases, and moon position
 //! - **High Precision**: Matches U.S. Naval Observatory data within ±1-2 minutes
-//! - **CPU Optimized**: SIMD and architecture-specific optimizations for tier 1 Rust targets
 //! - **City Database**: Built-in database of 570+ major cities worldwide
 //! - **Timezone Support**: Full timezone handling via `chrono-tz`
 //!
@@ -76,13 +75,8 @@
 //!
 //! ## Architecture Support
 //!
-//! Solunatus is optimized for all Rust tier 1 targets:
-//!
-//! - **x86_64**: SSE2 baseline, AVX2 on capable CPUs
-//! - **aarch64**: NEON on Apple Silicon and ARM64 Linux
-//! - **i686**: Optimized for 32-bit x86
-//!
-//! Build with native CPU optimizations:
+//! Solunatus is portable Rust and runs on all Rust tier 1 targets. To let the
+//! compiler take advantage of the host CPU's instruction set, build with:
 //!
 //! ```bash
 //! RUSTFLAGS="-C target-cpu=native" cargo build --release
@@ -106,8 +100,6 @@ pub mod time_sync;
 pub mod usno_validation;
 
 // Internal modules (used by binary - not part of public API)
-#[doc(hidden)]
-pub mod calendar_optimized;
 #[doc(hidden)]
 pub mod cli;
 #[doc(hidden)]
@@ -328,13 +320,10 @@ pub fn get_lunar_phases_for_month(year: i32, month: u32) -> Result<Vec<LunarPhas
 ///
 /// let results = batch_calculate(&location, &dates);
 /// ```
-pub fn batch_calculate<Tz: TimeZone>(
+pub fn batch_calculate<Tz: TimeZone + Clone>(
     location: &Location,
     dates: &[DateTime<Tz>],
-) -> Vec<BatchResult<Tz>>
-where
-    Tz: Clone,
-{
+) -> Vec<BatchResult<Tz>> {
     dates
         .iter()
         .map(|date| {

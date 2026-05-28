@@ -127,12 +127,8 @@ For full CLI docs, see [`docs/features/cli-reference.md`](docs/features/cli-refe
 ## Optional Features
 
 Default features:
-- `cpu-portable`
 - `usno-validation`
 - `ai-insights`
-
-Non-default feature:
-- `parallel` (Rayon-based parallel processing)
 
 Examples:
 
@@ -145,9 +141,6 @@ cargo install solunatus --no-default-features --features usno-validation
 
 # AI insights only
 cargo install solunatus --no-default-features --features ai-insights
-
-# Add parallel processing
-cargo install solunatus --features parallel
 ```
 
 ## Library Usage
