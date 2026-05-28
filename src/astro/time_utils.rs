@@ -17,10 +17,7 @@ pub fn format_duration_detailed(duration: Duration) -> String {
 }
 
 /// Calculate time until an event
-pub fn time_until<T: TimeZone>(from: &DateTime<T>, to: &DateTime<T>) -> Duration
-where
-    T: Clone,
-{
+pub fn time_until<T: TimeZone + Clone>(from: &DateTime<T>, to: &DateTime<T>) -> Duration {
     to.clone().signed_duration_since(from.clone())
 }
 

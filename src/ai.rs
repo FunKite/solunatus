@@ -62,6 +62,7 @@ use crate::astro::{self, coordinates};
 use crate::time_sync::{self, TimeSyncInfo};
 
 const DEFAULT_TIMEOUT_SECS: u64 = 15;
+const MAX_TIMEOUT_SECS: u64 = 120;
 const USER_AGENT: &str = "Solunatus AI Insights";
 const ERROR_SUMMARY_LIMIT: usize = 120;
 
@@ -560,16 +561,17 @@ pub fn fetch_insights(config: &AiConfig, data: &AiData) -> Result<AiOutcome> {
     }
 
     let prompt = build_prompt(data)?;
-    let desired_timeout = if config.refresh > StdDuration::from_secs(1) {
-        config.refresh - StdDuration::from_secs(1)
-    } else {
-        StdDuration::from_secs(DEFAULT_TIMEOUT_SECS)
-    };
-    let timeout = if desired_timeout >= StdDuration::from_secs(DEFAULT_TIMEOUT_SECS) {
-        desired_timeout
-    } else {
-        StdDuration::from_secs(DEFAULT_TIMEOUT_SECS)
-    };
+    // Derive a per-request timeout from the refresh interval, but keep it within
+    // sane bounds so a long refresh interval can't make a single request block
+    // for many minutes (which would stall the watch-mode refresh path).
+    let desired_timeout = config
+        .refresh
+        .saturating_sub(StdDuration::from_secs(1))
+        .clamp(
+            StdDuration::from_secs(DEFAULT_TIMEOUT_SECS),
+            StdDuration::from_secs(MAX_TIMEOUT_SECS),
+        );
+    let timeout = desired_timeout;
 
     let client =
         build_secure_http_client(timeout).context("failed to construct HTTP client for Ollama")?;
@@ -626,10 +628,10 @@ fn build_prompt(data: &AiData) -> Result<String> {
 }
 
 fn summarize_error(message: &str) -> String {
-    if message.len() <= ERROR_SUMMARY_LIMIT {
+    if message.chars().count() <= ERROR_SUMMARY_LIMIT {
         message.to_string()
     } else {
-        let mut truncated = message[..ERROR_SUMMARY_LIMIT].to_string();
+        let mut truncated: String = message.chars().take(ERROR_SUMMARY_LIMIT).collect();
         truncated.push('…');
         truncated
     }

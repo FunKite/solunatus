@@ -7,14 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Tests**: Added a regression test that locks calendar moonrise/moonset output to the canonical `lunar_event_time` algorithm
+
 ### Changed
 - **Dependencies**: Bumped `clap` to 4.6.1 and `rayon` to 1.12.0 via the production-dependencies group (Dependabot PR #58)
 - **Dependencies**: Updated `serde_json` to 1.0.150 via the production-dependencies group (Dependabot PR #64)
 - **CI**: Refreshed `github/codeql-action` pinned SHA progression 4.35.2 → 4.35.3 → 4.35.4 → 4.35.5 → 4.36.0 (Dependabot PRs #59, #60, #61, #63) to stay aligned with the tracked `v4` tag
 
+### Fixed
+- **Calendar**: TUI calendar export now uses the same canonical lunar algorithm as the CLI, so both report identical moonrise/moonset times (the TUI previously used a separate "optimized" path that could return a different horizon crossing)
+- **CLI**: `--calendar` is now a terminal one-shot and no longer falls through into interactive watch mode after writing the file
+- **TUI**: Watch mode installs a panic hook and an RAII guard so the terminal (raw mode, alternate screen, cursor) is always restored on panics and early error returns, not just on the normal exit path
+- **Config**: Saved-config and city-database coordinates are validated on load; a corrupt `~/.solunatus.json` now fails fast with an actionable message instead of feeding invalid values into the calculations
+- **Stability**: Error-summary truncation in AI insights and time sync now respects UTF-8 char boundaries, fixing a potential panic on multi-byte characters
+
+### Removed
+- **Code Quality**: Removed unused/mislabeled optimization modules (`simd_math`, `m1_optimizations`, `moon_batch_optimized`, `calendar_optimized`) and the excluded `src/bin/*` benchmark binaries (~3,400 lines)
+- **Build**: Dropped the no-op `cpu-*`, `benchmarks`, and `parallel` Cargo features and the now-unused `rayon` dependency
+
 ### Security
+- **Time Sync**: Hardened the NTP client to connect the socket (source filtering), set and verify the originate timestamp to reject off-path/stale replies, and use the standard round-trip-corrected offset formula
+- **Validation**: HTML-escaped externally-sourced fields (city name, USNO API values) in the USNO validation report to prevent markup injection
+- **AI Insights**: Capped the per-request Ollama timeout so a long refresh interval can no longer make a single request block for many minutes
 - **Dependencies**: Updated transitive `rand` 0.8.x usage to 0.8.6 to remediate GHSA-cq8v-f236-94qc / RUSTSEC-2026-0097 (supersedes Dependabot PR #55)
 - **Dependencies**: Updated `rustls-webpki` to 0.103.13 (Dependabot PR #56)
+
 
 ## [0.4.0] - 2026-04-18
 

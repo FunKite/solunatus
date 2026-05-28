@@ -458,38 +458,15 @@ pub fn generate_validation_report(
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{UsnoFetchPolicy, USNO_CONTEXT_FETCH_POLICY, USNO_PRIMARY_FETCH_POLICY};
-    use std::time::Duration;
-
-    fn worst_case_wait(policy: UsnoFetchPolicy) -> Duration {
-        let attempts = u64::from(policy.attempts);
-        let retries = u64::from(policy.attempts.saturating_sub(1));
-        Duration::from_secs(
-            policy.timeout.as_secs() * attempts + policy.retry_delay.as_secs() * retries,
-        )
-    }
-
-    #[test]
-    fn context_fetch_is_fast_best_effort() {
-        assert_eq!(USNO_CONTEXT_FETCH_POLICY.attempts, 1);
-        assert_eq!(
-            worst_case_wait(USNO_CONTEXT_FETCH_POLICY),
-            Duration::from_secs(3)
-        );
-    }
-
-    #[test]
-    fn combined_report_budget_stays_bounded() {
-        let total_budget = worst_case_wait(USNO_PRIMARY_FETCH_POLICY)
-            + worst_case_wait(USNO_CONTEXT_FETCH_POLICY) * 2;
-        assert_eq!(
-            worst_case_wait(USNO_PRIMARY_FETCH_POLICY),
-            Duration::from_secs(32)
-        );
-        assert!(total_budget <= Duration::from_secs(38));
-    }
+/// Escape text for safe inclusion in HTML so that externally-sourced values
+/// (city names, USNO API fields) cannot inject markup into the report.
+fn escape_html(input: &str) -> String {
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
 }
 
 /// Generate HTML report from validation results
@@ -542,7 +519,7 @@ pub fn generate_html_report(report: &ValidationReport) -> String {
     ));
     html.push_str(&format!(
         "<div class=\"info-label\">USNO API Version:</div><div>{}</div>\n",
-        report.usno_apiversion
+        escape_html(&report.usno_apiversion)
     ));
     html.push_str(&format!(
         "<div class=\"info-label\">Date:</div><div>{}</div>\n",
@@ -555,7 +532,7 @@ pub fn generate_html_report(report: &ValidationReport) -> String {
     if let Some(ref city) = report.city_name {
         html.push_str(&format!(
             "<div class=\"info-label\">Location:</div><div>{}</div>\n",
-            city
+            escape_html(city)
         ));
     }
     html.push_str(&format!(
@@ -654,14 +631,14 @@ pub fn generate_html_report(report: &ValidationReport) -> String {
             .unwrap_or_else(|| "—".to_string());
 
         html.push_str(&format!("<tr class=\"{}\">\n", row_class));
-        html.push_str(&format!("<td>{}</td>\n", result.event_name));
+        html.push_str(&format!("<td>{}</td>\n", escape_html(&result.event_name)));
         html.push_str(&format!(
             "<td>{}</td>\n",
-            result.astrotimes_value.as_deref().unwrap_or("—")
+            escape_html(result.astrotimes_value.as_deref().unwrap_or("—"))
         ));
         html.push_str(&format!(
             "<td>{}</td>\n",
-            result.usno_value.as_deref().unwrap_or("—")
+            escape_html(result.usno_value.as_deref().unwrap_or("—"))
         ));
         html.push_str(&format!("<td>{}</td>\n", diff_text));
         html.push_str(&format!(
@@ -686,4 +663,49 @@ pub fn generate_html_report(report: &ValidationReport) -> String {
     html.push_str("</body>\n</html>\n");
 
     html
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        escape_html, UsnoFetchPolicy, USNO_CONTEXT_FETCH_POLICY, USNO_PRIMARY_FETCH_POLICY,
+    };
+    use std::time::Duration;
+
+    fn worst_case_wait(policy: UsnoFetchPolicy) -> Duration {
+        let attempts = u64::from(policy.attempts);
+        let retries = u64::from(policy.attempts.saturating_sub(1));
+        Duration::from_secs(
+            policy.timeout.as_secs() * attempts + policy.retry_delay.as_secs() * retries,
+        )
+    }
+
+    #[test]
+    fn context_fetch_is_fast_best_effort() {
+        assert_eq!(USNO_CONTEXT_FETCH_POLICY.attempts, 1);
+        assert_eq!(
+            worst_case_wait(USNO_CONTEXT_FETCH_POLICY),
+            Duration::from_secs(3)
+        );
+    }
+
+    #[test]
+    fn combined_report_budget_stays_bounded() {
+        let total_budget = worst_case_wait(USNO_PRIMARY_FETCH_POLICY)
+            + worst_case_wait(USNO_CONTEXT_FETCH_POLICY) * 2;
+        assert_eq!(
+            worst_case_wait(USNO_PRIMARY_FETCH_POLICY),
+            Duration::from_secs(32)
+        );
+        assert!(total_budget <= Duration::from_secs(38));
+    }
+
+    #[test]
+    fn escape_html_neutralizes_markup() {
+        assert_eq!(
+            escape_html("<script>alert('x')</script>"),
+            "&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;"
+        );
+        assert_eq!(escape_html("A & B"), "A &amp; B");
+    }
 }

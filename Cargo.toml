@@ -61,19 +61,8 @@ anyhow = "1.0"
 # System directories
 dirs = "5.0"
 
-# Parallel processing (optional)
-rayon = { version = "1.12", optional = true }
-
-# CPU Feature Flags for different architectures
 [features]
-default = ["cpu-portable", "usno-validation", "ai-insights"]
-cpu-portable = []            # Portable baseline (no CPU-specific features)
-cpu-native = []              # Native CPU with available features
-cpu-avx2 = []                # AVX2 for Intel/AMD x86_64
-cpu-neon = []                # NEON for ARM64 (Apple Silicon, etc.)
-cpu-sve = []                 # SVE for high-end ARM64
-parallel = ["dep:rayon"]     # Use rayon for parallelization
-benchmarks = []              # Build benchmark binaries (not installed by default)
+default = ["usno-validation", "ai-insights"]
 
 # Optional Features (require reqwest)
 usno-validation = ["dep:reqwest"]  # USNO API validation (--validate flag, 'r' key)
@@ -132,29 +121,3 @@ opt-level = 2
 [profile.bench]
 inherits = "release"
 debug = true
-
-# Benchmark binaries excluded from cargo install
-# These can still be built locally with: cargo build --bin <name>
-# [[bin]]
-# name = "accuracy_report"
-# path = "src/bin/accuracy_report.rs"
-#
-# [[bin]]
-# name = "perf_benchmark"
-# path = "src/bin/perf_benchmark.rs"
-#
-# [[bin]]
-# name = "simd_benchmark"
-# path = "src/bin/simd_benchmark.rs"
-#
-# [[bin]]
-# name = "m1_max_benchmark"
-# path = "src/bin/m1_max_benchmark.rs"
-#
-# [[bin]]
-# name = "moonrise_moonset_benchmark"
-# path = "src/bin/moonrise_moonset_benchmark.rs"
-#
-# [[bin]]
-# name = "calendar_benchmark"
-# path = "src/bin/calendar_benchmark.rs"
