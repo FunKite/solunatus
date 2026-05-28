@@ -61,12 +61,18 @@ anyhow = "1.0"
 # System directories
 dirs = "5.0"
 
+# Data parallelism for calendar generation (optional)
+rayon = { version = "1.12", optional = true }
+
 [features]
 default = ["usno-validation", "ai-insights"]
 
 # Optional Features (require reqwest)
 usno-validation = ["dep:reqwest"]  # USNO API validation (--validate flag, 'r' key)
 ai-insights = ["dep:reqwest"]      # Ollama AI integration (--ai-insights flag, 'a' key)
+
+# Parallelize multi-day calendar generation across CPU cores (uses rayon)
+parallel = ["dep:rayon"]
 
 # Standard release profile (all platforms) - Portable baseline
 [profile.release]
