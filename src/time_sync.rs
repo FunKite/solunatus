@@ -322,8 +322,7 @@ const NTP_UNIX_OFFSET: i64 = 2_208_988_800; // Seconds between 1900-01-01 and 19
 /// Encode a UTC instant as a 64-bit NTP timestamp (32-bit seconds + 32-bit fraction).
 fn ntp_timestamp_bytes(instant: DateTime<Utc>) -> [u8; 8] {
     let seconds = (instant.timestamp() + NTP_UNIX_OFFSET) as u32;
-    let fraction =
-        (((instant.timestamp_subsec_nanos() as u64) << 32) / 1_000_000_000u64) as u32;
+    let fraction = (((instant.timestamp_subsec_nanos() as u64) << 32) / 1_000_000_000u64) as u32;
     let mut bytes = [0u8; 8];
     bytes[..4].copy_from_slice(&seconds.to_be_bytes());
     bytes[4..].copy_from_slice(&fraction.to_be_bytes());
@@ -385,12 +384,18 @@ fn query_ntp(server: &str) -> anyhow::Result<chrono::DateTime<Utc>> {
     // Reject non-server replies and Kiss-o'-Death packets (stratum 0).
     let mode = response[0] & 0b0000_0111;
     if mode != 4 || response[1] == 0 {
-        return Err(anyhow!("unexpected NTP reply (mode {}, stratum {})", mode, response[1]));
+        return Err(anyhow!(
+            "unexpected NTP reply (mode {}, stratum {})",
+            mode,
+            response[1]
+        ));
     }
 
     // The server must echo our originate timestamp in bytes 24..32.
     if response[24..32] != originate {
-        return Err(anyhow!("NTP reply originate timestamp mismatch (possible spoof)"));
+        return Err(anyhow!(
+            "NTP reply originate timestamp mismatch (possible spoof)"
+        ));
     }
 
     let t2 = ntp_timestamp_to_utc(&response[32..40])

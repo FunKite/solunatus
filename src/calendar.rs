@@ -510,9 +510,15 @@ mod tests {
         let tz = New_York;
         let date = NaiveDate::from_ymd_opt(2025, 10, 15).unwrap();
 
-        let json =
-            generate_calendar(&location, &tz, Some("New York"), date, date, CalendarFormat::Json)
-                .unwrap();
+        let json = generate_calendar(
+            &location,
+            &tz,
+            Some("New York"),
+            date,
+            date,
+            CalendarFormat::Json,
+        )
+        .unwrap();
 
         let midday = resolve_midday(&tz, date).unwrap();
 
