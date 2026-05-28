@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Performance**: New optional `parallel` Cargo feature parallelizes multi-day calendar generation across CPU cores via rayon, using the canonical per-day algorithm so results are identical to the single-threaded path
 - **Tests**: Added a regression test that locks calendar moonrise/moonset output to the canonical `lunar_event_time` algorithm
 
 ### Changed
@@ -24,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - **Code Quality**: Removed unused/mislabeled optimization modules (`simd_math`, `m1_optimizations`, `moon_batch_optimized`, `calendar_optimized`) and the excluded `src/bin/*` benchmark binaries (~3,400 lines)
-- **Build**: Dropped the no-op `cpu-*`, `benchmarks`, and `parallel` Cargo features and the now-unused `rayon` dependency
+- **Build**: Dropped the no-op `cpu-*` and `benchmarks` Cargo features
 
 ### Security
 - **Time Sync**: Hardened the NTP client to connect the socket (source filtering), set and verify the originate timestamp to reject off-path/stale replies, and use the standard round-trip-corrected offset formula

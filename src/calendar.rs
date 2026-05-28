@@ -184,19 +184,56 @@ fn collect_records(
     start: NaiveDate,
     end: NaiveDate,
 ) -> Result<Vec<DailyRecord>> {
-    let mut records = Vec::new();
+    let dates = enumerate_dates(start, end)?;
+    build_records(location, timezone, dates)
+}
+
+/// Materialize every date in `[start, end]` so the per-day work can be mapped
+/// (optionally in parallel) without re-deriving dates from an index.
+fn enumerate_dates(start: NaiveDate, end: NaiveDate) -> Result<Vec<NaiveDate>> {
+    let mut dates = Vec::new();
     let mut current = start;
 
     while current <= end {
-        let record = build_record(location, timezone, current)
-            .with_context(|| format!("Failed to compute ephemerides for {}", current))?;
-        records.push(record);
+        dates.push(current);
         current = current
             .checked_add_signed(Duration::days(1))
             .ok_or_else(|| anyhow!("Date overflow when iterating calendar range"))?;
     }
 
-    Ok(records)
+    Ok(dates)
+}
+
+#[cfg(feature = "parallel")]
+fn build_records(
+    location: &Location,
+    timezone: &Tz,
+    dates: Vec<NaiveDate>,
+) -> Result<Vec<DailyRecord>> {
+    use rayon::prelude::*;
+
+    dates
+        .into_par_iter()
+        .map(|date| {
+            build_record(location, timezone, date)
+                .with_context(|| format!("Failed to compute ephemerides for {}", date))
+        })
+        .collect()
+}
+
+#[cfg(not(feature = "parallel"))]
+fn build_records(
+    location: &Location,
+    timezone: &Tz,
+    dates: Vec<NaiveDate>,
+) -> Result<Vec<DailyRecord>> {
+    dates
+        .into_iter()
+        .map(|date| {
+            build_record(location, timezone, date)
+                .with_context(|| format!("Failed to compute ephemerides for {}", date))
+        })
+        .collect()
 }
 
 fn build_record(location: &Location, timezone: &Tz, date: NaiveDate) -> Result<DailyRecord> {
