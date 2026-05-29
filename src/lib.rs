@@ -109,17 +109,17 @@ pub mod tui;
 
 // Re-export key types at crate root for convenience
 pub use astro::{
-    julian_century, julian_day, normalize_degrees, normalize_degrees_signed, Location,
+    Location, julian_century, julian_day, normalize_degrees, normalize_degrees_signed,
 };
 pub use city::{City, CityDatabase};
 pub use config::Config;
 
 // Re-export essential astronomical types
 pub use astro::moon::{
-    lunar_event_time, lunar_phases, lunar_position, phase_emoji, phase_name, LunarEvent,
-    LunarPhase, LunarPhaseType, LunarPosition,
+    LunarEvent, LunarPhase, LunarPhaseType, LunarPosition, lunar_event_time, lunar_phases,
+    lunar_position, phase_emoji, phase_name,
 };
-pub use astro::sun::{solar_event_time, solar_noon, solar_position, SolarEvent, SolarPosition};
+pub use astro::sun::{SolarEvent, SolarPosition, solar_event_time, solar_noon, solar_position};
 
 /// Prelude module containing the most commonly used types and functions.
 ///
@@ -129,17 +129,17 @@ pub use astro::sun::{solar_event_time, solar_noon, solar_position, SolarEvent, S
 /// use solunatus::prelude::*;
 /// ```
 pub mod prelude {
+    pub use crate::astro::Location;
     pub use crate::astro::moon::{LunarEvent, LunarPhase, LunarPhaseType, LunarPosition};
     pub use crate::astro::sun::{SolarEvent, SolarPosition};
-    pub use crate::astro::Location;
     pub use crate::city::{City, CityDatabase};
 
     // Convenience functions
     pub use crate::{
-        batch_calculate, calculate_civil_dawn, calculate_civil_dusk, calculate_moonrise,
-        calculate_moonset, calculate_solar_noon, calculate_sunrise, calculate_sunset,
-        get_current_moon_phase, get_lunar_phases_for_month, lunar_position, solar_position,
-        BatchResult,
+        BatchResult, batch_calculate, calculate_civil_dawn, calculate_civil_dusk,
+        calculate_moonrise, calculate_moonset, calculate_solar_noon, calculate_sunrise,
+        calculate_sunset, get_current_moon_phase, get_lunar_phases_for_month, lunar_position,
+        solar_position,
     };
 }
 

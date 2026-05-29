@@ -26,7 +26,7 @@
 //! }
 //! ```
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use chrono::{DateTime, Duration as ChronoDuration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;

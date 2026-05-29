@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-29
+
 ### Added
 - **Performance**: New optional `parallel` Cargo feature parallelizes multi-day calendar generation across CPU cores via rayon, using the canonical per-day algorithm so results are identical to the single-threaded path
 - **Tests**: Added a regression test that locks calendar moonrise/moonset output to the canonical `lunar_event_time` algorithm
 
 ### Changed
+- **Toolchain**: Migrated the crate to the Rust 2024 edition (`edition = "2024"`); the `rust-version = "1.91"` floor already satisfies the 2024 edition requirement (Rust 1.85+)
+- **Code Quality**: Collapsed nested `if let` blocks into 2024-edition let-chains across the TUI and USNO validation modules, clearing the clippy warnings surfaced by the edition bump
 - **Dependencies**: Bumped `clap` to 4.6.1 and `rayon` to 1.12.0 via the production-dependencies group (Dependabot PR #58)
 - **Dependencies**: Updated `serde_json` to 1.0.150 via the production-dependencies group (Dependabot PR #64)
 - **CI**: Refreshed `github/codeql-action` pinned SHA progression 4.35.2 → 4.35.3 → 4.35.4 → 4.35.5 → 4.36.0 (Dependabot PRs #59, #60, #61, #63) to stay aligned with the tracked `v4` tag

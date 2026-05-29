@@ -7,11 +7,11 @@ use crate::astro::*;
 use crate::time_sync;
 use chrono::{Offset, Utc};
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
     widgets::{Block, Borders, Paragraph, Wrap},
-    Frame,
 };
 use std::borrow::Cow;
 
@@ -117,11 +117,7 @@ fn label_with_symbol(app: &App, symbol: &str, text: String) -> String {
 }
 
 fn symbol_prefix<'a>(app: &App, symbol: &'a str) -> &'a str {
-    if app.night_mode {
-        ""
-    } else {
-        symbol
-    }
+    if app.night_mode { "" } else { symbol }
 }
 
 fn strip_symbolic_prefix(text: &str) -> &str {
@@ -799,11 +795,7 @@ fn render_location_input(f: &mut Frame, app: &App) {
     };
 
     let marker = |field: LocationInputField| {
-        if field == current_field {
-            "► "
-        } else {
-            "  "
-        }
+        if field == current_field { "► " } else { "  " }
     };
 
     let lat_display = if draft.latitude.is_empty() {

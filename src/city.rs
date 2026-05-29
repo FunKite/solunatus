@@ -12,8 +12,8 @@
 //! - Distance and bearing calculations
 
 use anyhow::{Context, Result};
-use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::skim::SkimMatcherV2;
 use serde::{Deserialize, Serialize};
 
 /// Information about a city in the database.

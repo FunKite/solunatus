@@ -5,7 +5,7 @@
 
 use crate::calendar::CalendarFormat;
 use crate::config;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Datelike, Local, NaiveDate};
 use std::path::PathBuf;
 

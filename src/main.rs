@@ -6,15 +6,15 @@ use solunatus::{
     astro, calendar, city, cli, config, events, location_source, output, time_sync, tui,
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use chrono::{Datelike, Duration, Local, NaiveDate, Offset, TimeZone};
 use chrono_tz::Tz;
 use clap::Parser;
 use crossterm::{
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{backend::CrosstermBackend, Terminal};
+use ratatui::{Terminal, backend::CrosstermBackend};
 use std::{env, fs, io};
 
 use location_source::LocationSource;
