@@ -8,7 +8,7 @@
 use chrono::Local;
 use chrono_tz::America::Denver;
 use solunatus::astro::coordinates::azimuth_to_compass;
-use solunatus::astro::sun::{solar_event_time, SolarEvent};
+use solunatus::astro::sun::{SolarEvent, solar_event_time};
 use solunatus::prelude::*;
 
 fn main() {
@@ -104,19 +104,19 @@ fn main() {
     println!("─────────────────────────────────────");
 
     for hour in [6, 9, 12, 15, 18] {
-        if let Some(time) = now.date_naive().and_hms_opt(hour, 0, 0) {
-            if let Some(datetime) = time.and_local_timezone(Denver).single() {
-                let pos = solar_position(&location, &datetime);
-                if pos.altitude > -18.0 {
-                    // Only show if sun is above astronomical twilight
-                    println!(
-                        "{:02}:00    {:>6.1}°  {:>6.0}°  {}",
-                        hour,
-                        pos.altitude,
-                        pos.azimuth,
-                        azimuth_to_compass(pos.azimuth)
-                    );
-                }
+        if let Some(time) = now.date_naive().and_hms_opt(hour, 0, 0)
+            && let Some(datetime) = time.and_local_timezone(Denver).single()
+        {
+            let pos = solar_position(&location, &datetime);
+            if pos.altitude > -18.0 {
+                // Only show if sun is above astronomical twilight
+                println!(
+                    "{:02}:00    {:>6.1}°  {:>6.0}°  {}",
+                    hour,
+                    pos.altitude,
+                    pos.azimuth,
+                    azimuth_to_compass(pos.azimuth)
+                );
             }
         }
     }

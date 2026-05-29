@@ -5,7 +5,7 @@
 
 use crate::astro::moon::LunarPosition;
 use crate::astro::sun::SolarPosition;
-use crate::astro::{moon, sun, Location};
+use crate::astro::{Location, moon, sun};
 use chrono::DateTime;
 use chrono_tz::Tz;
 

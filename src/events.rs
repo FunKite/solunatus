@@ -6,7 +6,7 @@
 use chrono::{DateTime, Duration, TimeZone};
 use chrono_tz::Tz;
 
-use crate::astro::{moon, sun, Location};
+use crate::astro::{Location, moon, sun};
 
 #[derive(Clone, Copy)]
 enum EventSource {

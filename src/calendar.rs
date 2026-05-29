@@ -11,8 +11,8 @@
 //! - Supports BCE dates (year -999 = 1000 BCE)
 //! - Future dates up to year 3000
 
-use crate::astro::{moon, sun, Location};
-use anyhow::{anyhow, Context, Result};
+use crate::astro::{Location, moon, sun};
+use anyhow::{Context, Result, anyhow};
 use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc, Weekday};
 use chrono_tz::Tz;
 use serde::Serialize;

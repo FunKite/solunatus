@@ -9,10 +9,10 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use std::time::Duration;
 
 pub fn handle_events(app: &mut App, timeout: Duration) -> Result<()> {
-    if event::poll(timeout)? {
-        if let Event::Key(key) = event::read()? {
-            handle_key_event(app, key)?;
-        }
+    if event::poll(timeout)?
+        && let Event::Key(key) = event::read()?
+    {
+        handle_key_event(app, key)?;
     }
     Ok(())
 }
@@ -264,18 +264,17 @@ fn handle_location_input_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                                     app.location_source = LocationSource::ManualCli;
 
                                     // Find nearest city for reference
-                                    if let Ok(db) = crate::city::CityDatabase::load() {
-                                        if let Some((city, distance, bearing)) =
+                                    if let Ok(db) = crate::city::CityDatabase::load()
+                                        && let Some((city, distance, bearing)) =
                                             db.find_nearest(lat, lon)
-                                        {
-                                            let city_display = if let Some(ref state) = city.state {
-                                                format!("{},{}", city.name, state)
-                                            } else {
-                                                city.name.clone()
-                                            };
-                                            app.nearest_city_info =
-                                                Some((city_display, distance, bearing));
-                                        }
+                                    {
+                                        let city_display = if let Some(ref state) = city.state {
+                                            format!("{},{}", city.name, state)
+                                        } else {
+                                            city.name.clone()
+                                        };
+                                        app.nearest_city_info =
+                                            Some((city_display, distance, bearing));
                                     }
                                     // Check if we should return to settings
                                     if app.settings_draft.location_mode

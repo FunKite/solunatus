@@ -37,7 +37,7 @@
 
 use crate::astro::*;
 use crate::events;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Duration as ChronoDuration, NaiveDate, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use serde::Deserialize;
@@ -316,18 +316,18 @@ fn insert_usno_events(
         .ok_or_else(|| anyhow!("Invalid USNO date"))?;
 
     for event in &usno_data.sundata {
-        if let Some(event_name) = map_usno_event_name(&event.phen, true) {
-            if let Some(dt) = parse_usno_time_to_local(&event.time, usno_date, timezone) {
-                usno_events.insert((usno_date, event_name), dt);
-            }
+        if let Some(event_name) = map_usno_event_name(&event.phen, true)
+            && let Some(dt) = parse_usno_time_to_local(&event.time, usno_date, timezone)
+        {
+            usno_events.insert((usno_date, event_name), dt);
         }
     }
 
     for event in &usno_data.moondata {
-        if let Some(event_name) = map_usno_event_name(&event.phen, false) {
-            if let Some(dt) = parse_usno_time_to_local(&event.time, usno_date, timezone) {
-                usno_events.insert((usno_date, event_name), dt);
-            }
+        if let Some(event_name) = map_usno_event_name(&event.phen, false)
+            && let Some(dt) = parse_usno_time_to_local(&event.time, usno_date, timezone)
+        {
+            usno_events.insert((usno_date, event_name), dt);
         }
     }
 
@@ -668,7 +668,7 @@ pub fn generate_html_report(report: &ValidationReport) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        escape_html, UsnoFetchPolicy, USNO_CONTEXT_FETCH_POLICY, USNO_PRIMARY_FETCH_POLICY,
+        USNO_CONTEXT_FETCH_POLICY, USNO_PRIMARY_FETCH_POLICY, UsnoFetchPolicy, escape_html,
     };
     use std::time::Duration;
 

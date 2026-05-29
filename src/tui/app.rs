@@ -9,7 +9,7 @@ use crate::config::{self, WatchPreferences};
 use crate::events;
 use crate::location_source::LocationSource;
 use crate::time_sync::TimeSyncInfo;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveDate};
 use chrono_tz::Tz;
 use std::{
@@ -410,11 +410,11 @@ impl App {
     }
 
     fn expire_status_if_needed(&mut self) {
-        if let Some(timestamp) = self.status_timestamp {
-            if timestamp.elapsed() >= STATUS_TTL {
-                self.status_message = None;
-                self.status_timestamp = None;
-            }
+        if let Some(timestamp) = self.status_timestamp
+            && timestamp.elapsed() >= STATUS_TTL
+        {
+            self.status_message = None;
+            self.status_timestamp = None;
         }
     }
 
@@ -516,15 +516,15 @@ impl App {
         )?;
 
         let path = PathBuf::from(&output_path);
-        if let Some(parent) = path.parent() {
-            if !parent.as_os_str().is_empty() {
-                fs::create_dir_all(parent).with_context(|| {
-                    format!(
-                        "Unable to create calendar output directory {}",
-                        parent.display()
-                    )
-                })?;
-            }
+        if let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            fs::create_dir_all(parent).with_context(|| {
+                format!(
+                    "Unable to create calendar output directory {}",
+                    parent.display()
+                )
+            })?;
         }
 
         fs::write(&path, contents)

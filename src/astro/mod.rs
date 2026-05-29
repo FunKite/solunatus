@@ -26,7 +26,7 @@ use chrono::{DateTime, Datelike, TimeZone, Timelike};
 use units::{Latitude, Longitude};
 
 // Re-export commonly used types
-pub use units::{Altitude, Azimuth, Degrees, Radians, DEG_TO_RAD, RAD_TO_DEG};
+pub use units::{Altitude, Azimuth, DEG_TO_RAD, Degrees, RAD_TO_DEG, Radians};
 
 /// Location on Earth
 /// All calculations assume sea level (0m elevation) per USNO celestial navigation convention

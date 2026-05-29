@@ -49,7 +49,7 @@
 //! - Configurable timeouts prevent hanging on slow networks
 //! - Error messages are truncated to prevent log spam
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use reqwest::blocking::Client;
