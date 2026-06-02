@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Dependencies**: Refreshed `Cargo.lock` to the latest Rust 1.91–compatible versions as supply-chain hygiene, advancing the transitive TLS/HTTP stack behind the optional `usno-validation`/`ai-insights` (reqwest) features — `rustls` 0.23.34 → 0.23.40, `rustls-pki-types` 1.12.0 → 1.14.1, `hyper` 1.7.0 → 1.10.1, `hyper-rustls` 0.27.7 → 0.27.9, `tokio` 1.48.0 → 1.52.3, and `webpki-roots` 1.0.4 → 1.0.7 — alongside ~130 other transitive crates; `cargo audit` reports no known advisories across the resulting 322-crate dependency tree, and the build, clippy (`-D warnings`), rustfmt, and tests pass under default, `--all-features`, and `--no-default-features`
+
 ## [0.5.0] - 2026-05-29
 
 ### Added
