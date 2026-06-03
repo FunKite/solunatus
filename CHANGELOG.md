@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **CI**: Advanced the `github/codeql-action` pinned SHA from `7211b7c` (v4.36.0) to `87557b9` (v4.36.1) to clear the workflow Pin Drift gate and keep the SHA pin aligned with the tracked `v4` tag
+- **Dependencies**: Refreshed `Cargo.lock` to the latest Rust 1.91–compatible versions as supply-chain hygiene; notable movement in the transitive TLS/HTTP stack (behind the optional `usno-validation` / `ai-insights` reqwest features): `rustls` 0.23.34 → 0.23.40, `rustls-pki-types` 1.12.0 → 1.14.1, `hyper` 1.7.0 → 1.10.1, `hyper-rustls` 0.27.7 → 0.27.9, `tokio` 1.48.0 → 1.52.3, and `webpki-roots` 1.0.4 → 1.0.7, alongside other transitive crates. Lockfile-only; no `Cargo.toml` constraints changed. `cargo audit` reports no known advisories across the dependency tree
+
 ## [0.5.0] - 2026-05-29
 
 ### Added
