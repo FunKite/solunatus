@@ -483,7 +483,7 @@ fn lunar_phase_jde(k: f64, phase_type: LunarPhaseType) -> f64 {
 /// Convert Julian Day to DateTime
 ///
 /// Returns `None` if the resulting date is invalid (extremely rare edge case).
-fn jd_to_datetime(jd: f64) -> Option<DateTime<chrono::Utc>> {
+pub(crate) fn jd_to_datetime(jd: f64) -> Option<DateTime<chrono::Utc>> {
     use chrono::Utc;
 
     let jd0 = jd + 0.5;
@@ -662,6 +662,134 @@ pub fn lunar_event_time<T: TimeZone>(
     }
 }
 
+/// Kind of lunar apsis (orbital distance extremum).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LunarApsisKind {
+    /// Perigee (moon closest to Earth, ~356,000–370,000 km)
+    Perigee,
+    /// Apogee (moon farthest from Earth, ~404,000–407,000 km)
+    Apogee,
+}
+
+/// A lunar apsis event: the moment the moon reaches perigee or apogee.
+#[derive(Debug, Clone)]
+pub struct LunarApsis {
+    /// Whether this is a perigee or apogee
+    pub kind: LunarApsisKind,
+    /// UTC time of the distance extremum
+    pub datetime: DateTime<chrono::Utc>,
+    /// Earth–moon distance at the extremum in kilometers
+    pub distance_km: f64,
+}
+
+/// Full moons at or closer than this distance are commonly called supermoons.
+pub const SUPERMOON_DISTANCE_KM: f64 = 360_000.0;
+
+fn lunar_distance_at_jd(jd: f64) -> f64 {
+    moon_distance(julian_century(jd))
+}
+
+/// Refine a bracketed distance extremum with ternary search (sub-minute precision).
+fn refine_apsis(mut lo_jd: f64, mut hi_jd: f64, minimize: bool) -> Option<LunarApsis> {
+    for _ in 0..50 {
+        let third = (hi_jd - lo_jd) / 3.0;
+        let m1 = lo_jd + third;
+        let m2 = hi_jd - third;
+        let f1 = lunar_distance_at_jd(m1);
+        let f2 = lunar_distance_at_jd(m2);
+        if (f1 < f2) == minimize {
+            hi_jd = m2;
+        } else {
+            lo_jd = m1;
+        }
+    }
+
+    let jd = (lo_jd + hi_jd) / 2.0;
+    Some(LunarApsis {
+        kind: if minimize {
+            LunarApsisKind::Perigee
+        } else {
+            LunarApsisKind::Apogee
+        },
+        datetime: jd_to_datetime(jd)?,
+        distance_km: lunar_distance_at_jd(jd),
+    })
+}
+
+/// Find the next lunar perigee and apogee after a given time.
+///
+/// Scans 30 days forward (one full anomalistic month plus margin) for the
+/// distance extrema of the lunar orbit and refines each to sub-minute
+/// precision. Distances reflect the same truncated Meeus series used by
+/// [`lunar_position`], so extremum distances are approximate to within a
+/// few hundred kilometers.
+///
+/// # Returns
+///
+/// The next perigee and apogee in chronological order. Normally both are
+/// present; an entry can only be missing in the (practically unreachable)
+/// case that the extremum's time cannot be represented as a valid date.
+///
+/// # Examples
+///
+/// ```
+/// use solunatus::astro::moon::{next_lunar_apsides, LunarApsisKind};
+/// use chrono::Utc;
+///
+/// let apsides = next_lunar_apsides(&Utc::now());
+/// for apsis in apsides {
+///     println!("{:?}: {} at {:.0} km", apsis.kind, apsis.datetime, apsis.distance_km);
+/// }
+/// ```
+#[must_use]
+pub fn next_lunar_apsides<T: TimeZone>(after: &DateTime<T>) -> Vec<LunarApsis> {
+    const STEP_DAYS: f64 = 1.0 / 24.0; // 1-hour sampling
+    const HORIZON_DAYS: f64 = 30.0;
+
+    let start_jd = julian_day(after);
+    let mut perigee: Option<LunarApsis> = None;
+    let mut apogee: Option<LunarApsis> = None;
+
+    let mut prev2 = lunar_distance_at_jd(start_jd);
+    let mut prev1 = lunar_distance_at_jd(start_jd + STEP_DAYS);
+    let mut offset = 2.0 * STEP_DAYS;
+
+    while offset <= HORIZON_DAYS {
+        let jd = start_jd + offset;
+        let current = lunar_distance_at_jd(jd);
+        let mid_jd = jd - STEP_DAYS;
+
+        if prev1 < prev2 && prev1 < current && perigee.is_none() {
+            perigee = refine_apsis(mid_jd - STEP_DAYS, mid_jd + STEP_DAYS, true);
+        } else if prev1 > prev2 && prev1 > current && apogee.is_none() {
+            apogee = refine_apsis(mid_jd - STEP_DAYS, mid_jd + STEP_DAYS, false);
+        }
+
+        if perigee.is_some() && apogee.is_some() {
+            break;
+        }
+
+        prev2 = prev1;
+        prev1 = current;
+        offset += STEP_DAYS;
+    }
+
+    let mut apsides: Vec<LunarApsis> = [perigee, apogee].into_iter().flatten().collect();
+    apsides.sort_by_key(|apsis| apsis.datetime);
+    apsides
+}
+
+/// Whether a lunar phase event is a supermoon.
+///
+/// Uses the common definition: a full moon whose Earth–moon distance is at
+/// most [`SUPERMOON_DISTANCE_KM`] (360,000 km). Always `false` for phases
+/// other than full moon.
+#[must_use]
+pub fn is_supermoon(phase: &LunarPhase) -> bool {
+    phase.phase_type == LunarPhaseType::FullMoon
+        && lunar_distance_at_jd(julian_day(&phase.datetime)) <= SUPERMOON_DISTANCE_KM
+}
+
 /// Get the descriptive name of a lunar phase from its phase angle.
 ///
 /// Converts a numeric phase angle to a human-readable phase name.
@@ -756,6 +884,64 @@ mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
     use std::collections::HashSet;
+
+    #[test]
+    fn apsides_have_physical_distances_and_ordering() {
+        let after = Utc.with_ymd_and_hms(2025, 10, 1, 0, 0, 0).unwrap();
+        let apsides = next_lunar_apsides(&after);
+
+        assert_eq!(apsides.len(), 2, "expected one perigee and one apogee");
+
+        let perigee = apsides
+            .iter()
+            .find(|a| a.kind == LunarApsisKind::Perigee)
+            .expect("perigee");
+        let apogee = apsides
+            .iter()
+            .find(|a| a.kind == LunarApsisKind::Apogee)
+            .expect("apogee");
+
+        // Physical bounds of the lunar orbit (with margin for the truncated series).
+        assert!(
+            (354_000.0..=372_000.0).contains(&perigee.distance_km),
+            "perigee distance {} km out of range",
+            perigee.distance_km
+        );
+        assert!(
+            (402_000.0..=408_000.0).contains(&apogee.distance_km),
+            "apogee distance {} km out of range",
+            apogee.distance_km
+        );
+
+        for apsis in &apsides {
+            assert!(apsis.datetime > after);
+            let days_ahead = apsis.datetime.signed_duration_since(after).num_days();
+            assert!(days_ahead <= 30, "apsis {} days ahead", days_ahead);
+        }
+    }
+
+    #[test]
+    fn nov_2025_full_moon_is_supermoon() {
+        // The November 2025 full moon (Nov 5) was the closest of the year
+        // (~356,980 km), well inside the 360,000 km supermoon threshold.
+        let phases = lunar_phases(2025, 11);
+        let full = phases
+            .iter()
+            .find(|p| p.phase_type == LunarPhaseType::FullMoon)
+            .expect("full moon in Nov 2025");
+        assert!(
+            is_supermoon(full),
+            "Nov 2025 full moon should be a supermoon"
+        );
+
+        // A full moon near apogee must not be flagged: April 2025 (micro moon).
+        let phases = lunar_phases(2025, 4);
+        let full = phases
+            .iter()
+            .find(|p| p.phase_type == LunarPhaseType::FullMoon)
+            .expect("full moon in Apr 2025");
+        assert!(!is_supermoon(full), "Apr 2025 full moon is a micromoon");
+    }
 
     #[test]
     fn oct_2025_full_moon_matches_usno() {

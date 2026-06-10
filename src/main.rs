@@ -22,11 +22,26 @@ use location_source::LocationSource;
 fn main() -> Result<()> {
     let args = cli::Args::parse();
 
+    // Generator one-shots: no location, config, or network needed.
+    if let Some(shell) = args.completions {
+        use clap::CommandFactory;
+        let mut cmd = cli::Args::command();
+        clap_complete::generate(shell, &mut cmd, "solunatus", &mut io::stdout());
+        return Ok(());
+    }
+    if args.manpage {
+        use clap::CommandFactory;
+        let man = clap_mangen::Man::new(cli::Args::command());
+        man.render(&mut io::stdout())?;
+        return Ok(());
+    }
+
     // Load or create configuration
     let mut config = config::Config::load().ok().flatten();
 
     // Check system clock against authoritative source unless disabled by env/config.
-    let env_skips_time_sync = env::var("SOLUNATUS_SKIP_TIME_SYNC").is_ok();
+    // Scripting one-shots (--next) skip the sync so they stay fast and offline.
+    let env_skips_time_sync = env::var("SOLUNATUS_SKIP_TIME_SYNC").is_ok() || args.next.is_some();
     let (time_sync_info, time_sync_disabled, time_sync_server) =
         resolve_time_sync_state(config.as_ref(), env_skips_time_sync);
 
@@ -57,6 +72,11 @@ fn main() -> Result<()> {
         Local::now().with_timezone(&timezone)
     };
 
+    // Scripting query mode: print one value and exit.
+    if let Some(event) = args.next {
+        return run_next_query(event, args.format, &location, &dt);
+    }
+
     // Output mode
     if args.calendar {
         let start_str = args
@@ -76,6 +96,7 @@ fn main() -> Result<()> {
         let format = match args.calendar_format {
             cli::CalendarFormatArg::Html => calendar::CalendarFormat::Html,
             cli::CalendarFormatArg::Json => calendar::CalendarFormat::Json,
+            cli::CalendarFormatArg::Ics => calendar::CalendarFormat::Ics,
         };
 
         let calendar_output = calendar::generate_calendar(
@@ -247,6 +268,78 @@ fn main() -> Result<()> {
         let _ = saved_config.save();
     }
 
+    Ok(())
+}
+
+/// Compute the requested event's time on a given day (`None` if it doesn't occur).
+fn next_query_event_time(
+    event: cli::NextEventArg,
+    location: &astro::Location,
+    day: &chrono::DateTime<Tz>,
+) -> Option<chrono::DateTime<Tz>> {
+    use astro::moon::LunarEvent;
+    use astro::sun::SolarEvent;
+    use cli::NextEventArg;
+
+    let solar = |e| astro::sun::solar_event_time(location, day, e);
+    match event {
+        NextEventArg::Sunrise => solar(SolarEvent::Sunrise),
+        NextEventArg::Sunset => solar(SolarEvent::Sunset),
+        NextEventArg::SolarNoon => solar(SolarEvent::SolarNoon),
+        NextEventArg::CivilDawn => solar(SolarEvent::CivilDawn),
+        NextEventArg::CivilDusk => solar(SolarEvent::CivilDusk),
+        NextEventArg::NauticalDawn => solar(SolarEvent::NauticalDawn),
+        NextEventArg::NauticalDusk => solar(SolarEvent::NauticalDusk),
+        NextEventArg::AstronomicalDawn => solar(SolarEvent::AstronomicalDawn),
+        NextEventArg::AstronomicalDusk => solar(SolarEvent::AstronomicalDusk),
+        NextEventArg::GoldenDawnStart => solar(SolarEvent::GoldenDawnStart),
+        NextEventArg::GoldenDawnEnd => solar(SolarEvent::GoldenDawnEnd),
+        NextEventArg::GoldenDuskStart => solar(SolarEvent::GoldenDuskStart),
+        NextEventArg::GoldenDuskEnd => solar(SolarEvent::GoldenDuskEnd),
+        NextEventArg::Moonrise => {
+            astro::moon::lunar_event_time(location, day, LunarEvent::Moonrise)
+        }
+        NextEventArg::Moonset => astro::moon::lunar_event_time(location, day, LunarEvent::Moonset),
+    }
+}
+
+/// `--next` handler: find the next occurrence of an event after the reference
+/// time and print it in the requested format.
+fn run_next_query(
+    event: cli::NextEventArg,
+    format: cli::TimeFormatArg,
+    location: &astro::Location,
+    reference: &chrono::DateTime<Tz>,
+) -> Result<()> {
+    // 366 days covers polar-region gaps where an event can be absent for months.
+    const SEARCH_DAYS: i64 = 366;
+
+    let found = (0..SEARCH_DAYS).find_map(|offset| {
+        let day = reference.checked_add_signed(Duration::days(offset))?;
+        next_query_event_time(event, location, &day).filter(|t| t > reference)
+    });
+
+    let Some(time) = found else {
+        return Err(anyhow!(
+            "no occurrence of the requested event within the next {} days",
+            SEARCH_DAYS
+        ));
+    };
+
+    let line = match format {
+        cli::TimeFormatArg::Iso => time.to_rfc3339(),
+        cli::TimeFormatArg::Unix => time.timestamp().to_string(),
+        cli::TimeFormatArg::Local => time.format("%Y-%m-%d %H:%M:%S").to_string(),
+        cli::TimeFormatArg::Human => {
+            let until = astro::time_utils::time_until(reference, &time);
+            format!(
+                "{} ({})",
+                time.format("%Y-%m-%d %H:%M:%S %Z"),
+                astro::time_utils::format_duration_detailed(until)
+            )
+        }
+    };
+    println!("{}", line);
     Ok(())
 }
 
@@ -632,6 +725,23 @@ fn print_moon_section(moon_pos: &astro::moon::LunarPosition) {
     );
 }
 
+fn print_moon_apsides(apsides: &[astro::moon::LunarApsis], timezone: &Tz) {
+    for apsis in apsides {
+        let (label, marker) = match apsis.kind {
+            astro::moon::LunarApsisKind::Perigee => ("Next perigee:", "🔻"),
+            astro::moon::LunarApsisKind::Apogee => ("Next apogee:", "🔺"),
+        };
+        let local = apsis.datetime.with_timezone(timezone);
+        println!(
+            "{} {:<16}{} ({:.0} km)",
+            marker,
+            label,
+            local.format("%b %d %H:%M"),
+            apsis.distance_km
+        );
+    }
+}
+
 fn print_lunar_phases_section(phases: &[astro::moon::LunarPhase], timezone: &Tz) {
     if phases.is_empty() {
         return;
@@ -651,8 +761,121 @@ fn print_lunar_phases_section(phases: &[astro::moon::LunarPhase], timezone: &Tz)
             astro::moon::LunarPhaseType::FullMoon => "Full:",
             astro::moon::LunarPhaseType::LastQuarter => "Last quarter:",
         };
+        let supermoon = if astro::moon::is_supermoon(phase) {
+            " (Supermoon)"
+        } else {
+            ""
+        };
         let phase_dt = phase.datetime.with_timezone(timezone);
-        println!("{} {:<18} {}", emoji, name, phase_dt.format("%b %d %H:%M"));
+        println!(
+            "{} {:<18} {}{}",
+            emoji,
+            name,
+            phase_dt.format("%b %d %H:%M"),
+            supermoon
+        );
+    }
+}
+
+fn format_period(period: &Option<(chrono::DateTime<Tz>, chrono::DateTime<Tz>)>) -> String {
+    match period {
+        Some((start, end)) => format!("{}–{}", start.format("%H:%M"), end.format("%H:%M")),
+        None => "—".to_string(),
+    }
+}
+
+fn print_photography_section(location: &astro::Location, dt: &chrono::DateTime<Tz>) {
+    let periods = astro::sun::photo_periods(location, dt);
+
+    println!("— Photography —");
+    println!(
+        "📸 Golden hour:    {}, {}",
+        format_period(&periods.morning_golden),
+        format_period(&periods.evening_golden)
+    );
+    println!(
+        "🔵 Blue hour:      {}, {}",
+        format_period(&periods.morning_blue),
+        format_period(&periods.evening_blue)
+    );
+
+    match events::next_dark_window(location, dt) {
+        Some((start, Some(end))) => {
+            let minutes = end.signed_duration_since(start).num_minutes();
+            println!(
+                "🌌 Dark sky:       {} → {} ({}h {:02}m)",
+                start.format("%H:%M"),
+                end.format("%H:%M"),
+                minutes / 60,
+                minutes % 60
+            );
+        }
+        Some((start, None)) => {
+            println!(
+                "🌌 Dark sky:       from {} (beyond 36h scan)",
+                start.format("%b %d %H:%M")
+            );
+        }
+        None => {
+            println!("🌌 Dark sky:       none within 36h (moon or twilight interferes)");
+        }
+    }
+}
+
+fn print_planets_section(location: &astro::Location, dt: &chrono::DateTime<Tz>) {
+    println!("— Planets —");
+    for planet in astro::planets::Planet::ALL {
+        let pos = astro::planets::planet_position(planet, location, dt);
+        let rise = astro::planets::planet_event_time(
+            planet,
+            location,
+            dt,
+            astro::planets::PlanetEvent::Rise,
+        );
+        let set = astro::planets::planet_event_time(
+            planet,
+            location,
+            dt,
+            astro::planets::PlanetEvent::Set,
+        );
+        let rise_str = rise.map_or("—".to_string(), |t| t.format("%H:%M").to_string());
+        let set_str = set.map_or("—".to_string(), |t| t.format("%H:%M").to_string());
+
+        println!(
+            "{} {:<9}Alt {:>5.1}°, Az {:>3.0}° {:<3} mag {:>5.1}  ↑{} ↓{}",
+            planet.symbol(),
+            format!("{}:", planet.name()),
+            pos.altitude,
+            pos.azimuth,
+            astro::coordinates::azimuth_to_compass(pos.azimuth),
+            pos.magnitude,
+            rise_str,
+            set_str
+        );
+    }
+}
+
+fn print_seasons_section(dt: &chrono::DateTime<Tz>, timezone: &Tz) {
+    let upcoming = astro::seasons::next_seasonal_events(dt, 2);
+    if upcoming.is_empty() {
+        return;
+    }
+
+    println!("— Seasons —");
+    for event in upcoming {
+        let emoji = match event.kind {
+            astro::seasons::SeasonalEventKind::MarchEquinox => "🌱",
+            astro::seasons::SeasonalEventKind::JuneSolstice => "☀️",
+            astro::seasons::SeasonalEventKind::SeptemberEquinox => "🍂",
+            astro::seasons::SeasonalEventKind::DecemberSolstice => "❄️",
+        };
+        let local = event.datetime.with_timezone(timezone);
+        println!(
+            "{} {:<18} {}",
+            emoji,
+            format!("{}:", event.kind.name()),
+            local.format("%b %d %H:%M")
+        );
     }
 }
 
@@ -719,9 +942,14 @@ fn print_text_output(
     let moon_pos = astro::moon::lunar_position(location, dt);
     print_position_section(&sun_pos, &moon_pos);
     print_moon_section(&moon_pos);
+    print_moon_apsides(&astro::moon::next_lunar_apsides(dt), timezone);
 
     let phases = astro::moon::lunar_phases(dt.year(), dt.month());
     print_lunar_phases_section(&phases, timezone);
+
+    print_photography_section(location, dt);
+    print_planets_section(location, dt);
+    print_seasons_section(dt, timezone);
 
     if ai_config.enabled {
         let ai_events = ai::prepare_event_summaries(&events, dt, next_idx);
@@ -769,9 +997,14 @@ fn print_text_output(
     let moon_pos = astro::moon::lunar_position(location, dt);
     print_position_section(&sun_pos, &moon_pos);
     print_moon_section(&moon_pos);
+    print_moon_apsides(&astro::moon::next_lunar_apsides(dt), timezone);
 
     let phases = astro::moon::lunar_phases(dt.year(), dt.month());
     print_lunar_phases_section(&phases, timezone);
+
+    print_photography_section(location, dt);
+    print_planets_section(location, dt);
+    print_seasons_section(dt, timezone);
 
     Ok(())
 }

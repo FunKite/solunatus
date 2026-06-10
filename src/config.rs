@@ -151,6 +151,9 @@ pub struct WatchPreferences {
     /// Show lunar phases section (default: true)
     #[serde(default = "default_true")]
     pub show_lunar_phases: bool,
+    /// Show planets section (Mercury through Neptune) (default: true)
+    #[serde(default = "default_true")]
+    pub show_planets: bool,
     /// Show AI insights section (default: false)
     #[cfg(feature = "ai-insights")]
     #[serde(default = "default_false")]
@@ -168,6 +171,7 @@ impl Default for WatchPreferences {
             show_positions: true,
             show_moon: true,
             show_lunar_phases: true,
+            show_planets: true,
             #[cfg(feature = "ai-insights")]
             show_ai_insights: false,
             night_mode: false,

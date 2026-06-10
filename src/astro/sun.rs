@@ -23,6 +23,7 @@ use chrono::{DateTime, Duration, TimeZone};
 /// - Civil twilight: -6°
 /// - Nautical twilight: -12°
 /// - Astronomical twilight: -18°
+/// - Golden hour boundaries: -4° and +6° (photography convention)
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SolarEvent {
     /// Sunrise (top edge of sun appears on horizon)
@@ -43,6 +44,16 @@ pub enum SolarEvent {
     AstronomicalDawn,
     /// Astronomical dusk (sun 18° below horizon, evening)
     AstronomicalDusk,
+    /// Morning golden hour start (sun 4° below horizon, rising).
+    /// Also marks the end of the morning blue hour.
+    GoldenDawnStart,
+    /// Morning golden hour end (sun 6° above horizon, rising)
+    GoldenDawnEnd,
+    /// Evening golden hour start (sun 6° above horizon, setting)
+    GoldenDuskStart,
+    /// Evening golden hour end (sun 4° below horizon, setting).
+    /// Also marks the start of the evening blue hour.
+    GoldenDuskEnd,
 }
 
 impl SolarEvent {
@@ -55,6 +66,8 @@ impl SolarEvent {
             SolarEvent::CivilDawn | SolarEvent::CivilDusk => -6.0,
             SolarEvent::NauticalDawn | SolarEvent::NauticalDusk => -12.0,
             SolarEvent::AstronomicalDawn | SolarEvent::AstronomicalDusk => -18.0,
+            SolarEvent::GoldenDawnStart | SolarEvent::GoldenDuskEnd => -4.0,
+            SolarEvent::GoldenDawnEnd | SolarEvent::GoldenDuskStart => 6.0,
             SolarEvent::SolarNoon => 90.0, // Not used for altitude calculation
         }
     }
@@ -284,6 +297,8 @@ pub fn solar_event_time<T: TimeZone>(
             | SolarEvent::CivilDawn
             | SolarEvent::NauticalDawn
             | SolarEvent::AstronomicalDawn
+            | SolarEvent::GoldenDawnStart
+            | SolarEvent::GoldenDawnEnd
     );
 
     let offset = if is_rising {
@@ -297,6 +312,76 @@ pub fn solar_event_time<T: TimeZone>(
         + Duration::seconds((offset * 60.0) as i64);
 
     Some(event_utc.with_timezone(&date.timezone()))
+}
+
+/// Photography lighting periods (golden hour and blue hour) for one day.
+///
+/// Golden hour spans sun altitudes from -4° to +6° (soft, warm light).
+/// Blue hour spans -6° to -4°, i.e. from civil dawn/dusk to the golden hour
+/// boundary (deep blue sky before sunrise / after sunset).
+///
+/// Each period is `None` when its boundary altitudes are not crossed on the
+/// given date (polar day/night and high-latitude edge cases).
+#[derive(Debug, Clone)]
+pub struct PhotoPeriods<T: TimeZone> {
+    /// Morning blue hour (civil dawn → sun at -4°, rising)
+    pub morning_blue: Option<(DateTime<T>, DateTime<T>)>,
+    /// Morning golden hour (sun at -4° → +6°, rising)
+    pub morning_golden: Option<(DateTime<T>, DateTime<T>)>,
+    /// Evening golden hour (sun at +6° → -4°, setting)
+    pub evening_golden: Option<(DateTime<T>, DateTime<T>)>,
+    /// Evening blue hour (sun at -4°, setting → civil dusk)
+    pub evening_blue: Option<(DateTime<T>, DateTime<T>)>,
+}
+
+/// Calculate the golden hour and blue hour periods for a given location and date.
+///
+/// # Examples
+///
+/// ```
+/// use solunatus::prelude::*;
+/// use solunatus::astro::sun::photo_periods;
+/// use chrono::Local;
+/// use chrono_tz::America::New_York;
+///
+/// let location = Location::new(40.7128, -74.0060).unwrap();
+/// let now = Local::now().with_timezone(&New_York);
+/// let periods = photo_periods(&location, &now);
+///
+/// if let Some((start, end)) = periods.evening_golden {
+///     println!("Golden hour: {} – {}", start.format("%H:%M"), end.format("%H:%M"));
+/// }
+/// ```
+#[must_use]
+pub fn photo_periods<T: TimeZone>(location: &Location, date: &DateTime<T>) -> PhotoPeriods<T> {
+    fn pair<T: TimeZone>(
+        start: Option<DateTime<T>>,
+        end: Option<DateTime<T>>,
+    ) -> Option<(DateTime<T>, DateTime<T>)> {
+        match (start, end) {
+            (Some(s), Some(e)) if s <= e => Some((s, e)),
+            _ => None,
+        }
+    }
+
+    PhotoPeriods {
+        morning_blue: pair(
+            solar_event_time(location, date, SolarEvent::CivilDawn),
+            solar_event_time(location, date, SolarEvent::GoldenDawnStart),
+        ),
+        morning_golden: pair(
+            solar_event_time(location, date, SolarEvent::GoldenDawnStart),
+            solar_event_time(location, date, SolarEvent::GoldenDawnEnd),
+        ),
+        evening_golden: pair(
+            solar_event_time(location, date, SolarEvent::GoldenDuskStart),
+            solar_event_time(location, date, SolarEvent::GoldenDuskEnd),
+        ),
+        evening_blue: pair(
+            solar_event_time(location, date, SolarEvent::GoldenDuskEnd),
+            solar_event_time(location, date, SolarEvent::CivilDusk),
+        ),
+    }
 }
 
 /// Calculate the solar position (altitude and azimuth) at a specific time.
@@ -375,6 +460,65 @@ pub fn solar_position<T: TimeZone>(location: &Location, dt: &DateTime<T>) -> Sol
 mod tests {
     use super::*;
     use chrono::Utc;
+
+    #[test]
+    fn golden_hour_events_bracket_sunrise() {
+        use chrono_tz::America::New_York;
+
+        let location = Location::new(40.7128, -74.0060).unwrap();
+        let date = Utc
+            .with_ymd_and_hms(2025, 6, 21, 12, 0, 0)
+            .unwrap()
+            .with_timezone(&New_York);
+
+        let civil_dawn = solar_event_time(&location, &date, SolarEvent::CivilDawn).unwrap();
+        let golden_start = solar_event_time(&location, &date, SolarEvent::GoldenDawnStart).unwrap();
+        let sunrise = solar_event_time(&location, &date, SolarEvent::Sunrise).unwrap();
+        let golden_end = solar_event_time(&location, &date, SolarEvent::GoldenDawnEnd).unwrap();
+
+        // Sun ascends through -6°, -4°, -0.833°, +6° in order.
+        assert!(civil_dawn < golden_start);
+        assert!(golden_start < sunrise);
+        assert!(sunrise < golden_end);
+
+        let dusk_start = solar_event_time(&location, &date, SolarEvent::GoldenDuskStart).unwrap();
+        let sunset = solar_event_time(&location, &date, SolarEvent::Sunset).unwrap();
+        let dusk_end = solar_event_time(&location, &date, SolarEvent::GoldenDuskEnd).unwrap();
+        let civil_dusk = solar_event_time(&location, &date, SolarEvent::CivilDusk).unwrap();
+        assert!(dusk_start < sunset);
+        assert!(sunset < dusk_end);
+        assert!(dusk_end < civil_dusk);
+    }
+
+    #[test]
+    fn photo_periods_are_contiguous() {
+        use chrono_tz::America::New_York;
+
+        let location = Location::new(40.7128, -74.0060).unwrap();
+        let date = Utc
+            .with_ymd_and_hms(2025, 6, 21, 12, 0, 0)
+            .unwrap()
+            .with_timezone(&New_York);
+
+        let periods = photo_periods(&location, &date);
+        let (blue_start, blue_end) = periods.morning_blue.expect("morning blue hour");
+        let (golden_start, golden_end) = periods.morning_golden.expect("morning golden hour");
+        assert_eq!(
+            blue_end, golden_start,
+            "blue hour should end as golden hour begins"
+        );
+        assert!(blue_start < blue_end);
+        assert!(golden_start < golden_end);
+
+        let (eg_start, eg_end) = periods.evening_golden.expect("evening golden hour");
+        let (eb_start, eb_end) = periods.evening_blue.expect("evening blue hour");
+        assert_eq!(
+            eg_end, eb_start,
+            "evening golden hour should end as blue hour begins"
+        );
+        assert!(eg_start < eg_end);
+        assert!(eb_start < eb_end);
+    }
 
     #[test]
     fn test_equation_of_time() {

@@ -169,7 +169,11 @@ pub struct CalendarDraft {
 
 impl CalendarDraft {
     const FIELD_COUNT: usize = 4;
-    const FORMATS: [CalendarFormat; 2] = [CalendarFormat::Html, CalendarFormat::Json];
+    const FORMATS: [CalendarFormat; 3] = [
+        CalendarFormat::Html,
+        CalendarFormat::Json,
+        CalendarFormat::Ics,
+    ];
 
     pub fn new(now: DateTime<Local>) -> Self {
         let today = now.date_naive();
@@ -223,6 +227,7 @@ impl CalendarDraft {
         match self.current_format() {
             CalendarFormat::Html => "HTML",
             CalendarFormat::Json => "JSON",
+            CalendarFormat::Ics => "ICS",
         }
     }
 
@@ -355,6 +360,7 @@ impl CalendarDraft {
         match format {
             CalendarFormat::Html => "html",
             CalendarFormat::Json => "json",
+            CalendarFormat::Ics => "ics",
         }
     }
 }
@@ -604,6 +610,7 @@ pub enum SettingsField {
     ShowPositions,
     ShowMoon,
     ShowLunarPhases,
+    ShowPlanets,
     NightMode,
     #[cfg(feature = "ai-insights")]
     AiEnabled,
@@ -625,6 +632,7 @@ pub struct SettingsDraft {
     pub show_positions: bool,
     pub show_moon: bool,
     pub show_lunar_phases: bool,
+    pub show_planets: bool,
     pub night_mode: bool,
     #[cfg(feature = "ai-insights")]
     pub ai_enabled: bool,
@@ -646,9 +654,9 @@ pub struct SettingsDraft {
 
 impl SettingsDraft {
     #[cfg(feature = "ai-insights")]
-    const FIELD_COUNT: usize = 13;
+    const FIELD_COUNT: usize = 14;
     #[cfg(not(feature = "ai-insights"))]
-    const FIELD_COUNT: usize = 9;
+    const FIELD_COUNT: usize = 10;
 
     pub fn current_field(&self) -> SettingsField {
         match self.field_index {
@@ -660,13 +668,14 @@ impl SettingsDraft {
             5 => SettingsField::ShowPositions,
             6 => SettingsField::ShowMoon,
             7 => SettingsField::ShowLunarPhases,
-            8 => SettingsField::NightMode,
+            8 => SettingsField::ShowPlanets,
+            9 => SettingsField::NightMode,
             #[cfg(feature = "ai-insights")]
-            9 => SettingsField::AiEnabled,
+            10 => SettingsField::AiEnabled,
             #[cfg(feature = "ai-insights")]
-            10 => SettingsField::AiServer,
+            11 => SettingsField::AiServer,
             #[cfg(feature = "ai-insights")]
-            11 => SettingsField::AiModel,
+            12 => SettingsField::AiModel,
             #[cfg(feature = "ai-insights")]
             _ => SettingsField::AiRefreshMinutes,
             #[cfg(not(feature = "ai-insights"))]
@@ -692,6 +701,7 @@ impl SettingsDraft {
             SettingsField::ShowPositions => self.show_positions = !self.show_positions,
             SettingsField::ShowMoon => self.show_moon = !self.show_moon,
             SettingsField::ShowLunarPhases => self.show_lunar_phases = !self.show_lunar_phases,
+            SettingsField::ShowPlanets => self.show_planets = !self.show_planets,
             SettingsField::NightMode => self.night_mode = !self.night_mode,
             #[cfg(feature = "ai-insights")]
             SettingsField::AiEnabled => self.ai_enabled = !self.ai_enabled,
