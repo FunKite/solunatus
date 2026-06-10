@@ -1,0 +1,66 @@
+name: Planet Validation Drift
+
+on:
+  schedule:
+    - cron: "45 10 * * 1"
+  workflow_dispatch:
+    inputs:
+      max_angle:
+        description: "Maximum allowed az/alt deviation vs JPL Horizons (degrees)"
+        required: false
+        default: "0.25"
+      max_mag:
+        description: "Maximum allowed visual magnitude deviation"
+        required: false
+        default: "0.8"
+      max_dist_frac:
+        description: "Maximum allowed relative distance error (fraction)"
+        required: false
+        default: "0.005"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  planet_drift_validation:
+    name: Planet Drift Validation (JPL Horizons)
+    runs-on: ubuntu-latest
+    env:
+      MAX_ANGLE: ${{ inputs.max_angle || '0.25' }}
+      MAX_MAG: ${{ inputs.max_mag || '0.8' }}
+      MAX_DIST_FRAC: ${{ inputs.max_dist_frac || '0.005' }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+      - name: Build solunatus
+        run: cargo build --release --locked --no-default-features
+      - name: Run planet drift check against JPL Horizons
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/planet_drift_check.py \
+            --binary ./target/release/solunatus \
+            --max-angle "${MAX_ANGLE}" \
+            --max-mag "${MAX_MAG}" \
+            --max-dist-frac "${MAX_DIST_FRAC}" \
+            | tee planet-drift-report.txt
+      - name: Publish report summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## Planet Drift Validation (JPL Horizons)"
+            echo ""
+            if [[ -f planet-drift-report.txt ]]; then
+              echo '```'
+              cat planet-drift-report.txt
+              echo '```'
+            else
+              echo "No report was generated."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"

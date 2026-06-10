@@ -120,8 +120,13 @@ fn main() -> Result<()> {
         return Ok(());
     }
     #[cfg(feature = "usno-validation")]
-    if args.validate {
+    let run_validation = args.validate;
+    #[cfg(not(feature = "usno-validation"))]
+    let run_validation = false;
+
+    if run_validation {
         // Validation mode - compare with USNO data
+        #[cfg(feature = "usno-validation")]
         {
             let report = solunatus::usno_validation::generate_validation_report(
                 &location,
@@ -170,12 +175,6 @@ fn main() -> Result<()> {
                     .filter(|r| r.status == solunatus::usno_validation::ValidationStatus::Missing)
                     .count()
             );
-        }
-        #[cfg(not(feature = "usno-validation"))]
-        {
-            eprintln!("Error: USNO validation feature not enabled.");
-            eprintln!("Rebuild with: cargo build --features usno-validation");
-            std::process::exit(1);
         }
     } else if args.json {
         // JSON output mode

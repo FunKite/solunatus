@@ -15,11 +15,16 @@ Solunatus runs offline for core calculations and supports historical/future date
 
 - Sunrise, sunset, and solar noon
 - Civil, nautical, and astronomical twilight
+- Golden hour and blue hour times, plus dark-sky windows for astrophotography
 - Moonrise, moonset, and transit
-- Moon phase, illumination, altitude/azimuth, distance
+- Moon phase, illumination, altitude/azimuth, distance, perigee/apogee, supermoons
+- Planet positions, magnitudes, and rise/set times (Mercury through Neptune), validated against JPL Horizons
+- Equinox and solstice times
 - Built-in city database (570+ cities)
-- Interactive terminal UI (watch mode)
-- JSON output and calendar export (HTML/JSON)
+- Interactive terminal UI (watch mode) with planets panel and altitude chart
+- JSON output and calendar export (HTML/JSON/iCalendar)
+- Scripting query mode (`--next sunrise`) for cron and automation
+- Shell completions and man page generation
 - Optional USNO validation reports
 - Optional AI insights via local Ollama
 
@@ -91,6 +96,19 @@ solunatus --city "Lisbon" \
   --calendar-output lisbon-jan-2026.html
 ```
 
+### Next event query (scripting/automation)
+
+```bash
+solunatus --city "Denver" --next sunset --format iso
+```
+
+### Shell completions and man page
+
+```bash
+solunatus --completions zsh > _solunatus
+solunatus --manpage > solunatus.1
+```
+
 ### USNO validation report (feature-enabled builds)
 
 ```bash
@@ -111,8 +129,11 @@ Core flags:
 - `--date <YYYY-MM-DD>`
 - `--json`
 - `--calendar --calendar-start <DATE> --calendar-end <DATE>`
-- `--calendar-format <html|json>`
+- `--calendar-format <html|json|ics>`
 - `--calendar-output <PATH>`
+- `--next <EVENT> --format <iso|unix|local|human>`
+- `--completions <SHELL>`
+- `--manpage`
 - `--watch`
 - `--no-prompt`
 - `--no-save`
@@ -149,7 +170,7 @@ Add dependency:
 
 ```toml
 [dependencies]
-solunatus = "0.5.0"
+solunatus = "0.6.0"
 chrono = "0.4"
 chrono-tz = "0.10"
 ```
@@ -183,6 +204,8 @@ More examples: [`examples/`](examples/)
 ## Accuracy and Scope
 
 Solunatus uses NOAA-based solar methods and Meeus-based lunar methods, with validation tooling aligned to USNO-style conventions.
+
+Planet positions use Keplerian mean elements with the major Jupiter, Saturn, and Uranus perturbation terms. They are validated against the JPL Horizons ephemeris: altitude/azimuth agree within 0.06° across 1990–2049 (a few seconds of rise/set time). Offline regression tests pin Horizons reference values on every build, and a scheduled CI workflow re-checks live Horizons data weekly.
 
 This project is intended for educational, planning, and general-purpose astronomical use.  
 It is not certified for safety-critical navigation or legal timing decisions.

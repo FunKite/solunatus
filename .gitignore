@@ -59,3 +59,4 @@ src/bin/calendar_benchmark.rs
 # Benchmark output files
 *.html
 test_benchmark.sh
+__pycache__/

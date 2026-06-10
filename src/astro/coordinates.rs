@@ -1,4 +1,7 @@
-// Coordinate transformation utilities
+//! Coordinate system transformation utilities.
+//!
+//! Helpers for converting between astronomical coordinate representations,
+//! such as azimuth angles to compass directions.
 
 /// Convert altitude-azimuth to compass bearing
 pub fn azimuth_to_compass(azimuth: f64) -> &'static str {

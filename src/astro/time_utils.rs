@@ -1,4 +1,6 @@
-// Time utilities for astronomical calculations
+//! Time and duration utilities for astronomical calculations.
+//!
+//! Formatting helpers for displaying durations and countdowns to events.
 
 use chrono::{DateTime, Duration, TimeZone};
 

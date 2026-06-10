@@ -256,6 +256,7 @@ struct OllamaRequest<'a> {
 }
 
 impl AiConfig {
+    /// Build an AI configuration from parsed CLI arguments, validating the refresh interval.
     pub fn from_args(args: &crate::cli::Args) -> Result<Self> {
         let enabled = args.ai_insights;
         let refresh_minutes = args.ai_refresh_minutes;
@@ -275,15 +276,18 @@ impl AiConfig {
         })
     }
 
+    /// Overlay settings persisted in the config file onto this configuration.
     pub fn merge_with_saved(mut self, saved_settings: &crate::config::AiSettings) -> Self {
         self.refresh_mode = saved_settings.refresh_mode;
         self
     }
 
+    /// Full URL of the Ollama generate endpoint.
     pub fn endpoint(&self) -> String {
         format!("{}/api/generate", self.server)
     }
 
+    /// Refresh interval in minutes, clamped to the 1-60 range.
     pub fn refresh_minutes(&self) -> u64 {
         let mins = self.refresh.as_secs() / 60;
         if mins == 0 {
@@ -295,6 +299,7 @@ impl AiConfig {
         }
     }
 
+    /// Human-readable label for the current refresh mode.
     pub fn refresh_mode_label(&self) -> &'static str {
         match self.refresh_mode {
             crate::config::AiRefreshMode::AutoAndManual => "Auto & Manual",
@@ -302,6 +307,7 @@ impl AiConfig {
         }
     }
 
+    /// Normalize a server address: default to localhost, add an http scheme, strip trailing slashes.
     pub fn normalized_server(enabled: bool, server: &str) -> String {
         let mut value = server.trim().to_string();
         if value.is_empty() {
@@ -317,6 +323,7 @@ impl AiConfig {
 }
 
 impl AiOutcome {
+    /// Build a successful outcome carrying the generated content.
     pub fn success(model: &str, content: String) -> Self {
         Self {
             model: model.to_string(),
@@ -326,6 +333,7 @@ impl AiOutcome {
         }
     }
 
+    /// Build a failed outcome from an error, with a summarized message.
     pub fn from_error(model: &str, err: anyhow::Error) -> Self {
         Self {
             model: model.to_string(),
@@ -335,6 +343,7 @@ impl AiOutcome {
         }
     }
 
+    /// Replace the outcome's error with a summarized version of `message`.
     pub fn with_error_message(mut self, message: String) -> Self {
         self.error = Some(summarize_error(&message));
         self
