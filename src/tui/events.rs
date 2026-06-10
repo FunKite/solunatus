@@ -33,7 +33,22 @@ fn handle_key_event(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         AppMode::Calendar => handle_calendar_keys(app, key),
         AppMode::Reports => handle_reports_keys(app, key),
+        AppMode::Chart => handle_chart_keys(app, key),
     }
+}
+
+fn handle_chart_keys(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Esc
+        | KeyCode::Char('q')
+        | KeyCode::Char('Q')
+        | KeyCode::Char('g')
+        | KeyCode::Char('G') => {
+            app.mode = AppMode::Watch;
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 fn handle_watch_mode_keys(app: &mut App, key: KeyEvent) -> Result<()> {
@@ -49,6 +64,10 @@ fn handle_watch_mode_keys(app: &mut App, key: KeyEvent) -> Result<()> {
             // Open reports menu
             app.mode = AppMode::Reports;
             app.reports_selected_item = super::app::ReportsMenuItem::Calendar;
+        }
+        KeyCode::Char('g') | KeyCode::Char('G') => {
+            // Open the sun/moon altitude chart
+            app.enter_chart_mode();
         }
         #[cfg(feature = "ai-insights")]
         KeyCode::Char('f') | KeyCode::Char('F') if app.ai_config.enabled => {
@@ -161,6 +180,7 @@ fn handle_settings_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                 | SettingsField::ShowPositions
                 | SettingsField::ShowMoon
                 | SettingsField::ShowLunarPhases
+                | SettingsField::ShowPlanets
                 | SettingsField::NightMode => {
                     app.settings_draft.toggle_current_bool();
                 }
@@ -377,6 +397,10 @@ fn handle_calendar_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                     'j' | 'J' => {
                         app.calendar_draft
                             .set_format(crate::calendar::CalendarFormat::Json);
+                    }
+                    'i' | 'I' => {
+                        app.calendar_draft
+                            .set_format(crate::calendar::CalendarFormat::Ics);
                     }
                     _ => {}
                 }

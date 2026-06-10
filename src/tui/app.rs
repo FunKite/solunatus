@@ -10,7 +10,7 @@ use crate::events;
 use crate::location_source::LocationSource;
 use crate::time_sync::TimeSyncInfo;
 use anyhow::{Context, Result, anyhow};
-use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveDate};
+use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveDate, TimeZone};
 use chrono_tz::Tz;
 use std::{
     fs,
@@ -21,7 +21,9 @@ use std::{
 };
 
 // Re-export types from submodules
-pub use super::cache::{CachedEvents, CachedMoonDetails, CachedPositions, MoonAltitudeTrend};
+pub use super::cache::{
+    CachedEvents, CachedMoonDetails, CachedPlanets, CachedPositions, MoonAltitudeTrend,
+};
 pub use super::drafts::{
     CalendarDraft, CalendarField, LocationInputDraft, LocationInputField, SettingsDraft,
     SettingsField,
@@ -35,6 +37,7 @@ const EVENT_WINDOW_HOURS: i64 = 12;
 const EVENT_REFRESH_THRESHOLD_HOURS: i64 = 6;
 const POSITION_REFRESH_INTERVAL: Duration = Duration::from_secs(5);
 const MOON_REFRESH_INTERVAL: Duration = Duration::from_secs(600);
+const PLANET_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 const TIME_SYNC_REFRESH_INTERVAL: Duration = Duration::from_secs(1800); // 30 minutes (pool.ntp.org ToS compliance)
 
 #[derive(Debug, Clone, Copy)]
@@ -46,6 +49,16 @@ pub enum AppMode {
     AiConfig,
     Calendar,
     Reports,
+    Chart,
+}
+
+/// Cached sun/moon altitude curves for the chart view: one sample every
+/// 15 minutes across the local day, as (hour-of-day, altitude°) pairs.
+pub struct ChartCache {
+    pub sun: Vec<(f64, f64)>,
+    pub moon: Vec<(f64, f64)>,
+    pub generated_for: NaiveDate,
+    pub generated_at: Instant,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,11 +106,15 @@ pub struct App {
     pub moon_overview_last_refresh: Instant,
     pub lunar_phases_cache: Vec<moon::LunarPhase>,
     pub lunar_phases_generated_for: NaiveDate,
+    pub planets_cache: CachedPlanets,
+    pub planets_last_refresh: Instant,
+    pub chart_cache: Option<ChartCache>,
     pub show_location_date: bool,
     pub show_events: bool,
     pub show_positions: bool,
     pub show_moon: bool,
     pub show_lunar_phases: bool,
+    pub show_planets: bool,
     #[cfg(feature = "ai-insights")]
     pub show_ai_insights: bool,
     pub time_sync_last_check: Instant,
@@ -145,6 +162,7 @@ impl App {
         );
         let positions_cache = CachedPositions::new(&location, &now_tz);
         let moon_overview_cache = CachedMoonDetails::from_positions(&location, &positions_cache);
+        let planets_cache = CachedPlanets::new(&location, &now_tz);
         let lunar_phases_cache = Self::collect_lunar_phases(&now_tz);
         let lunar_phases_generated_for = now_tz.date_naive();
         let prefs = watch_prefs.unwrap_or_default();
@@ -196,6 +214,7 @@ impl App {
                 show_positions: prefs.show_positions,
                 show_moon: prefs.show_moon,
                 show_lunar_phases: prefs.show_lunar_phases,
+                show_planets: prefs.show_planets,
                 night_mode: prefs.night_mode,
                 #[cfg(feature = "ai-insights")]
                 ai_enabled: ai_config.enabled,
@@ -238,11 +257,15 @@ impl App {
             moon_overview_last_refresh: Instant::now(),
             lunar_phases_cache,
             lunar_phases_generated_for,
+            planets_cache,
+            planets_last_refresh: Instant::now(),
+            chart_cache: None,
             show_location_date: prefs.show_location_date,
             show_events: prefs.show_events,
             show_positions: prefs.show_positions,
             show_moon: prefs.show_moon,
             show_lunar_phases: prefs.show_lunar_phases,
+            show_planets: prefs.show_planets,
             #[cfg(feature = "ai-insights")]
             show_ai_insights: prefs.show_ai_insights,
             time_sync_last_check: Instant::now(),
@@ -339,6 +362,21 @@ impl App {
         }
     }
 
+    fn recompute_planets(&mut self) {
+        let now_tz = self.current_time.with_timezone(&self.timezone);
+        self.planets_cache = CachedPlanets::new(&self.location, &now_tz);
+        self.planets_last_refresh = Instant::now();
+    }
+
+    pub fn refresh_planets_if_needed(&mut self) {
+        if !self.show_planets {
+            return;
+        }
+        if self.planets_last_refresh.elapsed() >= PLANET_REFRESH_INTERVAL {
+            self.recompute_planets();
+        }
+    }
+
     pub fn refresh_lunar_phases_if_needed(&mut self) {
         let now_tz = self.current_time.with_timezone(&self.timezone);
         if self.lunar_phases_cache.is_empty()
@@ -356,7 +394,11 @@ impl App {
         self.refresh_events_if_needed();
         self.refresh_positions_if_needed();
         self.refresh_moon_overview_if_needed();
+        self.refresh_planets_if_needed();
         self.refresh_lunar_phases_if_needed();
+        if matches!(self.mode, AppMode::Chart) {
+            self.refresh_chart_if_needed();
+        }
     }
 
     pub fn reset_cached_data(&mut self) {
@@ -365,9 +407,37 @@ impl App {
         self.moon_overview_cache =
             CachedMoonDetails::from_positions(&self.location, &self.positions_cache);
         self.moon_overview_last_refresh = Instant::now();
+        self.recompute_planets();
         let now_tz = self.current_time.with_timezone(&self.timezone);
         self.lunar_phases_cache = Self::collect_lunar_phases(&now_tz);
         self.lunar_phases_generated_for = now_tz.date_naive();
+        self.chart_cache = None;
+    }
+
+    /// Switch to the altitude chart view, (re)building the cached curves if needed.
+    pub fn enter_chart_mode(&mut self) {
+        self.refresh_chart_if_needed();
+        self.mode = AppMode::Chart;
+    }
+
+    pub fn refresh_chart_if_needed(&mut self) {
+        const CHART_REFRESH_INTERVAL: Duration = Duration::from_secs(600);
+
+        let today = self.current_time.with_timezone(&self.timezone).date_naive();
+        let stale = match &self.chart_cache {
+            Some(cache) => {
+                cache.generated_for != today
+                    || cache.generated_at.elapsed() >= CHART_REFRESH_INTERVAL
+            }
+            None => true,
+        };
+        if stale {
+            self.chart_cache = self.build_chart_cache(today);
+        }
+    }
+
+    fn build_chart_cache(&self, today: NaiveDate) -> Option<ChartCache> {
+        compute_chart_cache(&self.location, &self.timezone, today)
     }
 
     pub fn watch_preferences(&self) -> WatchPreferences {
@@ -377,6 +447,7 @@ impl App {
             show_positions: self.show_positions,
             show_moon: self.show_moon,
             show_lunar_phases: self.show_lunar_phases,
+            show_planets: self.show_planets,
             #[cfg(feature = "ai-insights")]
             show_ai_insights: self.show_ai_insights,
             night_mode: self.night_mode,
@@ -456,6 +527,13 @@ impl App {
     pub fn position_countdown(&self) -> Duration {
         let elapsed = self.positions_last_refresh.elapsed();
         POSITION_REFRESH_INTERVAL
+            .checked_sub(elapsed)
+            .unwrap_or_else(|| Duration::from_secs(0))
+    }
+
+    pub fn planets_countdown(&self) -> Duration {
+        let elapsed = self.planets_last_refresh.elapsed();
+        PLANET_REFRESH_INTERVAL
             .checked_sub(elapsed)
             .unwrap_or_else(|| Duration::from_secs(0))
     }
@@ -856,6 +934,7 @@ impl App {
             show_positions: self.show_positions,
             show_moon: self.show_moon,
             show_lunar_phases: self.show_lunar_phases,
+            show_planets: self.show_planets,
             night_mode: self.night_mode,
             #[cfg(feature = "ai-insights")]
             ai_enabled: self.ai_config.enabled,
@@ -916,6 +995,7 @@ impl App {
         self.show_positions = self.settings_draft.show_positions;
         self.show_moon = self.settings_draft.show_moon;
         self.show_lunar_phases = self.settings_draft.show_lunar_phases;
+        self.show_planets = self.settings_draft.show_planets;
 
         // Apply night mode
         self.night_mode = self.settings_draft.night_mode;
@@ -949,6 +1029,7 @@ impl App {
             show_positions: true,
             show_moon: true,
             show_lunar_phases: true,
+            show_planets: true,
             night_mode: false,
             #[cfg(feature = "ai-insights")]
             ai_enabled: false,
@@ -1037,5 +1118,68 @@ impl App {
             self.settings_draft.ai_model = model.clone();
         }
         self.settings_draft.error = None;
+    }
+}
+
+/// Sample sun and moon altitude every 15 minutes across the local day,
+/// producing (hour-of-day, altitude°) pairs for the chart view.
+fn compute_chart_cache(location: &Location, timezone: &Tz, today: NaiveDate) -> Option<ChartCache> {
+    let midnight_naive = today.and_hms_opt(0, 0, 0)?;
+    let midnight = timezone
+        .from_local_datetime(&midnight_naive)
+        .earliest()
+        .or_else(|| {
+            timezone
+                .from_local_datetime(&(midnight_naive + ChronoDuration::hours(1)))
+                .earliest()
+        })?;
+
+    let samples = 96usize;
+    let mut sun_points = Vec::with_capacity(samples + 1);
+    let mut moon_points = Vec::with_capacity(samples + 1);
+
+    for i in 0..=samples {
+        let t = midnight + ChronoDuration::minutes(15 * i as i64);
+        let hour = i as f64 * 0.25;
+        sun_points.push((hour, sun::solar_position(location, &t).altitude));
+        moon_points.push((hour, moon::lunar_position(location, &t).altitude));
+    }
+
+    Some(ChartCache {
+        sun: sun_points,
+        moon: moon_points,
+        generated_for: today,
+        generated_at: Instant::now(),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono_tz::America::New_York;
+
+    #[test]
+    fn chart_cache_samples_full_day() {
+        let location = Location::new(42.36, -71.06).unwrap(); // Boston
+        let today = NaiveDate::from_ymd_opt(2026, 6, 21).unwrap();
+
+        let cache = compute_chart_cache(&location, &New_York, today).expect("chart cache");
+
+        assert_eq!(cache.sun.len(), 97);
+        assert_eq!(cache.moon.len(), 97);
+        assert_eq!(cache.sun.first().unwrap().0, 0.0);
+        assert_eq!(cache.sun.last().unwrap().0, 24.0);
+
+        for points in [&cache.sun, &cache.moon] {
+            for &(hour, alt) in points {
+                assert!((0.0..=24.0).contains(&hour));
+                assert!((-90.0..=90.0).contains(&alt), "altitude {alt} out of range");
+            }
+        }
+
+        // Summer solstice in Boston: sun up at noon, down at midnight.
+        let noon_alt = cache.sun[48].1;
+        assert!(noon_alt > 60.0, "noon sun altitude {noon_alt} too low");
+        assert!(cache.sun[0].1 < 0.0, "midnight sun should be below horizon");
     }
 }

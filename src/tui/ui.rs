@@ -5,7 +5,7 @@ use super::app::{AiConfigField, AiServerStatus};
 use super::app::{App, CalendarField, LocationInputField, SettingsField};
 use crate::astro::*;
 use crate::time_sync;
-use chrono::{Offset, Utc};
+use chrono::{Offset, Timelike, Utc};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -17,7 +17,7 @@ use std::borrow::Cow;
 
 #[cfg(feature = "ai-insights")]
 fn get_footer_instructions(ai_enabled: bool) -> Vec<&'static str> {
-    let mut instructions = vec!["q quit", "s settings", "r reports"];
+    let mut instructions = vec!["q quit", "s settings", "r reports", "g graph"];
     if ai_enabled {
         instructions.push("f fetch AI");
     }
@@ -26,7 +26,7 @@ fn get_footer_instructions(ai_enabled: bool) -> Vec<&'static str> {
 
 #[cfg(not(feature = "ai-insights"))]
 fn get_footer_instructions(_ai_enabled: bool) -> Vec<&'static str> {
-    vec!["q quit", "s settings", "r reports"]
+    vec!["q quit", "s settings", "r reports", "g graph"]
 }
 
 pub fn render(f: &mut Frame, app: &App) {
@@ -83,7 +83,98 @@ pub fn render(f: &mut Frame, app: &App) {
         super::app::AppMode::Reports => {
             render_reports_menu(f, app);
         }
+        super::app::AppMode::Chart => {
+            render_altitude_chart(f, app);
+        }
     }
+}
+
+fn render_altitude_chart(f: &mut Frame, app: &App) {
+    use ratatui::symbols::Marker;
+    use ratatui::widgets::{Axis, Chart, Dataset, GraphType};
+
+    let area = f.area();
+    let now_tz = app.current_time.with_timezone(&app.timezone);
+
+    let Some(cache) = &app.chart_cache else {
+        let message = Paragraph::new("Computing altitude curves…")
+            .style(Style::default().fg(get_color(app, Color::Gray)))
+            .alignment(Alignment::Center)
+            .block(bordered_block(app));
+        f.render_widget(message, area);
+        return;
+    };
+
+    // Vertical "now" marker and a horizon reference line.
+    let now_hour = f64::from(now_tz.hour()) + f64::from(now_tz.minute()) / 60.0;
+    let now_line: Vec<(f64, f64)> = (0..=36)
+        .map(|i| (now_hour, -90.0 + f64::from(i) * 5.0))
+        .collect();
+    let horizon: Vec<(f64, f64)> = (0..=96).map(|i| (f64::from(i) * 0.25, 0.0)).collect();
+
+    let sun_style = Style::default().fg(get_color(app, Color::Yellow));
+    let moon_style = Style::default().fg(get_color(app, Color::Cyan));
+    let now_style = Style::default().fg(get_color(app, Color::Magenta));
+    let horizon_style = Style::default().fg(get_color(app, Color::DarkGray));
+
+    let datasets = vec![
+        Dataset::default()
+            .name("Horizon")
+            .marker(Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(horizon_style)
+            .data(&horizon),
+        Dataset::default()
+            .name(label_with_symbol(
+                app,
+                symbol_prefix(app, "☀️"),
+                "Sun".to_string(),
+            ))
+            .marker(Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(sun_style)
+            .data(&cache.sun),
+        Dataset::default()
+            .name(label_with_symbol(
+                app,
+                symbol_prefix(app, "🌕"),
+                "Moon".to_string(),
+            ))
+            .marker(Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(moon_style)
+            .data(&cache.moon),
+        Dataset::default()
+            .name("Now")
+            .marker(Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(now_style)
+            .data(&now_line),
+    ];
+
+    let axis_style = Style::default().fg(get_color(app, Color::Gray));
+    let chart = Chart::new(datasets)
+        .block(bordered_block(app).title(format!(
+            " Altitude — {} ({})  [g/Esc back] ",
+            now_tz.format("%b %d"),
+            app.timezone.name()
+        )))
+        .x_axis(
+            Axis::default()
+                .title("Local time")
+                .style(axis_style)
+                .bounds([0.0, 24.0])
+                .labels(["00:00", "06:00", "12:00", "18:00", "24:00"]),
+        )
+        .y_axis(
+            Axis::default()
+                .title("Altitude °")
+                .style(axis_style)
+                .bounds([-90.0, 90.0])
+                .labels(["-90", "-45", "0", "+45", "+90"]),
+        );
+
+    f.render_widget(chart, area);
 }
 
 fn get_color(app: &App, default_color: Color) -> Color {
@@ -359,7 +450,7 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &App) {
             };
 
             let event_label = sanitized_event_label(app, event_name);
-            let (event_width, diff_width) = if app.night_mode { (14, 15) } else { (16, 17) };
+            let (event_width, diff_width) = if app.night_mode { (15, 15) } else { (17, 17) };
             lines.push(Line::from(vec![Span::raw(format!(
                 "{}  {:<event_width$} {:<diff_width$}{}",
                 time_str,
@@ -405,6 +496,43 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &App) {
                 coordinates::azimuth_to_compass(moon_pos_position.azimuth)
             ),
         ))]));
+        sections_rendered += 1;
+    }
+
+    if app.show_planets {
+        if sections_rendered > 0 {
+            lines.push(Line::from(""));
+        }
+        let planets_seconds = app.planets_countdown().as_secs();
+        lines.push(Line::from(vec![Span::styled(
+            format!("— Planets —  ↻{}s", planets_seconds),
+            Style::default()
+                .fg(get_color(app, Color::Yellow))
+                .add_modifier(Modifier::BOLD),
+        )]));
+
+        for entry in &app.planets_cache.entries {
+            let rise_str = entry
+                .rise
+                .map_or("—".to_string(), |t| t.format("%H:%M").to_string());
+            let set_str = entry
+                .set
+                .map_or("—".to_string(), |t| t.format("%H:%M").to_string());
+            lines.push(Line::from(vec![Span::raw(label_with_symbol(
+                app,
+                entry.planet.symbol(),
+                format!(
+                    "{:<9}Alt {:>5.1}°, Az {:>3.0}° {:<3} mag {:>5.1}  ↑{} ↓{}",
+                    format!("{}:", entry.planet.name()),
+                    entry.position.altitude,
+                    entry.position.azimuth,
+                    coordinates::azimuth_to_compass(entry.position.azimuth),
+                    entry.position.magnitude,
+                    rise_str,
+                    set_str
+                ),
+            ))]));
+        }
         sections_rendered += 1;
     }
 
@@ -1398,6 +1526,20 @@ fn render_settings(f: &mut Frame, app: &App) {
         current_field == SettingsField::ShowLunarPhases,
         "Lunar Phases",
         if draft.show_lunar_phases {
+            "[x] Show"
+        } else {
+            "[ ] Hide"
+        }
+        .to_string(),
+        None,
+    );
+
+    render_setting_field(
+        &mut lines,
+        app,
+        current_field == SettingsField::ShowPlanets,
+        "Planets",
+        if draft.show_planets {
             "[x] Show"
         } else {
             "[ ] Hide"

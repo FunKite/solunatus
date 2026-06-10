@@ -4,8 +4,9 @@
 //! recomputation on every frame render.
 
 use crate::astro::moon::LunarPosition;
+use crate::astro::planets::{Planet, PlanetEvent, PlanetPosition};
 use crate::astro::sun::SolarPosition;
-use crate::astro::{Location, moon, sun};
+use crate::astro::{Location, moon, planets, sun};
 use chrono::DateTime;
 use chrono_tz::Tz;
 
@@ -44,6 +45,51 @@ impl CachedPositions {
             timestamp: *timestamp,
             sun: sun::solar_position(location, timestamp),
             moon: moon::lunar_position(location, timestamp),
+        }
+    }
+}
+
+// ============================================================================
+// Cached Planets
+// ============================================================================
+
+/// Position and rise/set times for one planet.
+#[derive(Debug, Clone, Copy)]
+pub struct CachedPlanet {
+    /// Which planet this entry describes
+    pub planet: Planet,
+    /// Apparent position and brightness
+    pub position: PlanetPosition,
+    /// Rise time on the local day, if any
+    pub rise: Option<DateTime<Tz>>,
+    /// Set time on the local day, if any
+    pub set: Option<DateTime<Tz>>,
+}
+
+/// Cached planet positions and rise/set times for the planets panel.
+#[derive(Debug, Clone)]
+pub struct CachedPlanets {
+    /// Timestamp when the entries were calculated
+    pub timestamp: DateTime<Tz>,
+    /// One entry per supported planet, in distance order from the sun
+    pub entries: Vec<CachedPlanet>,
+}
+
+impl CachedPlanets {
+    /// Compute positions and rise/set times for all supported planets.
+    pub fn new(location: &Location, timestamp: &DateTime<Tz>) -> Self {
+        let entries = Planet::ALL
+            .iter()
+            .map(|&planet| CachedPlanet {
+                planet,
+                position: planets::planet_position(planet, location, timestamp),
+                rise: planets::planet_event_time(planet, location, timestamp, PlanetEvent::Rise),
+                set: planets::planet_event_time(planet, location, timestamp, PlanetEvent::Set),
+            })
+            .collect();
+        Self {
+            timestamp: *timestamp,
+            entries,
         }
     }
 }

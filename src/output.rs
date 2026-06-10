@@ -28,6 +28,12 @@ pub struct JsonOutput {
     pub moon: MoonData,
     /// Lunar phases for current month
     pub lunar_phases: Vec<LunarPhaseData>,
+    /// Next dark-sky window (sun below -18°, moon below horizon)
+    pub dark_sky_window: Option<DarkSkyWindowData>,
+    /// Major planets (Mercury through Neptune)
+    pub planets: Vec<PlanetData>,
+    /// Upcoming equinoxes and solstices
+    pub seasons: Vec<SeasonData>,
     /// Optional AI-generated insights
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_insights: Option<AiInsightsData>,
@@ -66,6 +72,8 @@ pub struct SunData {
     pub position: PositionData,
     /// Solar events (sunrise, sunset, twilight times)
     pub events: SunEvents,
+    /// Golden hour and blue hour periods
+    pub photography: PhotographyData,
 }
 
 /// Lunar position, events, and phase for JSON output.
@@ -77,6 +85,90 @@ pub struct MoonData {
     pub events: MoonEvents,
     /// Current lunar phase details
     pub phase: PhaseData,
+    /// Next lunar perigee and apogee
+    pub apsides: Vec<ApsisData>,
+}
+
+/// A time period with start and end, formatted as "YYYY-MM-DD HH:MM:SS TZ".
+#[derive(Serialize)]
+pub struct PeriodData {
+    /// Period start time
+    pub start: String,
+    /// Period end time
+    pub end: String,
+}
+
+/// Golden hour and blue hour periods for JSON output.
+///
+/// Periods are `None` when the boundary altitudes are not crossed on the
+/// given day (polar day/night and high-latitude edge cases).
+#[derive(Serialize)]
+pub struct PhotographyData {
+    /// Morning blue hour (civil dawn → sun at -4°)
+    pub morning_blue: Option<PeriodData>,
+    /// Morning golden hour (sun -4° → +6°, rising)
+    pub morning_golden: Option<PeriodData>,
+    /// Evening golden hour (sun +6° → -4°, setting)
+    pub evening_golden: Option<PeriodData>,
+    /// Evening blue hour (sun at -4° → civil dusk)
+    pub evening_blue: Option<PeriodData>,
+}
+
+/// Next dark-sky window for JSON output.
+///
+/// A dark-sky window has the sun below astronomical twilight (-18°) and the
+/// moon below the horizon (with a 15-minute moon-glow buffer).
+#[derive(Serialize)]
+pub struct DarkSkyWindowData {
+    /// Window start time
+    pub start: String,
+    /// Window end time; `None` when the window extends beyond the 36-hour scan
+    pub end: Option<String>,
+    /// Window duration in minutes; `None` when the end is unknown
+    pub duration_minutes: Option<i64>,
+}
+
+/// A lunar apsis (perigee or apogee) for JSON output.
+#[derive(Serialize)]
+pub struct ApsisData {
+    /// "perigee" or "apogee"
+    pub kind: String,
+    /// Local time of the distance extremum
+    pub datetime: String,
+    /// Earth–moon distance in kilometers
+    pub distance_km: f64,
+}
+
+/// An upcoming equinox or solstice for JSON output.
+#[derive(Serialize)]
+pub struct SeasonData {
+    /// Event name (e.g. "March Equinox")
+    pub event: String,
+    /// Local time of the event
+    pub datetime: String,
+}
+
+/// A bright planet's position and events for JSON output.
+#[derive(Serialize)]
+pub struct PlanetData {
+    /// Planet name
+    pub name: String,
+    /// Altitude in degrees (+ above horizon, - below)
+    pub altitude: f64,
+    /// Azimuth in degrees (0° = North, clockwise)
+    pub azimuth: f64,
+    /// Compass direction (e.g., "NE", "SW")
+    pub azimuth_compass: String,
+    /// Geocentric distance in astronomical units
+    pub distance_au: f64,
+    /// Approximate visual magnitude (lower is brighter)
+    pub magnitude: f64,
+    /// Angular distance from the sun in degrees
+    pub elongation_degrees: f64,
+    /// Rise time, if the planet rises on this date
+    pub rise: Option<String>,
+    /// Set time, if the planet sets on this date
+    pub set: Option<String>,
 }
 
 /// Celestial body position (sun/moon) for JSON output.
@@ -163,6 +255,9 @@ pub struct LunarPhaseData {
     pub phase_type: String,
     /// UTC timestamp of phase event
     pub datetime: String,
+    /// Whether this full moon is a supermoon (only present for full moons)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supermoon: Option<bool>,
 }
 
 /// NTP time synchronization status for JSON output.
@@ -326,21 +421,7 @@ fn generate_json_output_impl(
 
     // Lunar phases for the month
     let phases = moon::lunar_phases(dt.year(), dt.month());
-    let lunar_phases: Vec<LunarPhaseData> = phases
-        .iter()
-        .map(|p| {
-            let phase_type = match p.phase_type {
-                moon::LunarPhaseType::NewMoon => "new_moon",
-                moon::LunarPhaseType::FirstQuarter => "first_quarter",
-                moon::LunarPhaseType::FullMoon => "full_moon",
-                moon::LunarPhaseType::LastQuarter => "last_quarter",
-            };
-            LunarPhaseData {
-                phase_type: phase_type.to_string(),
-                datetime: p.datetime.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-            }
-        })
-        .collect();
+    let lunar_phases = build_lunar_phase_data(&phases);
 
     let city_name_ref = city_name.as_deref();
     let ai_insights = if let Some(cfg) = ai_config {
@@ -398,6 +479,7 @@ fn generate_json_output_impl(
                 azimuth_compass: coordinates::azimuth_to_compass(sun_pos.azimuth).to_string(),
             },
             events: sun_events,
+            photography: build_photography_data(location, dt),
         },
         moon: MoonData {
             position: MoonPositionData {
@@ -414,8 +496,12 @@ fn generate_json_output_impl(
                 angle_degrees: moon_pos.phase_angle,
                 illumination_percent: moon_pos.illumination * 100.0,
             },
+            apsides: build_apsides_data(dt, timezone),
         },
         lunar_phases,
+        dark_sky_window: build_dark_sky_data(location, dt),
+        planets: build_planets_data(location, dt),
+        seasons: build_seasons_data(dt, timezone),
         ai_insights,
     };
 
@@ -466,21 +552,7 @@ fn generate_json_output_impl(
 
     // Calculate lunar phases for current month
     let phases = moon::lunar_phases(dt.year(), dt.month());
-    let lunar_phases = phases
-        .iter()
-        .map(|p| {
-            let phase_type = match p.phase_type {
-                moon::LunarPhaseType::NewMoon => "new_moon",
-                moon::LunarPhaseType::FirstQuarter => "first_quarter",
-                moon::LunarPhaseType::FullMoon => "full_moon",
-                moon::LunarPhaseType::LastQuarter => "last_quarter",
-            };
-            LunarPhaseData {
-                phase_type: phase_type.to_string(),
-                datetime: p.datetime.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-            }
-        })
-        .collect();
+    let lunar_phases = build_lunar_phase_data(&phases);
 
     let output = JsonOutput {
         location: LocationData {
@@ -505,6 +577,7 @@ fn generate_json_output_impl(
                 azimuth_compass: coordinates::azimuth_to_compass(sun_pos.azimuth).to_string(),
             },
             events: sun_events,
+            photography: build_photography_data(location, dt),
         },
         moon: MoonData {
             position: MoonPositionData {
@@ -521,12 +594,111 @@ fn generate_json_output_impl(
                 angle_degrees: moon_pos.phase_angle,
                 illumination_percent: moon_pos.illumination * 100.0,
             },
+            apsides: build_apsides_data(dt, timezone),
         },
         lunar_phases,
+        dark_sky_window: build_dark_sky_data(location, dt),
+        planets: build_planets_data(location, dt),
+        seasons: build_seasons_data(dt, timezone),
         ai_insights: None, // AI insights not available without the feature
     };
 
     Ok(serde_json::to_string_pretty(&output)?)
+}
+
+fn format_local_time(dt: &DateTime<Tz>) -> String {
+    dt.format("%Y-%m-%d %H:%M:%S %Z").to_string()
+}
+
+fn build_photography_data(location: &Location, dt: &DateTime<Tz>) -> PhotographyData {
+    let to_period = |period: Option<(DateTime<Tz>, DateTime<Tz>)>| {
+        period.map(|(start, end)| PeriodData {
+            start: format_local_time(&start),
+            end: format_local_time(&end),
+        })
+    };
+
+    let periods = sun::photo_periods(location, dt);
+    PhotographyData {
+        morning_blue: to_period(periods.morning_blue),
+        morning_golden: to_period(periods.morning_golden),
+        evening_golden: to_period(periods.evening_golden),
+        evening_blue: to_period(periods.evening_blue),
+    }
+}
+
+fn build_dark_sky_data(location: &Location, dt: &DateTime<Tz>) -> Option<DarkSkyWindowData> {
+    events::next_dark_window(location, dt).map(|(start, end)| DarkSkyWindowData {
+        start: format_local_time(&start),
+        end: end.as_ref().map(format_local_time),
+        duration_minutes: end.map(|e| e.signed_duration_since(start).num_minutes()),
+    })
+}
+
+fn build_apsides_data(dt: &DateTime<Tz>, timezone: &Tz) -> Vec<ApsisData> {
+    moon::next_lunar_apsides(dt)
+        .into_iter()
+        .map(|apsis| ApsisData {
+            kind: match apsis.kind {
+                moon::LunarApsisKind::Perigee => "perigee".to_string(),
+                moon::LunarApsisKind::Apogee => "apogee".to_string(),
+            },
+            datetime: format_local_time(&apsis.datetime.with_timezone(timezone)),
+            distance_km: apsis.distance_km,
+        })
+        .collect()
+}
+
+fn build_seasons_data(dt: &DateTime<Tz>, timezone: &Tz) -> Vec<SeasonData> {
+    seasons::next_seasonal_events(dt, 2)
+        .into_iter()
+        .map(|event| SeasonData {
+            event: event.kind.name().to_string(),
+            datetime: format_local_time(&event.datetime.with_timezone(timezone)),
+        })
+        .collect()
+}
+
+fn build_planets_data(location: &Location, dt: &DateTime<Tz>) -> Vec<PlanetData> {
+    planets::Planet::ALL
+        .into_iter()
+        .map(|planet| {
+            let pos = planets::planet_position(planet, location, dt);
+            PlanetData {
+                name: planet.name().to_string(),
+                altitude: pos.altitude,
+                azimuth: pos.azimuth,
+                azimuth_compass: coordinates::azimuth_to_compass(pos.azimuth).to_string(),
+                distance_au: pos.distance_au,
+                magnitude: pos.magnitude,
+                elongation_degrees: pos.elongation,
+                rise: planets::planet_event_time(planet, location, dt, planets::PlanetEvent::Rise)
+                    .map(|t| format_local_time(&t)),
+                set: planets::planet_event_time(planet, location, dt, planets::PlanetEvent::Set)
+                    .map(|t| format_local_time(&t)),
+            }
+        })
+        .collect()
+}
+
+fn build_lunar_phase_data(phases: &[moon::LunarPhase]) -> Vec<LunarPhaseData> {
+    phases
+        .iter()
+        .map(|p| {
+            let phase_type = match p.phase_type {
+                moon::LunarPhaseType::NewMoon => "new_moon",
+                moon::LunarPhaseType::FirstQuarter => "first_quarter",
+                moon::LunarPhaseType::FullMoon => "full_moon",
+                moon::LunarPhaseType::LastQuarter => "last_quarter",
+            };
+            LunarPhaseData {
+                phase_type: phase_type.to_string(),
+                datetime: p.datetime.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                supermoon: (p.phase_type == moon::LunarPhaseType::FullMoon)
+                    .then(|| moon::is_supermoon(p)),
+            }
+        })
+        .collect()
 }
 
 fn build_time_sync_data(time_sync_info: &time_sync::TimeSyncInfo) -> TimeSyncData {

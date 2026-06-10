@@ -28,6 +28,8 @@ pub enum CalendarFormat {
     Html,
     /// JSON format for programmatic access
     Json,
+    /// iCalendar format (RFC 5545) for import into calendar applications
+    Ics,
 }
 
 #[derive(Debug)]
@@ -157,6 +159,9 @@ pub fn generate_calendar(
             location, timezone, city_name, start, end, &records,
         )),
         CalendarFormat::Json => render_json(location, timezone, city_name, start, end, &records),
+        CalendarFormat::Ics => Ok(render_ics(
+            location, timezone, city_name, start, end, &records,
+        )),
     }
 }
 
@@ -471,6 +476,185 @@ fn render_html(
     html
 }
 
+/// Escape text per RFC 5545 (backslash, semicolon, comma, newline).
+fn escape_ics(input: &str) -> String {
+    input
+        .replace('\\', "\\\\")
+        .replace(';', "\\;")
+        .replace(',', "\\,")
+        .replace('\n', "\\n")
+}
+
+/// Fold a content line at 75 octets per RFC 5545 (continuation lines start
+/// with a single space). Folds on character boundaries.
+fn fold_ics_line(line: &str, out: &mut String) {
+    const LIMIT: usize = 75;
+    let mut budget = LIMIT;
+    let mut len = 0usize;
+
+    for ch in line.chars() {
+        let ch_len = ch.len_utf8();
+        if len + ch_len > budget {
+            out.push_str("\r\n ");
+            budget = LIMIT - 1; // continuation lines lose one octet to the leading space
+            len = 0;
+        }
+        out.push(ch);
+        len += ch_len;
+    }
+    out.push_str("\r\n");
+}
+
+fn push_ics_event(
+    out: &mut String,
+    dtstamp: &str,
+    uid_suffix: &str,
+    event_utc: chrono::DateTime<Utc>,
+    summary: &str,
+) {
+    fold_ics_line("BEGIN:VEVENT", out);
+    fold_ics_line(
+        &format!(
+            "UID:{}-{}@solunatus",
+            event_utc.format("%Y%m%dT%H%M%SZ"),
+            uid_suffix
+        ),
+        out,
+    );
+    fold_ics_line(&format!("DTSTAMP:{}", dtstamp), out);
+    fold_ics_line(
+        &format!("DTSTART:{}", event_utc.format("%Y%m%dT%H%M%SZ")),
+        out,
+    );
+    fold_ics_line(&format!("SUMMARY:{}", escape_ics(summary)), out);
+    fold_ics_line("END:VEVENT", out);
+}
+
+fn render_ics(
+    location: &Location,
+    timezone: &Tz,
+    city_name: Option<&str>,
+    start: NaiveDate,
+    end: NaiveDate,
+    records: &[DailyRecord],
+) -> String {
+    let dtstamp = Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
+    let place = city_name.map_or_else(
+        || {
+            format!(
+                "{}, {}",
+                format_lat(location.latitude.value()),
+                format_lon(location.longitude.value())
+            )
+        },
+        ToString::to_string,
+    );
+
+    let mut out = String::new();
+    fold_ics_line("BEGIN:VCALENDAR", &mut out);
+    fold_ics_line("VERSION:2.0", &mut out);
+    fold_ics_line(
+        &format!(
+            "PRODID:-//Solunatus//solunatus {}//EN",
+            env!("CARGO_PKG_VERSION")
+        ),
+        &mut out,
+    );
+    fold_ics_line("CALSCALE:GREGORIAN", &mut out);
+    fold_ics_line("METHOD:PUBLISH", &mut out);
+    fold_ics_line(
+        &format!("X-WR-CALNAME:Sun & Moon — {}", escape_ics(&place)),
+        &mut out,
+    );
+
+    type DailyEventAccessor = fn(&DailyRecord) -> Option<chrono::DateTime<Tz>>;
+    let daily_events: [(&str, DailyEventAccessor); 4] = [
+        ("Sunrise 🌅", |r| r.sunrise),
+        ("Sunset 🌇", |r| r.sunset),
+        ("Moonrise 🌕", |r| r.moonrise),
+        ("Moonset 🌑", |r| r.moonset),
+    ];
+
+    let uid_coords = format!(
+        "{:.2}{:.2}",
+        location.latitude.value(),
+        location.longitude.value()
+    );
+
+    for record in records {
+        for (summary, accessor) in daily_events {
+            if let Some(event_time) = accessor(record) {
+                let slug = summary
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("event")
+                    .to_lowercase();
+                push_ics_event(
+                    &mut out,
+                    &dtstamp,
+                    &format!("{}-{}", slug, uid_coords),
+                    event_time.with_timezone(&Utc),
+                    summary,
+                );
+            }
+        }
+    }
+
+    // Quarter lunar phases that fall (in local time) within the range. Phases
+    // are tabulated by UTC month, and one near a month boundary can have a
+    // local date in the neighboring month, so scan one UTC month past each
+    // end of the range and let the local-date filter decide.
+    let first_month = start.with_day(1).unwrap_or(start);
+    let mut cursor = if first_month.month() == 1 {
+        NaiveDate::from_ymd_opt(first_month.year() - 1, 12, 1)
+    } else {
+        NaiveDate::from_ymd_opt(first_month.year(), first_month.month() - 1, 1)
+    }
+    .unwrap_or(first_month);
+    let scan_end = if end.month() == 12 {
+        NaiveDate::from_ymd_opt(end.year() + 1, 1, 1)
+    } else {
+        NaiveDate::from_ymd_opt(end.year(), end.month() + 1, 1)
+    }
+    .unwrap_or(end);
+    while cursor <= scan_end {
+        for phase in moon::lunar_phases(cursor.year(), cursor.month()) {
+            let local_date = phase.datetime.with_timezone(timezone).date_naive();
+            if local_date < start || local_date > end {
+                continue;
+            }
+            let summary = match phase.phase_type {
+                moon::LunarPhaseType::NewMoon => "New Moon 🌑".to_string(),
+                moon::LunarPhaseType::FirstQuarter => "First Quarter 🌓".to_string(),
+                moon::LunarPhaseType::FullMoon => {
+                    if moon::is_supermoon(&phase) {
+                        "Full Moon (Supermoon) 🌕".to_string()
+                    } else {
+                        "Full Moon 🌕".to_string()
+                    }
+                }
+                moon::LunarPhaseType::LastQuarter => "Last Quarter 🌗".to_string(),
+            };
+            push_ics_event(&mut out, &dtstamp, "phase", phase.datetime, &summary);
+        }
+
+        cursor = if cursor.month() == 12 {
+            match NaiveDate::from_ymd_opt(cursor.year() + 1, 1, 1) {
+                Some(next) => next,
+                None => break,
+            }
+        } else {
+            match NaiveDate::from_ymd_opt(cursor.year(), cursor.month() + 1, 1) {
+                Some(next) => next,
+                None => break,
+            }
+        };
+    }
+
+    fold_ics_line("END:VCALENDAR", &mut out);
+    out
+}
+
 fn format_time(dt: chrono::DateTime<Tz>) -> String {
     dt.format("%H:%M").to_string()
 }
@@ -537,6 +721,78 @@ mod tests {
     use super::*;
     use crate::astro::moon;
     use chrono_tz::America::New_York;
+
+    #[test]
+    fn ics_calendar_is_well_formed() {
+        let location = Location::new(40.7128, -74.0060).unwrap();
+        let tz = New_York;
+        let start = NaiveDate::from_ymd_opt(2025, 10, 1).unwrap();
+        let end = NaiveDate::from_ymd_opt(2025, 10, 31).unwrap();
+
+        let ics = generate_calendar(
+            &location,
+            &tz,
+            Some("New York"),
+            start,
+            end,
+            CalendarFormat::Ics,
+        )
+        .unwrap();
+
+        assert!(ics.starts_with("BEGIN:VCALENDAR\r\n"));
+        assert!(ics.ends_with("END:VCALENDAR\r\n"));
+        assert!(ics.contains("VERSION:2.0\r\n"));
+
+        let begins = ics.matches("BEGIN:VEVENT").count();
+        let ends = ics.matches("END:VEVENT").count();
+        assert_eq!(begins, ends, "unbalanced VEVENT blocks");
+        // 31 days × up to 4 daily events, minus the occasional missing
+        // moonrise/moonset, plus 4-5 quarter phases.
+        assert!(begins >= 120, "only {begins} events generated");
+
+        // Every event needs UID, DTSTAMP, DTSTART, SUMMARY.
+        for field in ["UID:", "DTSTAMP:", "DTSTART:", "SUMMARY:"] {
+            assert_eq!(ics.matches(field).count(), begins, "missing {field} fields");
+        }
+
+        // Full moon of Oct 2025 (Oct 7, 03:47 UTC) must be present.
+        assert!(
+            ics.contains("DTSTART:20251007T03"),
+            "full moon event missing"
+        );
+
+        // RFC 5545: all lines CRLF-terminated and at most 75 octets.
+        for line in ics.split("\r\n") {
+            assert!(!line.contains('\n'), "bare LF found");
+            assert!(line.len() <= 75, "line exceeds 75 octets: {line}");
+        }
+    }
+
+    /// A phase early in a UTC month can fall on the last local day of the
+    /// previous month: the 2026-12-01 06:14 UTC last quarter is 2026-11-30 in
+    /// Los Angeles, so a November export there must still include it.
+    #[test]
+    fn ics_includes_phases_across_utc_month_boundary() {
+        let location = Location::new(34.0522, -118.2437).unwrap();
+        let tz = chrono_tz::America::Los_Angeles;
+        let start = NaiveDate::from_ymd_opt(2026, 11, 1).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 11, 30).unwrap();
+
+        let ics = generate_calendar(
+            &location,
+            &tz,
+            Some("Los Angeles"),
+            start,
+            end,
+            CalendarFormat::Ics,
+        )
+        .unwrap();
+
+        assert!(
+            ics.contains("DTSTART:20261201T06"),
+            "last quarter on the local Nov 30 (Dec 1 UTC) missing from November export"
+        );
+    }
 
     /// The calendar must report the same moonrise/moonset as the canonical
     /// `lunar_event_time` algorithm. This guards against reintroducing a separate

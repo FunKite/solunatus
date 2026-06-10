@@ -26,8 +26,16 @@ const EVENT_DEFINITIONS: &[EventDefinition] = &[
         source: EventSource::Solar(sun::SolarEvent::SolarNoon),
     },
     EventDefinition {
+        label: "📸 Golden dusk beg",
+        source: EventSource::Solar(sun::SolarEvent::GoldenDuskStart),
+    },
+    EventDefinition {
         label: "🌇 Sunset",
         source: EventSource::Solar(sun::SolarEvent::Sunset),
+    },
+    EventDefinition {
+        label: "📸 Golden dusk end",
+        source: EventSource::Solar(sun::SolarEvent::GoldenDuskEnd),
     },
     EventDefinition {
         label: "🌕 Moonrise",
@@ -58,8 +66,16 @@ const EVENT_DEFINITIONS: &[EventDefinition] = &[
         source: EventSource::Solar(sun::SolarEvent::CivilDawn),
     },
     EventDefinition {
+        label: "📸 Golden dawn beg",
+        source: EventSource::Solar(sun::SolarEvent::GoldenDawnStart),
+    },
+    EventDefinition {
         label: "🌅 Sunrise",
         source: EventSource::Solar(sun::SolarEvent::Sunrise),
+    },
+    EventDefinition {
+        label: "📸 Golden dawn end",
+        source: EventSource::Solar(sun::SolarEvent::GoldenDawnEnd),
     },
     EventDefinition {
         label: "🌑 Moonset",
@@ -273,6 +289,58 @@ fn calculate_dark_windows(
 
     // Don't record boundary artifacts - only actual transitions within the window
     events
+}
+
+/// Find the next dark-sky window at or after `reference`.
+///
+/// A dark-sky window is a period where the sun is below astronomical twilight
+/// (-18°) and the moon is below the horizon, using the same 15-minute moon-glow
+/// buffer as the events timeline (the DSD standard used by astrophotographers).
+///
+/// Scans forward up to 36 hours. If `reference` is already inside a dark window,
+/// the returned window starts at `reference`. The end time is `None` when the
+/// window extends beyond the scan horizon (possible at polar latitudes).
+pub fn next_dark_window(
+    location: &Location,
+    reference: &DateTime<Tz>,
+) -> Option<(DateTime<Tz>, Option<DateTime<Tz>>)> {
+    const MOON_GLOW_BUFFER_MINUTES: i64 = 15;
+    const STEP_MINUTES: i64 = 5;
+    const HORIZON_HOURS: i64 = 36;
+
+    let is_dark = |time: &DateTime<Tz>| {
+        sun::solar_position(location, time).altitude < -18.0
+            && is_moon_sufficiently_dark(location, time, MOON_GLOW_BUFFER_MINUTES)
+    };
+
+    let scan_end = reference.checked_add_signed(Duration::hours(HORIZON_HOURS))?;
+
+    let mut prev = *reference;
+    let mut prev_dark = is_dark(&prev);
+    let mut window_start: Option<DateTime<Tz>> = if prev_dark { Some(prev) } else { None };
+
+    let mut current = prev;
+    while current < scan_end {
+        current = current.checked_add_signed(Duration::minutes(STEP_MINUTES))?;
+        let dark = is_dark(&current);
+
+        if dark && !prev_dark && window_start.is_none() {
+            window_start = Some(refine_dark_window_transition(
+                location, &prev, &current, true,
+            ));
+        } else if !dark
+            && prev_dark
+            && let Some(start) = window_start
+        {
+            let end = refine_dark_window_transition(location, &prev, &current, false);
+            return Some((start, Some(end)));
+        }
+
+        prev = current;
+        prev_dark = dark;
+    }
+
+    window_start.map(|start| (start, None))
 }
 
 /// Refine dark window transition time using bisection

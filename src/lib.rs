@@ -6,7 +6,10 @@
 //! ## Features
 //!
 //! - **NOAA Solar Calculations**: Sunrise, sunset, solar noon, and twilight times (civil, nautical, astronomical)
-//! - **Meeus Lunar Algorithms**: Moonrise, moonset, lunar phases, and moon position
+//! - **Meeus Lunar Algorithms**: Moonrise, moonset, lunar phases, apsides (perigee/apogee), and moon position
+//! - **Photography Periods**: Golden hour and blue hour times, plus dark-sky windows for astrophotography
+//! - **Planets**: Positions, magnitudes, and rise/set times for the major planets (Mercury through Neptune)
+//! - **Seasons**: Equinox and solstice times (Meeus ch. 27)
 //! - **High Precision**: Matches U.S. Naval Observatory data within ±1-2 minutes
 //! - **City Database**: Built-in database of 570+ major cities worldwide
 //! - **Timezone Support**: Full timezone handling via `chrono-tz`
@@ -116,10 +119,16 @@ pub use config::Config;
 
 // Re-export essential astronomical types
 pub use astro::moon::{
-    LunarEvent, LunarPhase, LunarPhaseType, LunarPosition, lunar_event_time, lunar_phases,
-    lunar_position, phase_emoji, phase_name,
+    LunarApsis, LunarApsisKind, LunarEvent, LunarPhase, LunarPhaseType, LunarPosition,
+    SUPERMOON_DISTANCE_KM, is_supermoon, lunar_event_time, lunar_phases, lunar_position,
+    next_lunar_apsides, phase_emoji, phase_name,
 };
-pub use astro::sun::{SolarEvent, SolarPosition, solar_event_time, solar_noon, solar_position};
+pub use astro::planets::{Planet, PlanetEvent, PlanetPosition, planet_event_time, planet_position};
+pub use astro::seasons::{SeasonalEvent, SeasonalEventKind, next_seasonal_events, seasonal_events};
+pub use astro::sun::{
+    PhotoPeriods, SolarEvent, SolarPosition, photo_periods, solar_event_time, solar_noon,
+    solar_position,
+};
 
 /// Prelude module containing the most commonly used types and functions.
 ///
@@ -130,8 +139,12 @@ pub use astro::sun::{SolarEvent, SolarPosition, solar_event_time, solar_noon, so
 /// ```
 pub mod prelude {
     pub use crate::astro::Location;
-    pub use crate::astro::moon::{LunarEvent, LunarPhase, LunarPhaseType, LunarPosition};
-    pub use crate::astro::sun::{SolarEvent, SolarPosition};
+    pub use crate::astro::moon::{
+        LunarApsis, LunarEvent, LunarPhase, LunarPhaseType, LunarPosition,
+    };
+    pub use crate::astro::planets::{Planet, PlanetEvent, PlanetPosition};
+    pub use crate::astro::seasons::{SeasonalEvent, SeasonalEventKind};
+    pub use crate::astro::sun::{PhotoPeriods, SolarEvent, SolarPosition};
     pub use crate::city::{City, CityDatabase};
 
     // Convenience functions

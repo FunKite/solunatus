@@ -7,6 +7,41 @@ use std::path::PathBuf;
 pub enum CalendarFormatArg {
     Html,
     Json,
+    Ics,
+}
+
+/// Events queryable via `--next` (kebab-case on the command line,
+/// e.g. `--next solar-noon`).
+#[derive(Copy, Clone, Debug, ValueEnum)]
+pub enum NextEventArg {
+    Sunrise,
+    Sunset,
+    SolarNoon,
+    CivilDawn,
+    CivilDusk,
+    NauticalDawn,
+    NauticalDusk,
+    AstronomicalDawn,
+    AstronomicalDusk,
+    GoldenDawnStart,
+    GoldenDawnEnd,
+    GoldenDuskStart,
+    GoldenDuskEnd,
+    Moonrise,
+    Moonset,
+}
+
+/// Output format for `--next`.
+#[derive(Copy, Clone, Debug, ValueEnum)]
+pub enum TimeFormatArg {
+    /// RFC 3339 with local offset (e.g. 2026-06-09T20:19:44-04:00)
+    Iso,
+    /// Unix epoch seconds
+    Unix,
+    /// Local time without offset (e.g. 2026-06-09 20:19:44)
+    Local,
+    /// Local time plus a countdown (e.g. ... (08:19:44 from now))
+    Human,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -42,7 +77,7 @@ pub struct Args {
     #[arg(long)]
     pub calendar: bool,
 
-    /// Calendar output format (html or json)
+    /// Calendar output format (html, json, or ics)
     #[arg(long, default_value = "html", value_enum)]
     pub calendar_format: CalendarFormatArg,
 
@@ -57,6 +92,15 @@ pub struct Args {
     /// Path to write the generated calendar (stdout when omitted)
     #[arg(long, requires = "calendar")]
     pub calendar_output: Option<PathBuf>,
+
+    /// Print the next occurrence of an event and exit (for scripting).
+    /// Searches forward from now, or from noon of --date when given.
+    #[arg(long, value_enum)]
+    pub next: Option<NextEventArg>,
+
+    /// Output format for --next
+    #[arg(long, value_enum, default_value = "iso", requires = "next")]
+    pub format: TimeFormatArg,
 
     /// Force watch mode (live updates)
     #[arg(long)]
@@ -98,6 +142,14 @@ pub struct Args {
     #[cfg(feature = "usno-validation")]
     #[arg(long)]
     pub validate: bool,
+
+    /// Generate shell completions to stdout and exit
+    #[arg(long, value_enum, value_name = "SHELL")]
+    pub completions: Option<clap_complete::Shell>,
+
+    /// Generate a man page (roff format) to stdout and exit
+    #[arg(long)]
+    pub manpage: bool,
 }
 
 impl Args {

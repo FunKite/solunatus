@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Planets**: New `astro::planets` module computing apparent positions (altitude, azimuth, distance, approximate visual magnitude, solar elongation) and rise/set times for the seven major planets (Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune) from Keplerian mean elements with the major Jupiter–Saturn and Uranus perturbation terms; surfaced as a "— Planets —" text section and a `planets` array in JSON output, with a regression test anchored to the December 2020 Jupiter–Saturn great conjunction
+- **Seasons**: New `astro::seasons` module computing equinoxes and solstices (Meeus ch. 27, validated against the book's worked example) with ΔT correction to UTC; the next two seasonal events appear in text and JSON output
+- **Golden/blue hour**: Four new `SolarEvent` variants at the -4° and +6° photography thresholds (`GoldenDawnStart/End`, `GoldenDuskStart/End`), a `photo_periods` helper returning the morning/evening golden hour and blue hour ranges, golden hour entries in the events timeline, a "— Photography —" text section, and a `sun.photography` JSON block
+- **Dark-sky window**: New `events::next_dark_window` scans 36 hours ahead for the next period with the sun below -18° and the moon down (same DSD criteria as the events timeline) and reports it in the Photography section and as `dark_sky_window` in JSON
+- **Lunar apsides**: New `next_lunar_apsides` finds the next perigee and apogee (ternary-search refinement of the Meeus distance series); shown in the Moon section and as `moon.apsides` in JSON. Full moons within 360,000 km are flagged as supermoons (`is_supermoon`) in the Lunar Phases section, JSON, and ICS export
+- **iCalendar export**: `--calendar-format ics` generates an RFC 5545 calendar (sunrise/sunset/moonrise/moonset per day plus quarter lunar phases, UTC times, folded lines, deterministic UIDs) for import into calendar applications; also selectable in the TUI calendar generator
+- **Scripting query mode**: `--next <event>` prints the next occurrence of any solar, golden hour, or lunar event and exits; `--format iso|unix|local|human` controls the output. Skips the NTP check so cron/automation calls stay fast and offline
+- **Shell completions & man page**: `--completions <shell>` (bash, zsh, fish, elvish, powershell) and `--manpage` generate to stdout via `clap_complete`/`clap_mangen`
+- **TUI altitude chart**: New chart view (`g` key in watch mode) plotting sun and moon altitude across the local day with a horizon line and a "now" marker; curves are cached and respect night mode
+- **TUI planets panel**: The watch view gains a "— Planets —" section with a 60-second refresh countdown showing altitude, azimuth with compass direction, visual magnitude, and rise/set times for all seven major planets; toggleable via a new "Planets" entry in the settings Panel Visibility section, persisted as `watch.show_planets` in the config file
+
+### Fixed
+- **TUI events alignment**: Widened the events label column (16→17 normal, 14→15 night mode) so the 17-character golden hour labels no longer overflow it and push their countdown durations one column out of alignment with the other events
+- **ICS phase boundary**: The iCalendar export now scans one UTC month past each end of the requested range when collecting quarter lunar phases, so a phase whose UTC timestamp falls in the neighboring month but whose local date is inside the range (e.g. the 2026-12-01 06:14 UTC last quarter, which is Nov 30 in America/Los_Angeles) is no longer dropped
+
 ### Changed
 - **Dependencies**: Updated `ratatui` to 0.30.1 and `chrono` to 0.4.45 via the production-dependencies group (supersedes Dependabot PR #72); `chrono` 0.4.45 rejects a TZ offset hour of 24 to avoid a `FixedOffset` overflow, and the `ratatui` bump pulls in refreshed transitive crates (`lru` 0.18.0, `strum` 0.28.0, `bitflags` 2.13.0, and the new `palette` color stack). Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
 
