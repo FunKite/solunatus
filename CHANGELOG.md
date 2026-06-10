@@ -5,9 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-06-10
 
 ### Added
+- **Planet accuracy validation**: Planet positions are validated against the JPL Horizons ephemeris (altitude/azimuth within 0.06° across 1990–2049, ≈ a few seconds of rise/set time). New offline regression tests (`tests/planet_accuracy.rs`) pin Horizons reference values at three epochs and run on every build; a new scheduled CI workflow (`planet-validation.yml`, via `scripts/planet_drift_check.py`) re-checks live Horizons data weekly with thresholds of 0.25° position, 0.8 magnitude, and 0.5% distance
 - **Planets**: New `astro::planets` module computing apparent positions (altitude, azimuth, distance, approximate visual magnitude, solar elongation) and rise/set times for the seven major planets (Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune) from Keplerian mean elements with the major Jupiter–Saturn and Uranus perturbation terms; surfaced as a "— Planets —" text section and a `planets` array in JSON output, with a regression test anchored to the December 2020 Jupiter–Saturn great conjunction
 - **Seasons**: New `astro::seasons` module computing equinoxes and solstices (Meeus ch. 27, validated against the book's worked example) with ΔT correction to UTC; the next two seasonal events appear in text and JSON output
 - **Golden/blue hour**: Four new `SolarEvent` variants at the -4° and +6° photography thresholds (`GoldenDawnStart/End`, `GoldenDuskStart/End`), a `photo_periods` helper returning the morning/evening golden hour and blue hour ranges, golden hour entries in the events timeline, a "— Photography —" text section, and a `sun.photography` JSON block
@@ -20,10 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **TUI planets panel**: The watch view gains a "— Planets —" section with a 60-second refresh countdown showing altitude, azimuth with compass direction, visual magnitude, and rise/set times for all seven major planets; toggleable via a new "Planets" entry in the settings Panel Visibility section, persisted as `watch.show_planets` in the config file
 
 ### Fixed
+- **Feature-gated builds**: Builds with `--no-default-features` produced no output at all — a misplaced `#[cfg(feature = "usno-validation")]` attribute compiled out the entire output-mode dispatch (JSON, watch, and text modes), so the binary silently exited. The gate now applies only to the `--validate` branch
 - **TUI events alignment**: Widened the events label column (16→17 normal, 14→15 night mode) so the 17-character golden hour labels no longer overflow it and push their countdown durations one column out of alignment with the other events
 - **ICS phase boundary**: The iCalendar export now scans one UTC month past each end of the requested range when collecting quarter lunar phases, so a phase whose UTC timestamp falls in the neighboring month but whose local date is inside the range (e.g. the 2026-12-01 06:14 UTC last quarter, which is Nov 30 in America/Los_Angeles) is no longer dropped
 
 ### Changed
+- **Documentation**: API documentation coverage raised from ~86% to 100% — all public items (the `astro::units` type-safe wrappers, `ai` configuration methods, `BatchResult`/`LibraryInfo` fields, and the `coordinates`/`time_utils` modules) now carry doc comments, and `#![warn(missing_docs)]` keeps it that way; refreshed the README for the 0.6.0 feature set
 - **Dependencies**: Updated `ratatui` to 0.30.1 and `chrono` to 0.4.45 via the production-dependencies group (supersedes Dependabot PR #72); `chrono` 0.4.45 rejects a TZ offset hour of 24 to avoid a `FixedOffset` overflow, and the `ratatui` bump pulls in refreshed transitive crates (`lru` 0.18.0, `strum` 0.28.0, `bitflags` 2.13.0, and the new `palette` color stack). Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
 
 ### Security

@@ -27,10 +27,12 @@ pub const RAD_TO_DEG: f64 = 180.0 / PI;
 pub struct Degrees(f64);
 
 impl Degrees {
+    /// Create an angle from a value in degrees.
     pub fn new(value: f64) -> Self {
         Self(value)
     }
 
+    /// Return the underlying numeric value as a bare `f64`.
     pub fn value(&self) -> f64 {
         self.0
     }
@@ -55,18 +57,22 @@ impl Degrees {
         Self(result)
     }
 
+    /// Convert this angle to [`Radians`].
     pub fn to_radians(self) -> Radians {
         Radians::from(self)
     }
 
+    /// Sine of the angle.
     pub fn sin(self) -> f64 {
         self.0.to_radians().sin()
     }
 
+    /// Cosine of the angle.
     pub fn cos(self) -> f64 {
         self.0.to_radians().cos()
     }
 
+    /// Tangent of the angle.
     pub fn tan(self) -> f64 {
         self.0.to_radians().tan()
     }
@@ -97,38 +103,47 @@ impl From<Degrees> for f64 {
 pub struct Radians(f64);
 
 impl Radians {
+    /// Create an angle from a value in radians.
     pub fn new(value: f64) -> Self {
         Self(value)
     }
 
+    /// Return the underlying numeric value as a bare `f64`.
     pub fn value(&self) -> f64 {
         self.0
     }
 
+    /// Convert this angle to [`Degrees`].
     pub fn to_degrees(self) -> Degrees {
         Degrees::from(self)
     }
 
+    /// Sine of the angle.
     pub fn sin(self) -> f64 {
         self.0.sin()
     }
 
+    /// Cosine of the angle.
     pub fn cos(self) -> f64 {
         self.0.cos()
     }
 
+    /// Tangent of the angle.
     pub fn tan(self) -> f64 {
         self.0.tan()
     }
 
+    /// Arcsine of a value, as an angle in radians.
     pub fn asin(value: f64) -> Self {
         Self(value.asin())
     }
 
+    /// Arccosine of a value, as an angle in radians.
     pub fn acos(value: f64) -> Self {
         Self(value.acos())
     }
 
+    /// Four-quadrant arctangent of `y/x`, as an angle in radians.
     pub fn atan2(y: f64, x: f64) -> Self {
         Self(y.atan2(x))
     }
@@ -154,6 +169,7 @@ impl From<Radians> for Degrees {
 pub struct Latitude(f64);
 
 impl Latitude {
+    /// Create a latitude from decimal degrees, validating the -90 to 90 range.
     pub fn new(degrees: f64) -> Result<Self, String> {
         if !(-90.0..=90.0).contains(&degrees) {
             Err(format!("Invalid latitude: {} (must be -90 to 90)", degrees))
@@ -167,14 +183,17 @@ impl Latitude {
         Self(degrees)
     }
 
+    /// Return this value as a type-safe [`Degrees`] angle.
     pub fn degrees(&self) -> Degrees {
         Degrees(self.0)
     }
 
+    /// Return this value as a type-safe [`Radians`] angle.
     pub fn radians(&self) -> Radians {
         Radians(self.0 * DEG_TO_RAD)
     }
 
+    /// Return the underlying numeric value as a bare `f64`.
     pub fn value(&self) -> f64 {
         self.0
     }
@@ -199,6 +218,7 @@ impl fmt::Display for Latitude {
 pub struct Longitude(f64);
 
 impl Longitude {
+    /// Create a longitude from decimal degrees, validating the -180 to 180 range.
     pub fn new(degrees: f64) -> Result<Self, String> {
         if !(-180.0..=180.0).contains(&degrees) {
             Err(format!(
@@ -215,14 +235,17 @@ impl Longitude {
         Self(degrees)
     }
 
+    /// Return this value as a type-safe [`Degrees`] angle.
     pub fn degrees(&self) -> Degrees {
         Degrees(self.0)
     }
 
+    /// Return this value as a type-safe [`Radians`] angle.
     pub fn radians(&self) -> Radians {
         Radians(self.0 * DEG_TO_RAD)
     }
 
+    /// Return the underlying numeric value as a bare `f64`.
     pub fn value(&self) -> f64 {
         self.0
     }
@@ -249,22 +272,27 @@ impl fmt::Display for Longitude {
 pub struct Altitude(f64);
 
 impl Altitude {
+    /// Create an altitude from decimal degrees above (positive) or below (negative) the horizon.
     pub fn from_degrees(degrees: f64) -> Self {
         Self(degrees)
     }
 
+    /// Create an altitude from a value in radians.
     pub fn from_radians(radians: f64) -> Self {
         Self(radians * RAD_TO_DEG)
     }
 
+    /// Return this value as a type-safe [`Degrees`] angle.
     pub fn degrees(&self) -> Degrees {
         Degrees(self.0)
     }
 
+    /// Return this value as a type-safe [`Radians`] angle.
     pub fn radians(&self) -> Radians {
         Radians(self.0 * DEG_TO_RAD)
     }
 
+    /// Return the underlying numeric value as a bare `f64`.
     pub fn value(&self) -> f64 {
         self.0
     }
@@ -287,6 +315,7 @@ impl fmt::Display for Altitude {
 pub struct Azimuth(f64);
 
 impl Azimuth {
+    /// Create an azimuth from decimal degrees, normalizing into the 0-360 range.
     pub fn from_degrees(degrees: f64) -> Self {
         // Normalize to 0-360
         let mut normalized = degrees % 360.0;
@@ -296,22 +325,27 @@ impl Azimuth {
         Self(normalized)
     }
 
+    /// Create an azimuth from a value in radians, normalizing into the 0-360 degree range.
     pub fn from_radians(radians: f64) -> Self {
         Self::from_degrees(radians * RAD_TO_DEG)
     }
 
+    /// Return this value as a type-safe [`Degrees`] angle.
     pub fn degrees(&self) -> Degrees {
         Degrees(self.0)
     }
 
+    /// Return this value as a type-safe [`Radians`] angle.
     pub fn radians(&self) -> Radians {
         Radians(self.0 * DEG_TO_RAD)
     }
 
+    /// Return the underlying numeric value as a bare `f64`.
     pub fn value(&self) -> f64 {
         self.0
     }
 
+    /// Return the nearest 8-point compass direction (N, NE, E, SE, S, SW, W, NW).
     pub fn to_compass(&self) -> &'static str {
         let index = ((self.0 + 22.5) / 45.0).floor() as usize % 8;
         ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][index]

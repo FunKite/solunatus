@@ -85,6 +85,8 @@
 //! RUSTFLAGS="-C target-cpu=native" cargo build --release
 //! ```
 
+#![warn(missing_docs)]
+
 // Core modules (always public)
 pub mod astro;
 pub mod city;
@@ -363,12 +365,19 @@ pub fn batch_calculate<Tz: TimeZone + Clone>(
 /// Result from batch calculations.
 #[derive(Debug, Clone)]
 pub struct BatchResult<Tz: TimeZone> {
+    /// The date/time the calculations were performed for.
     pub date: DateTime<Tz>,
+    /// Sun position (altitude, azimuth) at `date`.
     pub sun_position: SolarPosition,
+    /// Moon position (altitude, azimuth, phase, distance) at `date`.
     pub moon_position: LunarPosition,
+    /// Sunrise time, or `None` during polar night/day.
     pub sunrise: Option<DateTime<Tz>>,
+    /// Sunset time, or `None` during polar night/day.
     pub sunset: Option<DateTime<Tz>>,
+    /// Moonrise time, or `None` if the moon doesn't rise on this date.
     pub moonrise: Option<DateTime<Tz>>,
+    /// Moonset time, or `None` if the moon doesn't set on this date.
     pub moonset: Option<DateTime<Tz>>,
 }
 
@@ -398,8 +407,11 @@ pub fn library_info() -> LibraryInfo {
 /// Library information structure.
 #[derive(Debug, Clone)]
 pub struct LibraryInfo {
+    /// Crate version string (from `CARGO_PKG_VERSION`).
     pub version: &'static str,
+    /// CPU optimization profile detected at runtime.
     pub cpu_profile: cpu_features::OptimizationProfile,
+    /// Number of cities in the built-in city database.
     pub city_count: usize,
 }
 
