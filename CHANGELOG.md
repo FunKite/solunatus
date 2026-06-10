@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **TUI events alignment**: Widened the events label column (16→17 normal, 14→15 night mode) so the 17-character golden hour labels no longer overflow it and push their countdown durations one column out of alignment with the other events
+- **ICS phase boundary**: The iCalendar export now scans one UTC month past each end of the requested range when collecting quarter lunar phases, so a phase whose UTC timestamp falls in the neighboring month but whose local date is inside the range (e.g. the 2026-12-01 06:14 UTC last quarter, which is Nov 30 in America/Los_Angeles) is no longer dropped
 
 ### Changed
 - **Dependencies**: Updated `ratatui` to 0.30.1 and `chrono` to 0.4.45 via the production-dependencies group (supersedes Dependabot PR #72); `chrono` 0.4.45 rejects a TZ offset hour of 24 to avoid a `FixedOffset` overflow, and the `ratatui` bump pulls in refreshed transitive crates (`lru` 0.18.0, `strum` 0.28.0, `bitflags` 2.13.0, and the new `palette` color stack). Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories

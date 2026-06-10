@@ -600,9 +600,24 @@ fn render_ics(
         }
     }
 
-    // Quarter lunar phases that fall (in local time) within the range.
-    let mut cursor = start.with_day(1).unwrap_or(start);
-    while cursor <= end {
+    // Quarter lunar phases that fall (in local time) within the range. Phases
+    // are tabulated by UTC month, and one near a month boundary can have a
+    // local date in the neighboring month, so scan one UTC month past each
+    // end of the range and let the local-date filter decide.
+    let first_month = start.with_day(1).unwrap_or(start);
+    let mut cursor = if first_month.month() == 1 {
+        NaiveDate::from_ymd_opt(first_month.year() - 1, 12, 1)
+    } else {
+        NaiveDate::from_ymd_opt(first_month.year(), first_month.month() - 1, 1)
+    }
+    .unwrap_or(first_month);
+    let scan_end = if end.month() == 12 {
+        NaiveDate::from_ymd_opt(end.year() + 1, 1, 1)
+    } else {
+        NaiveDate::from_ymd_opt(end.year(), end.month() + 1, 1)
+    }
+    .unwrap_or(end);
+    while cursor <= scan_end {
         for phase in moon::lunar_phases(cursor.year(), cursor.month()) {
             let local_date = phase.datetime.with_timezone(timezone).date_naive();
             if local_date < start || local_date > end {
@@ -751,6 +766,32 @@ mod tests {
             assert!(!line.contains('\n'), "bare LF found");
             assert!(line.len() <= 75, "line exceeds 75 octets: {line}");
         }
+    }
+
+    /// A phase early in a UTC month can fall on the last local day of the
+    /// previous month: the 2026-12-01 06:14 UTC last quarter is 2026-11-30 in
+    /// Los Angeles, so a November export there must still include it.
+    #[test]
+    fn ics_includes_phases_across_utc_month_boundary() {
+        let location = Location::new(34.0522, -118.2437).unwrap();
+        let tz = chrono_tz::America::Los_Angeles;
+        let start = NaiveDate::from_ymd_opt(2026, 11, 1).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 11, 30).unwrap();
+
+        let ics = generate_calendar(
+            &location,
+            &tz,
+            Some("Los Angeles"),
+            start,
+            end,
+            CalendarFormat::Ics,
+        )
+        .unwrap();
+
+        assert!(
+            ics.contains("DTSTART:20261201T06"),
+            "last quarter on the local Nov 30 (Dec 1 UTC) missing from November export"
+        );
     }
 
     /// The calendar must report the same moonrise/moonset as the canonical
