@@ -92,15 +92,15 @@ jobs:
 
           failures=0
 
-          checkout_expected="$(resolve_tag_commit "actions/checkout" "v6")"
+          checkout_expected="$(resolve_tag_commit "actions/checkout" "v7")"
           checkout_pinned="$(resolve_local_pin 'uses:[[:space:]]*actions/checkout@[a-f0-9]{40}')"
           if [[ "${checkout_pinned}" != "${checkout_expected}" ]]; then
             echo "Pin drift: actions/checkout"
             echo "  pinned:   ${checkout_pinned}"
-            echo "  expected: ${checkout_expected} (v6)"
+            echo "  expected: ${checkout_expected} (v7)"
             failures=1
           else
-            echo "OK: actions/checkout matches v6 (${checkout_expected})"
+            echo "OK: actions/checkout matches v7 (${checkout_expected})"
           fi
 
           codeql_expected="$(resolve_tag_commit "github/codeql-action" "v4")"
