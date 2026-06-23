@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+- **CI**: Advanced the `actions/checkout` pinned SHA from `df4cb1c` (v6.0.3) to `9c091bb` (v7.0.0) across all workflows and retargeted the Pin Drift Check to the `v7` tag (Dependabot PR #76). v7.0.0 hardens supply-chain safety by blocking checkout of fork pull requests under the `pull_request_target` and `workflow_run` triggers; the SHA pin and `Security Workflow Audit` / `Pin Drift Check` gates remain green
+
+### Changed
+- **Dependencies**: Bumped `ratatui` from 0.30.1 to 0.30.2 via the production-dependencies group (Dependabot PR #77); pulls in the refreshed `ratatui-core`/`-crossterm`/`-macros`/`-widgets` 0.1.2/0.7.2/0.3.2 stack and the new optional `ratatui-termina` backend (unused here). Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
+
 ## [0.6.0] - 2026-06-10
 
 ### Added
