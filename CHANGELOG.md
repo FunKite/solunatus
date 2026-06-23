@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **Dependencies**: Bumped the transitive `quinn-proto` from 0.11.14 to 0.11.15 to remediate **RUSTSEC-2026-0185** (CVSS 7.5, high) — a remote memory-exhaustion flaw from unbounded out-of-order QUIC stream reassembly. `quinn-proto` reaches the tree only through the optional reqwest HTTP stack (behind the `usno-validation` / `ai-insights` features); lockfile-only, no `Cargo.toml` constraints changed, and `cargo audit` is clean again
 - **CI**: Advanced the `actions/checkout` pinned SHA from `df4cb1c` (v6.0.3) to `9c091bb` (v7.0.0) across all workflows and retargeted the Pin Drift Check to the `v7` tag (Dependabot PR #76). v7.0.0 hardens supply-chain safety by blocking checkout of fork pull requests under the `pull_request_target` and `workflow_run` triggers; the SHA pin and `Security Workflow Audit` / `Pin Drift Check` gates remain green
 
 ### Changed
