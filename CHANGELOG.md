@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Dependencies**: Bumped `ratatui` from 0.30.1 to 0.30.2 via the production-dependencies group (Dependabot PR #77); pulls in the refreshed `ratatui-core`/`-crossterm`/`-macros`/`-widgets` 0.1.2/0.7.2/0.3.2 stack and the new optional `ratatui-termina` backend (unused here). Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
+- **Dependencies**: Bumped `anyhow` from 1.0.102 to 1.0.103 via the production-dependencies group (Dependabot PR #79); upstream fixes a Stacked Borrows violation (undefined behavior surfaced under Miri) in `Error::downcast_mut`. Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
 
 ## [0.6.0] - 2026-06-10
 
