@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-07-20
+
 ### Security
 - **Dependencies**: Bumped the transitive `quinn-proto` from 0.11.14 to 0.11.15 to remediate **RUSTSEC-2026-0185** (CVSS 7.5, high) — a remote memory-exhaustion flaw from unbounded out-of-order QUIC stream reassembly. `quinn-proto` reaches the tree only through the optional reqwest HTTP stack (behind the `usno-validation` / `ai-insights` features); lockfile-only, no `Cargo.toml` constraints changed, and `cargo audit` is clean again
 - **CI**: Advanced the `actions/checkout` pinned SHA from `df4cb1c` (v6.0.3) to `9c091bb` (v7.0.0) across all workflows and retargeted the Pin Drift Check to the `v7` tag (Dependabot PR #76). v7.0.0 hardens supply-chain safety by blocking checkout of fork pull requests under the `pull_request_target` and `workflow_run` triggers; the SHA pin and `Security Workflow Audit` / `Pin Drift Check` gates remain green
@@ -19,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dependencies**: Bumped `ratatui` from 0.30.1 to 0.30.2 via the production-dependencies group (Dependabot PR #77); pulls in the refreshed `ratatui-core`/`-crossterm`/`-macros`/`-widgets` 0.1.2/0.7.2/0.3.2 stack and the new optional `ratatui-termina` backend (unused here). Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
 - **Dependencies**: Bumped `anyhow` from 1.0.102 to 1.0.103 via the production-dependencies group (Dependabot PR #79); upstream fixes a Stacked Borrows violation (undefined behavior surfaced under Miri) in `Error::downcast_mut`. Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
 - **Dependencies**: Bumped `clap_complete` from 4.6.5 to 4.6.7 via the production-dependencies group (Dependabot PR #82); adds `pwsh` detection to shell-completion generation. Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
+- **Dependencies**: Bumped `clap` 4.6.1 → 4.6.2, `serde` 1.0.228 → 1.0.229, `serde_json` 1.0.150 → 1.0.151, and `anyhow` 1.0.103 → 1.0.104 via the production-dependencies group (Dependabot PR #88). Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
 
 ## [0.6.0] - 2026-06-10
 

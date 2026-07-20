@@ -170,7 +170,7 @@ Add dependency:
 
 ```toml
 [dependencies]
-solunatus = "0.6.0"
+solunatus = "0.6.1"
 chrono = "0.4"
 chrono-tz = "0.10"
 ```
