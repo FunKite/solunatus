@@ -33,7 +33,7 @@ jobs:
       MAX_MAG: ${{ inputs.max_mag || '0.8' }}
       MAX_DIST_FRAC: ${{ inputs.max_dist_frac || '0.005' }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
       - name: Build solunatus
