@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
       - name: Run cargo audit
@@ -74,6 +74,18 @@ jobs:
             echo "${sha}"
           }
 
+          resolve_branch_commit() {
+            local repo="$1"
+            local branch="$2"
+            local sha
+            sha="$(git ls-remote "https://github.com/${repo}.git" "refs/heads/${branch}" | awk '{print $1}')"
+            if [[ -z "${sha}" ]]; then
+              echo "Unable to resolve ${repo}@${branch}" >&2
+              exit 1
+            fi
+            echo "${sha}"
+          }
+
           resolve_local_pin() {
             local pattern="$1"
             local sha
@@ -112,6 +124,21 @@ jobs:
             failures=1
           else
             echo "OK: github/codeql-action matches v4 (${codeql_expected})"
+          fi
+
+          # dtolnay/rust-toolchain has no tags; "stable" etc. are branches that
+          # get force-pushed to a new commit on every Rust release, so a pin
+          # left unrefreshed eventually points at a commit unreachable from
+          # any branch (Dependabot then fails with "no such commit").
+          toolchain_expected="$(resolve_branch_commit "dtolnay/rust-toolchain" "stable")"
+          toolchain_pinned="$(resolve_local_pin 'uses:[[:space:]]*dtolnay/rust-toolchain@[a-f0-9]{40}')"
+          if [[ "${toolchain_pinned}" != "${toolchain_expected}" ]]; then
+            echo "Pin drift: dtolnay/rust-toolchain"
+            echo "  pinned:   ${toolchain_pinned}"
+            echo "  expected: ${toolchain_expected} (stable)"
+            failures=1
+          else
+            echo "OK: dtolnay/rust-toolchain matches stable (${toolchain_expected})"
           fi
 
           if [[ "${failures}" -ne 0 ]]; then
