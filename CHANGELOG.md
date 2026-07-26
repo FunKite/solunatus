@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **CI**: Refreshed the `dtolnay/rust-toolchain` SHA pin (used in `rust.yml`, `security.yml`, `usno-validation.yml`, and `planet-validation.yml`) from `631a55b` to the current `stable` branch tip `4cda84d`. The old pin had never been updated since it was first added and had gone stale: `dtolnay/rust-toolchain` ships no tags, only branches (`stable`, `beta`, `nightly`, version branches) that are force-pushed to a new commit on every Rust release, so an unrefreshed SHA pin eventually points at a commit unreachable from any branch tip. This was silently breaking the weekly `github-actions` Dependabot update job (`error: no such commit 631a55b...`, recurring since at least 2026-07-14) and risked a hard CI failure once GitHub garbage-collected the orphaned commit
+- **CI**: Extended the `Pin Drift Check` workflow job to also track `dtolnay/rust-toolchain` against its `stable` branch (previously it only covered `actions/checkout` and `github/codeql-action`, both of which were confirmed still current), so a future rebase of the `stable` branch is caught automatically instead of failing silently in Dependabot
+
 ## [0.6.1] - 2026-07-20
 
 ### Security
