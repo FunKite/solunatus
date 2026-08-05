@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Dependencies**: Bumped `clap` from 4.6.2 to 4.6.4 and the transitive `clap_derive` from 4.6.1 to 4.6.4 via the production-dependencies group (Dependabot PR #93); pulls in `clap_derive`'s move to `syn` 3.0. Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
+- **Dependencies**: Bumped `clap_complete` from 4.6.7 to 4.6.8 via the production-dependencies group (Dependabot PR #95); upstream exposes possible-value completers for custom completion integrations. Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
 
 ## [0.6.1] - 2026-07-20
 
