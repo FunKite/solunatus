@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: Advanced the `github/codeql-action/init` and `.../analyze` pinned SHA from `7188fc3` (v4.37.1) through `e4fba86` (v4.37.3) and `f205ea1` (v4.37.4) to `5595cca` (v4.37.6) in `codeql.yml` via the workflow-dependencies group (Dependabot PRs #92 and #96) and maintenance PR #94 to clear the Pin Drift gate; no user-facing CodeQL changes upstream
 
 ### Changed
+- **Dependencies**: Bumped `clap` from 4.6.4 to 4.6.6 and `clap_complete` from 4.6.8 to 4.6.9 via the production-dependencies group (Dependabot PR #97); improves optional-value help rendering, adds the overridden-usage accessor, and fixes generated Bash completion function names. Lockfile-only; no `Cargo.toml` constraints changed and the update introduces no new audit findings
 - **Dependencies**: Bumped `clap` from 4.6.2 to 4.6.4 and the transitive `clap_derive` from 4.6.1 to 4.6.4 via the production-dependencies group (Dependabot PR #93); pulls in `clap_derive`'s move to `syn` 3.0. Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
 - **Dependencies**: Bumped `clap_complete` from 4.6.7 to 4.6.8 via the production-dependencies group (Dependabot PR #95); upstream exposes possible-value completers for custom completion integrations. Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
 
