@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Observing**: New offline `--tonight` report and `--tonight --json` output for stargazers and astrophotographers: evening photography times, dusk/dawn, the first moon-free dark window, and a timed Moon/planet snapshot. Plans respect local noon-to-noon boundaries, daylight-saving changes, the date line, and polar conditions.
+
 ### Fixed
 - **Calendar**: Normalize CRLF and bare-CR line endings in ICS text fields before escaping them, keeping multiline city names inside their calendar property. Regression coverage also verifies UTF-8 line folding and escaped punctuation.
 
@@ -19,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: Advanced the `github/codeql-action/init` and `.../analyze` pinned SHA from `7188fc3` (v4.37.1) through `e4fba86` (v4.37.3) and `f205ea1` (v4.37.4) to `5595cca` (v4.37.6) in `codeql.yml` via the workflow-dependencies group (Dependabot PRs #92 and #96) and maintenance PR #94 to clear the Pin Drift gate; no user-facing CodeQL changes upstream
 
 ### Changed
+- **Getting started**: Rebuilt the README around observing tasks with a reproducible preview from real CLI output, a dedicated observing guide, and tested source/release installation paths. Clearly separates the new night planner on `main` from published v0.6.1 features.
 - **Validation**: Added CI tests with optional features disabled and removed the redundant second doctest run from the safe local test script; the normal `cargo test` invocation already includes doctests.
 - **Dependencies**: Bumped `clap` from 4.6.4 to 4.6.6 and `clap_complete` from 4.6.8 to 4.6.9 via the production-dependencies group (Dependabot PR #97); improves optional-value help rendering, adds the overridden-usage accessor, and fixes generated Bash completion function names. Lockfile-only; no `Cargo.toml` constraints changed and the update introduces no new audit findings
 - **Dependencies**: Bumped `clap` from 4.6.2 to 4.6.4 and the transitive `clap_derive` from 4.6.1 to 4.6.4 via the production-dependencies group (Dependabot PR #93); pulls in `clap_derive`'s move to `syn` 3.0. Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories

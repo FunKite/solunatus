@@ -1,5 +1,7 @@
 // Solunatus - High-precision astronomical CLI for sun and moon calculations
 
+mod observing;
+
 #[cfg(feature = "ai-insights")]
 use solunatus::ai;
 use solunatus::{
@@ -40,8 +42,9 @@ fn main() -> Result<()> {
     let mut config = config::Config::load().ok().flatten();
 
     // Check system clock against authoritative source unless disabled by env/config.
-    // Scripting one-shots (--next) skip the sync so they stay fast and offline.
-    let env_skips_time_sync = env::var("SOLUNATUS_SKIP_TIME_SYNC").is_ok() || args.next.is_some();
+    // Observing plans and event queries skip the sync to stay offline.
+    let env_skips_time_sync =
+        env::var("SOLUNATUS_SKIP_TIME_SYNC").is_ok() || args.next.is_some() || args.tonight;
     let (time_sync_info, time_sync_disabled, time_sync_server) =
         resolve_time_sync_state(config.as_ref(), env_skips_time_sync);
 
@@ -71,6 +74,21 @@ fn main() -> Result<()> {
     } else {
         Local::now().with_timezone(&timezone)
     };
+
+    // Observing plan: print once without opening the TUI or saving settings.
+    if args.tonight {
+        print!(
+            "{}",
+            observing::generate(
+                &location,
+                timezone,
+                city_name.as_deref(),
+                dt.date_naive(),
+                args.json
+            )?
+        );
+        return Ok(());
+    }
 
     // Scripting query mode: print one value and exit.
     if let Some(event) = args.next {

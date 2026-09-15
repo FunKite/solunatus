@@ -9,6 +9,7 @@ Welcome to the Solunatus documentation. This folder contains comprehensive guide
 - **[Quick Start](installation/quick-start.md)** - Get running in 5 minutes
 
 ### Features
+- **[Plan a Night](features/observing.md)** - Moon-free darkness, photography times, and planet snapshots
 - **[Astronomical Calculations](features/README.md)** - Overview of supported calculations
 - **[CLI Reference](features/cli-reference.md)** - Complete command-line options guide
 - **[Interactive Mode](features/interactive-mode.md)** - Guide to the TUI watch mode
@@ -51,6 +52,7 @@ docs/
 ├── features/
 │   ├── README.md
 │   ├── cli-reference.md
+│   ├── observing.md
 │   ├── interactive-mode.md
 │   ├── city-database.md
 │   ├── json-output.md

@@ -73,6 +73,11 @@ pub struct Args {
     #[arg(long)]
     pub json: bool,
 
+    /// Plan the coming night: photography times, moon-free darkness, and planets.
+    /// Uses local noon today (or --date) through noon tomorrow; runs offline.
+    #[arg(long, conflicts_with_all = ["calendar", "next", "watch"])]
+    pub tonight: bool,
+
     /// Generate a calendar for the specified date range
     #[arg(long)]
     pub calendar: bool,
@@ -140,7 +145,7 @@ pub struct Args {
 
     /// Generate USNO validation report comparing calculations with Naval Observatory data
     #[cfg(feature = "usno-validation")]
-    #[arg(long)]
+    #[arg(long, conflicts_with = "tonight")]
     pub validate: bool,
 
     /// Generate shell completions to stdout and exit
