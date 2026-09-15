@@ -7,13 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Calendar**: Normalize CRLF and bare-CR line endings in ICS text fields before escaping them, keeping multiline city names inside their calendar property. Regression coverage also verifies UTF-8 line folding and escaped punctuation.
+
 ### Security
+- **Dependencies**: Patched `rustls` 0.23.40 → 0.23.45 (`RUSTSEC-2026-0285`, TLS handshake encryption boundaries), its `rustls-webpki` dependency 0.103.13 → 0.103.15, and `lru` 0.18.0 → 0.18.2 (`RUSTSEC-2026-0253`, panic-safety memory corruption). Lockfile-only updates; no new dependencies.
+- **CI**: Updated CodeQL to v4.38.0 (Dependabot PR #99) and refreshed the Rust toolchain action to `6bed076` (stable Rust 1.98.1), retaining full commit SHA pins across all workflows.
 - **CI**: Advanced the `github/codeql-action/init` and `.../analyze` SHA pin from v4.37.6 to v4.37.9 and refreshed `dtolnay/rust-toolchain` from `4cda84d` to the current `stable` tip `4360b52` (Rust 1.98.0), clearing the repository's live Pin Drift gate while retaining full-commit supply-chain pins (Dependabot PR #98)
 - **CI**: Refreshed the `dtolnay/rust-toolchain` SHA pin (used in `rust.yml`, `security.yml`, `usno-validation.yml`, and `planet-validation.yml`) from `631a55b` to the current `stable` branch tip `4cda84d`. The old pin had never been updated since it was first added and had gone stale: `dtolnay/rust-toolchain` ships no tags, only branches (`stable`, `beta`, `nightly`, version branches) that are force-pushed to a new commit on every Rust release, so an unrefreshed SHA pin eventually points at a commit unreachable from any branch tip. This was silently breaking the weekly `github-actions` Dependabot update job (`error: no such commit 631a55b...`, recurring since at least 2026-07-14) and risked a hard CI failure once GitHub garbage-collected the orphaned commit
 - **CI**: Extended the `Pin Drift Check` workflow job to also track `dtolnay/rust-toolchain` against its `stable` branch (previously it only covered `actions/checkout` and `github/codeql-action`, both of which were confirmed still current), so a future rebase of the `stable` branch is caught automatically instead of failing silently in Dependabot
 - **CI**: Advanced the `github/codeql-action/init` and `.../analyze` pinned SHA from `7188fc3` (v4.37.1) through `e4fba86` (v4.37.3) and `f205ea1` (v4.37.4) to `5595cca` (v4.37.6) in `codeql.yml` via the workflow-dependencies group (Dependabot PRs #92 and #96) and maintenance PR #94 to clear the Pin Drift gate; no user-facing CodeQL changes upstream
 
 ### Changed
+- **Validation**: Added CI tests with optional features disabled and removed the redundant second doctest run from the safe local test script; the normal `cargo test` invocation already includes doctests.
 - **Dependencies**: Bumped `clap` from 4.6.4 to 4.6.6 and `clap_complete` from 4.6.8 to 4.6.9 via the production-dependencies group (Dependabot PR #97); improves optional-value help rendering, adds the overridden-usage accessor, and fixes generated Bash completion function names. Lockfile-only; no `Cargo.toml` constraints changed and the update introduces no new audit findings
 - **Dependencies**: Bumped `clap` from 4.6.2 to 4.6.4 and the transitive `clap_derive` from 4.6.1 to 4.6.4 via the production-dependencies group (Dependabot PR #93); pulls in `clap_derive`'s move to `syn` 3.0. Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
 - **Dependencies**: Bumped `clap_complete` from 4.6.7 to 4.6.8 via the production-dependencies group (Dependabot PR #95); upstream exposes possible-value completers for custom completion integrations. Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories
