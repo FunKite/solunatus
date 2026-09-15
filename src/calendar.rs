@@ -482,6 +482,8 @@ fn escape_ics(input: &str) -> String {
         .replace('\\', "\\\\")
         .replace(';', "\\;")
         .replace(',', "\\,")
+        .replace("\r\n", "\n")
+        .replace('\r', "\n")
         .replace('\n', "\\n")
 }
 
@@ -721,6 +723,47 @@ mod tests {
     use super::*;
     use crate::astro::moon;
     use chrono_tz::America::New_York;
+
+    #[test]
+    fn ics_city_name_preserves_text_without_injecting_content_lines() {
+        let location = Location::new(40.7128, -74.0060).unwrap();
+        let date = NaiveDate::from_ymd_opt(2025, 10, 15).unwrap();
+        let place = format!(
+            "{}\\;Town, NY\r\nX-INJECTED:one\rtwo\nthree",
+            "🌕é".repeat(20)
+        );
+        let ics = generate_calendar(
+            &location,
+            &New_York,
+            Some(&place),
+            date,
+            date,
+            CalendarFormat::Ics,
+        )
+        .unwrap();
+
+        for line in ics.split("\r\n") {
+            assert!(!line.contains(['\r', '\n']), "bare line ending: {line:?}");
+            assert!(line.len() <= 75, "line exceeds 75 octets: {line}");
+        }
+        let unfolded = ics.replace("\r\n ", "");
+        let name = unfolded
+            .split("\r\n")
+            .find(|line| line.starts_with("X-WR-CALNAME:"))
+            .unwrap();
+        assert_eq!(
+            name,
+            format!(
+                "X-WR-CALNAME:Sun & Moon — {}\\\\\\;Town\\, NY\\nX-INJECTED:one\\ntwo\\nthree",
+                "🌕é".repeat(20)
+            )
+        );
+        assert!(
+            !unfolded
+                .split("\r\n")
+                .any(|line| line.starts_with("X-INJECTED:"))
+        );
+    }
 
     #[test]
     fn ics_calendar_is_well_formed() {

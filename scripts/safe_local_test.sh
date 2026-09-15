@@ -93,10 +93,7 @@ if [[ ${RUN_SECURITY} -eq 1 ]]; then
   fi
 fi
 
-echo "==> Running test suite"
+echo "==> Running test suite (including doc tests)"
 cargo test "${test_flags[@]}" --verbose
-
-echo "==> Running doc tests"
-cargo test "${test_flags[@]}" --doc --verbose
 
 echo "==> Safe local test run complete"
