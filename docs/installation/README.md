@@ -1,121 +1,83 @@
-# Installation Guide
+# Install Solunatus
 
-Choose the installation method that works best for you.
+## Install the published release
 
-## Quick Start (5 minutes)
-
-For the fastest way to get started:
+With [Rust and Cargo](https://www.rust-lang.org/tools/install) installed:
 
 ```bash
-# Clone and build from source
+cargo install --locked solunatus
+solunatus --version
+solunatus --city "Tucson"
+```
+
+Use the latest stable Rust toolchain when possible. The current minimum is Rust 1.91; it may rise in a future minor release for security or compatibility.
+
+To reinstall or upgrade:
+
+```bash
+cargo install --locked solunatus --force
+```
+
+## Linux downloads
+
+[v0.6.1](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) provides two prebuilt archives:
+
+- `solunatus-v0.6.1-linux-x86_64.tar.gz`
+- `solunatus-v0.6.1-linux-aarch64.tar.gz`
+
+Download the archive for your CPU and `solunatus-v0.6.1-SHA256SUMS.txt` from that release. In the download directory, verify the matching archive on Linux:
+
+```bash
+sha256sum --check --ignore-missing solunatus-v0.6.1-SHA256SUMS.txt
+```
+
+Proceed only if your downloaded archive is listed as `OK`. Extract the archive and run its `solunatus` executable. See the release notes for the supported assets; unsigned macOS and Windows binaries are not provided in this release, so use Cargo there.
+
+## Build the current source
+
+Use this method for unreleased features, including `--tonight`:
+
+```bash
 git clone https://github.com/FunKite/solunatus.git
 cd solunatus
-cargo build --release
-./target/release/solunatus --help
+cargo install --locked --path .
+solunatus --city "Tucson" --tonight
 ```
 
-See [Quick Start Guide](quick-start.md) for detailed steps.
-
-## Installation Methods
-
-### 1. Build from Source (Recommended for Developers)
-
-**Requirements:**
-- Latest stable Rust recommended
-- Minimum supported Rust version: 1.91
-- Cargo (included with Rust)
-- Git
-
-Solunatus targets the latest stable Rust release for active development. The current release line supports stable Rust versions compatible with `rust-version = "1.91"`, and that floor may rise in a minor release when security, dependency compatibility, or maintainability require it. If you need an older Rust toolchain, use an older Solunatus release that still supports it.
-
-**Steps:**
+To build without installing:
 
 ```bash
-# Install Rust if needed
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Clone the repository
-git clone https://github.com/FunKite/solunatus.git
-cd solunatus
-
-# Build release binary
-cargo build --release
-
-# Install system-wide (optional)
-cargo install --path .
-
-# Or run directly
-./target/release/solunatus --city "New York"
+cargo build --release --locked
+./target/release/solunatus --city "Tucson" --tonight
 ```
 
-### 2. Install from Crates.io (Recommended)
+## Optional integrations
 
-Install the CLI tool directly from crates.io:
+USNO validation and AI insights are included by default. The dashboard and core astronomy need neither integration. To omit them:
 
 ```bash
-cargo install solunatus
+# Published release
+cargo install --locked solunatus --no-default-features
+
+# Current source
+cargo install --locked --path . --no-default-features
 ```
 
-#### Using as a Library
+The default time check is independent of those features. Set `SOLUNATUS_SKIP_TIME_SYNC=1` for an offline dashboard; `--tonight` and `--next` are already offline.
 
-If you want to use Solunatus as a library in your Rust project:
+## Use the library
 
 ```toml
 [dependencies]
-solunatus = "0.4.0"
+solunatus = "0.6.1"
 chrono = "0.4"
 chrono-tz = "0.10"
 ```
 
-See the [examples directory](../../examples/) for usage patterns.
+See the [API docs](https://docs.rs/solunatus) and [examples](../../examples/).
 
-### 3. Review GitHub Release Notes
+## Help
 
-GitHub Releases are used for tags and release notes for published versions:
-
-- [GitHub Releases](https://github.com/FunKite/solunatus/releases)
-
-Installable releases are published on crates.io. Do not assume a GitHub Release includes fresh binary artifacts unless that specific release explicitly documents them.
-
-## Platform Support
-
-### Tier 1 (Fully Tested)
-- **macOS** (Intel and Apple Silicon) - Primary development platform
-- **Linux** (x86_64) - Tested on Ubuntu 20.04+
-
-### Tier 2 (Builds Successfully)
-- **Windows** (x86_64 via WSL or native)
-- **macOS ARM64** (Apple Silicon M1/M2/M3)
-
-### Tier 3 (Community Supported)
-- Other Linux distributions
-- Other Unix-like systems
-
-## Verification
-
-After installation, verify it works:
-
-```bash
-# Show help
-solunatus --help
-
-# Get sunrise/sunset for your location
-solunatus --city "New York"
-
-# Output JSON
-solunatus --city "Tokyo" --json
-
-# View moon phases for a month
-solunatus --city "Paris" --calendar --calendar-start 2025-12-01 --calendar-end 2025-12-31
-```
-
-## Troubleshooting
-
-Having issues? See the [Troubleshooting Guide](troubleshooting.md).
-
-## Next Steps
-
-- **[Quick Start Guide](quick-start.md)** - Learn basic usage
-- **[CLI Reference](../features/cli-reference.md)** - Complete command options
-- **[Interactive Mode Guide](../features/interactive-mode.md)** - Master the TUI
-- **[Contributing](../../CONTRIBUTING.md)** - Help improve Solunatus
+- [Quick start](quick-start.md)
+- [Observing guide](../features/observing.md)
+- [Troubleshooting](troubleshooting.md)

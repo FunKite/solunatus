@@ -8,7 +8,7 @@ Complete documentation of all Solunatus command-line options.
 solunatus [OPTIONS]
 ```
 
-All options are optional. Without arguments, Solunatus loads your saved location from `~/.solunatus.json` if available, or prompts you to select a city.
+All options are optional. Without arguments, Solunatus loads your saved location from `~/.solunatus.json` if available, or exits with instructions to supply `--city` or coordinates.
 
 ## Location Options
 
@@ -21,11 +21,7 @@ solunatus --city "Tokyo"
 solunatus --city "London"
 ```
 
-Supports fuzzy search for partial matches:
-
-```bash
-solunatus --city "San"  # Might suggest San Francisco, San Diego, etc.
-```
+City names must match a database entry (case-insensitive). Fuzzy search is available in the interactive settings city picker, not in `--city`. Use coordinates for an unlisted observing site.
 
 ### `--lat <LAT>`
 Latitude in decimal degrees (range: -90 to +90).
@@ -77,9 +73,20 @@ solunatus --lat 40.7128 --lon -74.0060 --tz America/New_York --date 1969-07-20  
 
 Default: Today's date
 
-**Supported range:** Any valid date (past and future)
+**Night-plan/calendar range:** Astronomical years −0999 through 3000. Accuracy depends on the date and location.
 
 ## Output Options
+
+### `--tonight` (current source; not in v0.6.1)
+
+Print an offline observing plan for local noon today (or `--date`) through noon tomorrow. Includes photography times, the first moon-free dark window, and a timed Moon/planet snapshot. Add `--json` for the night-plan schema.
+
+```bash
+solunatus --city "Tucson" --tonight
+solunatus --city "Tucson" --date 2026-10-10 --tonight --json
+```
+
+Exits after printing and does not save settings. Conflicts with `--watch`, `--calendar`, `--next`, and `--validate`. See the [observing guide](observing.md) for date boundaries, polar cases, and interpreting the result.
 
 ### `--json`
 Output in JSON format instead of text.
@@ -91,7 +98,7 @@ solunatus --city "Paris" --json
 solunatus --city "Tokyo" --json > tokyo.json
 
 # Parse with jq
-solunatus --city "Sydney" --json | jq '.events'
+solunatus --city "Sydney" --json | jq '.sun.events'
 ```
 
 Useful for:
@@ -113,17 +120,8 @@ Useful for:
 - Cron jobs
 - Pipe to other programs
 
-### `--save`
-Save current location to configuration file (`~/.solunatus.json`).
-
-```bash
-solunatus --city "New York" --save
-```
-
-**In watch mode:** Press `s` to save.
-
 ### `--no-save`
-Don't save configuration even if `--save` is used or during watch mode.
+Disable saving settings to `~/.solunatus.json`. There is no `--save` flag; settings normally save through the existing configuration flow.
 
 ```bash
 solunatus --city "Paris" --no-save
@@ -274,7 +272,7 @@ solunatus --city "Sydney" --date 2025-12-25
 
 ### JSON for scripting
 ```bash
-solunatus --city "Tokyo" --json | jq '.events'
+solunatus --city "Tokyo" --json | jq '.sun.events'
 ```
 
 ### Calendar for December
@@ -364,7 +362,7 @@ cat full_data.json | jq .
 - Use `--json` for piping to other tools
 - Press `s` in watch mode to open settings menu
 - Use city picker (press `c`) for fastest city selection
-- Save frequently-used locations with `--save`
+- Choose a frequently used location in watch-mode settings (`s`)
 - Check timezone spelling: Use IANA format, not abbreviations
 
 ## Need Help?

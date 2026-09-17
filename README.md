@@ -1,172 +1,116 @@
 # Solunatus
 
+**Plan your next night under the stars—from your terminal.**
+
 [![Crates.io](https://img.shields.io/crates/v/solunatus.svg)](https://crates.io/crates/solunatus)
-[![Downloads](https://img.shields.io/crates/d/solunatus.svg)](https://crates.io/crates/solunatus)
+[![Rust CI](https://github.com/FunKite/solunatus/actions/workflows/rust.yml/badge.svg)](https://github.com/FunKite/solunatus/actions/workflows/rust.yml)
 [![Documentation](https://docs.rs/solunatus/badge.svg)](https://docs.rs/solunatus)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-High-precision astronomical calculations for sun and moon events, available as both:
-- A Rust library (`solunatus`)
-- A CLI app (`solunatus`)
+Find golden hour, moon-free darkness, and where the planets will be. Solunatus combines a live sky dashboard, photography calendars, and a Rust astronomy library. Core calculations run locally, without an account or API key.
 
-Solunatus runs offline for core calculations and supports historical/future dates (from astronomical year `-0999` through `3000`).
+[Get started](#get-started) · [Plan a night](#plan-a-night) · [Observing recipes](docs/features/observing.md) · [Rust API](https://docs.rs/solunatus)
 
-## What You Get
+![Actual Solunatus night-plan output for Tucson: photography times, moon-free darkness, and planet positions](docs/images/night-plan.svg)
 
-- Sunrise, sunset, and solar noon
-- Civil, nautical, and astronomical twilight
-- Golden hour and blue hour times, plus dark-sky windows for astrophotography
-- Moonrise, moonset, and transit
-- Moon phase, illumination, altitude/azimuth, distance, perigee/apogee, supermoons
-- Planet positions, magnitudes, and rise/set times (Mercury through Neptune), validated against JPL Horizons
-- Equinox and solstice times
-- Built-in city database (570+ cities)
-- Interactive terminal UI (watch mode) with planets panel and altitude chart
-- JSON output and calendar export (HTML/JSON/iCalendar)
-- Scripting query mode (`--next sunrise`) for cron and automation
-- Shell completions and man page generation
-- Optional USNO validation reports
-- Optional AI insights via local Ollama
+*Preview of the new `--tonight` command on `main`; install from source below to try it. This feature is not in crates.io v0.6.1 yet. [How the preview is generated](docs/features/observing.md#readme-preview).*
 
-## Install
+## Why take it observing?
 
-Solunatus targets the latest stable Rust release for active development and is built on the Rust 2024 edition. The current release line supports stable Rust versions compatible with `rust-version = "1.91"`, and that floor may rise in a minor release when security, dependency compatibility, or maintainability require it. If you need an older Rust toolchain, use an older Solunatus release that still supports it.
+| Your question | Solunatus gives you |
+| --- | --- |
+| When should I set up the camera? | Evening golden hour and blue hour, sunset, and astronomical twilight. |
+| When does the Moon stop lighting up the sky? | A moon-free dark window: Sun below −18°, Moon below the horizon, with a 15-minute moon-glow buffer. |
+| Where are the planets? | Altitude, azimuth, approximate magnitude, and rise/set times for Mercury through Neptune. |
+| Can I plan ahead? | Dates, timezones, and HTML, JSON, or iCalendar exports. |
+| Can I use it at my observing site? | Coordinates and an IANA timezone, or a built-in database of 570+ cities. |
 
-To upgrade an existing installation from crates.io:
+The interactive dashboard includes an altitude chart and a red-text night mode. JSON output and single-event queries also work in scripts. Weather, terrain, and light pollution are not modeled; a dark window is an astronomical opportunity, not a clear-sky forecast.
+
+## Get started
+
+### Latest published release
+
+With [Rust and Cargo](https://www.rust-lang.org/tools/install) installed:
 
 ```bash
-cargo install solunatus --force
+cargo install --locked solunatus
+solunatus --city "Tucson"
 ```
 
-### From crates.io
+This opens the live dashboard. Press **`g`** for the Sun/Moon altitude chart, **`s`** for settings and night mode, **`r`** for reports, and **`q`** to quit.
 
-```bash
-cargo install solunatus
-```
+Prefer a download? [v0.6.1 provides Linux x86_64 and ARM64 archives with SHA-256 checksums](https://github.com/FunKite/solunatus/releases/tag/v0.6.1). macOS and Windows users can install with Cargo. See the [installation guide](docs/installation/README.md).
 
-### From source
+### Try the new night planner from source
+
+The examples using `--tonight` require the current `main` branch:
 
 ```bash
 git clone https://github.com/FunKite/solunatus.git
 cd solunatus
-cargo install --path .
+cargo install --locked --path .
+solunatus --city "Tucson" --tonight
 ```
 
-## Quick Start
+Latest stable Rust is recommended; the current minimum is Rust 1.91. The minimum may increase in a future minor release.
+
+## Plan a night
 
 ```bash
-# Use a city from the built-in database
-solunatus --city "New York"
+# Coming evening through the following morning
+solunatus --city "Tucson" --tonight
 
-# Or specify coordinates + timezone
-solunatus --lat 40.7128 --lon -74.0060 --tz America/New_York
+# Plan a trip to a particular observing site
+solunatus --lat 36.24 --lon=-116.82 --tz America/Los_Angeles \
+  --date 2026-10-10 --tonight
+
+# Save a machine-readable plan
+solunatus --city "Tucson" --date 2026-10-10 --tonight --json > night.json
 ```
 
-By default, Solunatus starts in interactive watch mode.  
-Press `q` to quit, `s` for settings, and `r` for reports.
+`--tonight` prints one report and exits. It runs offline and does not save settings. The plan covers **local noon on the chosen date to local noon the next day**, including daylight-saving changes. Moon and planet positions are labeled with their snapshot time; the report does not imply that a planet stays up all night.
 
-## Common CLI Usage
+[Read the night-plan guide →](docs/features/observing.md)
 
-### Single snapshot (non-interactive)
+## More ways to use it
+
+These commands also work in v0.6.1.
+
+### Catch the evening light
 
 ```bash
-solunatus --city "Tokyo" --no-prompt
+solunatus --city "Lisbon" --next golden-dusk-start --format human
+solunatus --city "Lisbon" --next astronomical-dusk --format iso
 ```
 
-### JSON output
+### Put sky events on your calendar
 
 ```bash
-solunatus --city "Tokyo" --json
+solunatus --city "Tucson" --calendar \
+  --calendar-start 2026-10-01 --calendar-end 2026-10-31 \
+  --calendar-format ics --calendar-output tucson-october.ics
 ```
 
-### Specific date
+Import the file into a calendar app for sunrise, sunset, moonrise, moonset, and quarter lunar phases. Use `--calendar-format html` for a printable table or `json` for data.
+
+### Get a snapshot or a live dashboard
 
 ```bash
-solunatus --city "Lisbon" --date 2026-01-15
+solunatus --city "Sydney" --no-prompt
+solunatus --city "Sydney" --json
+solunatus --lat=-33.8688 --lon 151.2093 --tz Australia/Sydney
 ```
 
-### Calendar export
+The dashboard and regular snapshots check network time by default. For fully offline use, set `SOLUNATUS_SKIP_TIME_SYNC=1`; `--tonight` and `--next` already skip that check. Optional USNO validation and AI insights require network access when explicitly used.
 
-```bash
-solunatus --city "Lisbon" \
-  --calendar \
-  --calendar-start 2026-01-01 \
-  --calendar-end 2026-01-31 \
-  --calendar-format html \
-  --calendar-output lisbon-jan-2026.html
-```
+## Accuracy you can inspect
 
-### Next event query (scripting/automation)
+Solar calculations use NOAA-based methods; lunar calculations use Meeus-based methods. Planet positions use Keplerian elements with major perturbations. The repository includes [JPL Horizons reference tests](tests/planet_accuracy.rs) at three epochs spanning 1990–2049, plus scheduled [planet](.github/workflows/planet-validation.yml) and [USNO](.github/workflows/usno-validation.yml) comparisons.
 
-```bash
-solunatus --city "Denver" --next sunset --format iso
-```
+These are approximations for observing and photography planning. Reference tests are specific samples, not a guarantee of uniform accuracy across all dates and locations. Near the poles, a rise/set or twilight crossing may not occur. See [accuracy and verification](docs/development/accuracy.md).
 
-### Shell completions and man page
-
-```bash
-solunatus --completions zsh > _solunatus
-solunatus --manpage > solunatus.1
-```
-
-### USNO validation report (feature-enabled builds)
-
-```bash
-solunatus --city "San Diego" --validate
-```
-
-### AI insights with Ollama (feature-enabled builds)
-
-```bash
-solunatus --city "Seattle" --ai-insights
-```
-
-## Command Highlights
-
-Core flags:
-- `--city <CITY>`
-- `--lat <LAT> --lon <LON> --tz <TIMEZONE>`
-- `--date <YYYY-MM-DD>`
-- `--json`
-- `--calendar --calendar-start <DATE> --calendar-end <DATE>`
-- `--calendar-format <html|json|ics>`
-- `--calendar-output <PATH>`
-- `--next <EVENT> --format <iso|unix|local|human>`
-- `--completions <SHELL>`
-- `--manpage`
-- `--watch`
-- `--no-prompt`
-- `--no-save`
-- `--strict`
-
-Optional flags (feature gated):
-- `--validate` (`usno-validation`)
-- `--ai-insights`, `--ai-server`, `--ai-model`, `--ai-refresh-minutes` (`ai-insights`)
-
-For full CLI docs, see [`docs/features/cli-reference.md`](docs/features/cli-reference.md).
-
-## Optional Features
-
-Default features:
-- `usno-validation`
-- `ai-insights`
-
-Examples:
-
-```bash
-# Minimal build (no USNO validation, no AI insights)
-cargo install solunatus --no-default-features
-
-# USNO validation only
-cargo install solunatus --no-default-features --features usno-validation
-
-# AI insights only
-cargo install solunatus --no-default-features --features ai-insights
-```
-
-## Library Usage
-
-Add dependency:
+## Use the Rust library
 
 ```toml
 [dependencies]
@@ -175,84 +119,50 @@ chrono = "0.4"
 chrono-tz = "0.10"
 ```
 
-Basic example:
-
 ```rust
 use chrono::Local;
-use chrono_tz::America::New_York;
+use chrono_tz::America::Phoenix;
 use solunatus::prelude::*;
 
-fn main() {
-    let location = Location::new(40.7128, -74.0060).unwrap();
-    let now = Local::now().with_timezone(&New_York);
-
-    if let Some(sunrise) = calculate_sunrise(&location, &now) {
-        println!("Sunrise: {}", sunrise.format("%H:%M:%S"));
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let site = Location::new(32.2226, -110.9747)?;
+    let now = Local::now().with_timezone(&Phoenix);
+    if let Some(sunset) = calculate_sunset(&site, &now) {
+        println!("Sunset: {}", sunset.format("%H:%M %Z"));
     }
-
-    if let Some(sunset) = calculate_sunset(&location, &now) {
-        println!("Sunset: {}", sunset.format("%H:%M:%S"));
-    }
-
-    let (phase_name, phase_emoji) = get_current_moon_phase(&location, &now);
-    println!("Moon phase: {} {}", phase_emoji, phase_name);
+    Ok(())
 }
 ```
 
-More examples: [`examples/`](examples/)
+[API documentation](https://docs.rs/solunatus) · [Runnable examples](examples/)
 
-## Accuracy and Scope
+## Optional features and configuration
 
-Solunatus uses NOAA-based solar methods and Meeus-based lunar methods, with validation tooling aligned to USNO-style conventions.
-
-Planet positions use Keplerian mean elements with the major Jupiter, Saturn, and Uranus perturbation terms. They are validated against the JPL Horizons ephemeris: altitude/azimuth agree within 0.06° across 1990–2049 (a few seconds of rise/set time). Offline regression tests pin Horizons reference values on every build, and a scheduled CI workflow re-checks live Horizons data weekly.
-
-This project is intended for educational, planning, and general-purpose astronomical use.  
-It is not certified for safety-critical navigation or legal timing decisions.
-
-## Configuration
-
-CLI settings are saved to:
-
-```text
-~/.solunatus.json
-```
-
-Use `--no-save` to avoid writing configuration.
-
-## Releases
-
-Crates.io is the supported distribution channel for published releases:
+The default build includes `usno-validation` and `ai-insights`. Core astronomy, the dashboard, and the night planner work without either:
 
 ```bash
-cargo install solunatus
+# Published release without optional integrations
+cargo install --locked solunatus --no-default-features
+
+# Current source, including the night planner, without optional integrations
+cargo install --locked --path . --no-default-features
 ```
 
-GitHub Releases are used for tags and release notes for each published version. They should not be treated as a guaranteed source of fresh binary artifacts unless a specific release explicitly says otherwise.
+Optional AI insights use a local Ollama server; they are not needed for any calculation. The optional `parallel` feature accelerates multi-day calendar generation.
 
-## Development
+Settings live in `~/.solunatus.json`. Use `--no-save` to avoid saving them. Generate shell completions with `solunatus --completions zsh` and a man page with `solunatus --manpage`.
+
+## Help shape the next observing session
+
+Found a timing discrepancy? [Report the location, date, and comparison source](https://github.com/FunKite/solunatus/issues/new?template=bug_report.yml). Missing something in your field workflow? [Describe what you want to plan](https://github.com/FunKite/solunatus/issues/new?template=feature_request.yml).
+
+If Solunatus helps you plan a night out, **star the repository** to help other observers find it.
+
+[Feedback guide](CONTRIBUTING.md) · [Documentation](docs/README.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [MIT license](LICENSE)
+
+### Development
 
 ```bash
-# Build
-cargo build
-
-# Test
-cargo test
-
-# Safer local test runner
+cargo build --locked
 ./scripts/safe_local_test.sh
 ```
-
-Project docs index: [`docs/README.md`](docs/README.md)
-
-## Contributing
-
-Issue reports and feature requests are welcome:
-- [GitHub Issues](https://github.com/FunKite/solunatus/issues)
-- [Contributing Guide](CONTRIBUTING.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
-- [Security Policy](SECURITY.md)
-
-## License
-
-MIT ([`LICENSE`](LICENSE))

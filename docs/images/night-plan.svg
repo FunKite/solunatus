@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="748" viewBox="0 0 1120 748" role="img" aria-labelledby="title desc">
+<title id="title">Solunatus night plan for Tucson on September 15, 2026</title>
+<desc id="desc">Real CLI output: evening photography times, a moon-free dark window, and a timed snapshot of Moon and planet positions.</desc>
+<rect width="1120" height="748" rx="18" fill="#0c1424"/>
+<rect x="1" y="1" width="1118" height="746" rx="18" fill="none" stroke="#30435c"/>
+<circle cx="32" cy="30" r="6" fill="#ef8b82"/><circle cx="53" cy="30" r="6" fill="#e9c46a"/><circle cx="74" cy="30" r="6" fill="#81bfa7"/>
+<text x="110" y="36" fill="#9cb0c9" font-family="monospace" font-size="16">solunatus · an evening under the stars</text>
+<path d="M 22 55 H 1098" stroke="#30435c"/>
+<text x="32" y="87" fill="#9adbc6" font-family="monospace" font-size="18">$ solunatus --city Tucson --date 2026-09-15 --tonight</text>
+<text x="32" y="130" xml:space="preserve" fill="#8ccdf5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">SOLUNATUS / NIGHT PLAN</text>
+<text x="32" y="156" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Tucson · Night of 2026-09-15</text>
+<text x="32" y="182" xml:space="preserve" fill="#9cb0c9" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">America/Phoenix · local noon to next noon</text>
+<text x="32" y="208" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20"></text>
+<text x="32" y="234" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Golden hour       Tue 17:58 MST → Tue 18:45 MST</text>
+<text x="32" y="260" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Blue hour         Tue 18:45 MST → Tue 18:54 MST</text>
+<text x="32" y="286" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Sunset            Tue 18:30 MST</text>
+<text x="32" y="312" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Darkness begins   Tue 19:52 MST</text>
+<text x="32" y="338" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Darkness ends     Wed 04:46 MST</text>
+<text x="32" y="364" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Sunrise           Wed 06:08 MST</text>
+<text x="32" y="390" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20"></text>
+<text x="32" y="416" xml:space="preserve" fill="#8ccdf5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">FIRST MOON-FREE DARK WINDOW</text>
+<text x="32" y="442" xml:space="preserve" fill="#eacf8e" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Tue 21:08 MST → Wed 04:46 MST  (7h 38m)</text>
+<text x="32" y="468" xml:space="preserve" fill="#9cb0c9" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Sun below -18°; Moon below horizon with a 15-minute buffer.</text>
+<text x="32" y="494" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20"></text>
+<text x="32" y="520" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">SKY SNAPSHOT / Wed 00:57 MST</text>
+<text x="32" y="546" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Moon: Waxing Crescent · 27% illuminated · -48° altitude</text>
+<text x="32" y="572" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Planets above the horizon at this time:</text>
+<text x="32" y="598" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">  Saturn     59.1° altitude   162.1° azimuth</text>
+<text x="32" y="624" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">  Uranus     35.7° altitude    85.9° azimuth</text>
+<text x="32" y="650" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">  Neptune    57.8° altitude   180.1° azimuth</text>
+<text x="32" y="676" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20"></text>
+<text x="32" y="702" xml:space="preserve" fill="#9cb0c9" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Times are estimates. Weather, terrain and light pollution are not included.</text>
+</svg>

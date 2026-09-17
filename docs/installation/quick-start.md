@@ -1,177 +1,74 @@
-# Quick Start Guide (5 Minutes)
+# Quick start
 
-Get Solunatus running in 5 minutes!
+## 1. Install
 
-## Step 1: Install Rust (if needed)
-
-If you already have Rust installed, skip to Step 2.
+With [Rust and Cargo](https://www.rust-lang.org/tools/install) installed:
 
 ```bash
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Activate Rust
-source "$HOME/.cargo/env"
-
-# Verify
-rustc --version
+cargo install --locked solunatus
 ```
 
-## Step 2: Clone and Build
+No Rust toolchain? The [v0.6.1 release](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) also provides Linux x86_64 and ARM64 archives. See the [installation guide](README.md) for verification and source builds.
+
+## 2. Open the sky dashboard
 
 ```bash
-# Clone the repository
+solunatus --city "Tucson"
+```
+
+The dashboard opens in watch mode. Press `g` for the Sun/Moon altitude chart, `s` for settings and red-text night mode, `r` for reports, and `q` to quit.
+
+Use `--no-prompt` for a single text snapshot or `--json` for structured output:
+
+```bash
+solunatus --city "Tucson" --no-prompt
+solunatus --city "Tucson" --json
+```
+
+## 3. Use your observing site
+
+```bash
+solunatus --lat 36.24 --lon=-116.82 --tz America/Los_Angeles
+```
+
+City names must match an entry in the database. Use coordinates if your site is not listed. Supply the IANA timezone to get local times; without `--tz`, manual coordinates use UTC.
+
+## 4. Find an evening event
+
+```bash
+solunatus --city "Tucson" --next golden-dusk-start --format human
+solunatus --city "Tucson" --next astronomical-dusk --format iso
+```
+
+These commands print one event and exit without network access.
+
+## 5. Try the new one-page night plan
+
+The new `--tonight` command is on `main`, not in v0.6.1 yet:
+
+```bash
 git clone https://github.com/FunKite/solunatus.git
 cd solunatus
-
-# Build (takes 1-2 minutes on first build)
-cargo build --release
+cargo install --locked --path .
+solunatus --city "Tucson" --tonight
 ```
 
-The binary is now at: `./target/release/solunatus`
+It shows photography times, the first moon-free dark window, and a timed Moon/planet snapshot. [Plan a future night or export JSON →](../features/observing.md)
 
-## Step 3: Run Your First Command
+## Offline use and settings
+
+Core calculations run locally. The dashboard normally checks network time; disable that with:
 
 ```bash
-# Get sunrise/sunset for New York
-./target/release/solunatus --city "New York"
+SOLUNATUS_SKIP_TIME_SYNC=1 solunatus --city "Tucson" --no-save
 ```
 
-You should see output like:
+`--tonight` and `--next` skip the network-time check automatically. `--no-save` avoids saving settings to `~/.solunatus.json`.
 
-```
-🌅 Solunatus — Sunrise, Sunset, Moonrise, Moonset
+## Next steps
 
-📍 Location: New York, US
-📅 Date: 2025-10-22 14:30:45 EDT
-
-— Events —
-06:22:15  🌅  Sunrise         8h 8m ago
-18:33:42  🌇  Sunset          3h 57m from now
-...
-```
-
-## Step 4: Try Interactive Mode
-
-Remove the `--no-prompt` flag to enter live-updating watch mode:
-
-```bash
-# Interactive mode (updates every second)
-./target/release/solunatus --city "New York"
-```
-
-Press `q` to quit, `n` for night mode, `c` to change city.
-
-## Step 5: Explore Features
-
-Try some of these commands:
-
-```bash
-# Show help
-./target/release/solunatus --help
-
-# Use coordinates instead of city
-./target/release/solunatus --lat 40.7128 --lon -74.0060 --tz America/New_York
-
-# Get JSON output
-./target/release/solunatus --city "Tokyo" --json
-
-# Generate calendar for December
-./target/release/solunatus --city "London" \
-  --calendar \
-  --calendar-start 2025-12-01 \
-  --calendar-end 2025-12-31 \
-  --calendar-format html \
-  --calendar-output december.html
-```
-
-## Step 6: Install System-Wide (Optional)
-
-```bash
-# Install to your PATH
-cargo install --path .
-
-# Now you can use it from anywhere
-solunatus --city "Paris"
-```
-
-## Common Tasks
-
-### Check if a city is available
-
-```bash
-./target/release/solunatus --city "Sydney" --no-prompt
-```
-
-If the city isn't found, you can use coordinates:
-
-```bash
-# Sydney coordinates
-./target/release/solunatus --lat -33.8688 --lon 151.2093 --tz Australia/Sydney --no-prompt
-```
-
-### Get next full moon
-
-```bash
-./target/release/solunatus --city "Tokyo" --calendar \
-  --calendar-start 2025-11-01 --calendar-end 2025-12-31 \
-  --calendar-format json | grep -i "full"
-```
-
-### Use as a library
-
-Create a new Rust project:
-
-```bash
-cargo new my_astro_app
-cd my_astro_app
-```
-
-Add to `Cargo.toml`:
-
-```toml
-[dependencies]
-solunatus = "0.4.0"
-chrono = "0.4"
-chrono-tz = "0.10"
-```
-
-Create `src/main.rs`:
-
-```rust
-use solunatus::prelude::*;
-use chrono::Local;
-use chrono_tz::America::New_York;
-
-fn main() {
-    let location = Location::new(40.7128, -74.0060).unwrap();
-    let now = Local::now().with_timezone(&New_York);
-
-    if let Some(sunrise) = calculate_sunrise(&location, &now) {
-        println!("Sunrise: {}", sunrise.format("%H:%M:%S"));
-    }
-
-    let (phase_name, phase_emoji) = get_current_moon_phase(&location, &now);
-    println!("Moon: {} {}", phase_emoji, phase_name);
-}
-```
-
-Run:
-
-```bash
-cargo run --release
-```
-
-## Need Help?
-
-- **[Full CLI Reference](../features/cli-reference.md)** - All command options
-- **[Troubleshooting](troubleshooting.md)** - Common issues
-- **[Interactive Mode Guide](../features/interactive-mode.md)** - Master the TUI
-- **[GitHub Issues](https://github.com/FunKite/solunatus/issues)** - Report problems
-
-## What's Next?
-
-- Explore the [Interactive Mode](../features/interactive-mode.md)
-- Learn about [Astronomical Calculations](../features/README.md)
-- Check out [Example Code](../../examples/)
-- [Contribute](../../CONTRIBUTING.md) to the project
+- [Observing recipes](../features/observing.md)
+- [Calendar export](../features/calendar.md)
+- [CLI reference](../features/cli-reference.md)
+- [Troubleshooting](troubleshooting.md)
+- [Runnable Rust examples](../../examples/)
