@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Observing**: New offline `--tonight` report and `--tonight --json` output for stargazers and astrophotographers: evening photography times, dusk/dawn, the first moon-free dark window, and a timed Moon/planet snapshot. Plans respect local noon-to-noon boundaries, daylight-saving changes, the date line, and polar conditions.
 
 ### Fixed
+- **Observing**: Display moon-free window durations at the same minute precision as their endpoints, including daylight-saving transitions and dates before 1970; retain exact timestamps in JSON.
 - **Calendar**: Normalize CRLF and bare-CR line endings in ICS text fields before escaping them, keeping multiline city names inside their calendar property. Regression coverage also verifies UTF-8 line folding and escaped punctuation.
 
 ### Security

@@ -178,7 +178,10 @@ fn render(plan: &NightPlan) -> String {
     }
     out.push_str("\nFIRST MOON-FREE DARK WINDOW\n");
     if let Some(p) = &plan.first_moon_free_window {
-        let mins = (p.end - p.start).num_minutes();
+        // Match the minute precision of the displayed endpoints. Unix minutes
+        // retain elapsed-time semantics across DST; Euclidean division also
+        // handles timestamps before 1970 correctly. JSON retains exact times.
+        let mins = p.end.timestamp().div_euclid(60) - p.start.timestamp().div_euclid(60);
         let _ = writeln!(
             out,
             "{}  ({}h {:02}m)",
@@ -233,6 +236,51 @@ pub fn generate(
 mod tests {
     use super::*;
     use chrono_tz::{America::New_York, Europe::Oslo};
+
+    #[test]
+    fn tucson_duration_matches_displayed_endpoints() {
+        let p = build_plan(
+            &Location::new(32.2226, -110.9747).unwrap(),
+            chrono_tz::America::Phoenix,
+            Some("Tucson"),
+            NaiveDate::from_ymd_opt(2026, 9, 15).unwrap(),
+        )
+        .unwrap();
+        assert!(render(&p).contains("Tue 21:08 MST → Wed 04:46 MST  (7h 38m)"));
+    }
+
+    #[test]
+    fn displayed_duration_handles_dst_and_pre_epoch_times() {
+        let mut p = build_plan(
+            &Location::new(40.7128, -74.0060).unwrap(),
+            New_York,
+            None,
+            NaiveDate::from_ymd_opt(2026, 3, 7).unwrap(),
+        )
+        .unwrap();
+        for (start, end, expected) in [
+            (
+                "2026-03-08T01:59:50-05:00",
+                "2026-03-08T03:01:10-04:00",
+                "Sun 01:59 EST → Sun 03:01 EDT  (0h 02m)",
+            ),
+            (
+                "1969-12-31T18:59:59-05:00",
+                "1969-12-31T19:00:01-05:00",
+                "Wed 18:59 EST → Wed 19:00 EST  (0h 01m)",
+            ),
+        ] {
+            p.first_moon_free_window = Some(Period {
+                start: DateTime::parse_from_rfc3339(start)
+                    .unwrap()
+                    .with_timezone(&New_York),
+                end: DateTime::parse_from_rfc3339(end)
+                    .unwrap()
+                    .with_timezone(&New_York),
+            });
+            assert!(render(&p).contains(expected));
+        }
+    }
 
     #[test]
     fn interval_follows_local_noon_across_dst() {
