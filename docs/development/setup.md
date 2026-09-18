@@ -307,3 +307,7 @@ cargo build -j 1
 - **[Cargo Guide](https://doc.rust-lang.org/cargo/)** - Learn Cargo
 
 Happy coding! 🚀
+
+## Preparing a release
+
+Follow the [release procedure](../../dist/GITHUB_RELEASE_INSTRUCTIONS.md) for version alignment, full validation, the required crates.io dry run, publication, tagging, and docs.rs coverage verification.

@@ -1,33 +1,32 @@
-# Solunatus v0.4.0 Release Notes
+# Solunatus v0.7.0 — Plan any night
 
-Release date: 2026-04-18
+Release date: 2026-09-18
 
-## Summary
-
-This release promotes the current unreleased work into the `0.4.0` line. It includes CLI behavior fixes, USNO validation hardening, dependency and security updates, and release-policy documentation cleanup.
-
-## Highlights
-
-- Non-watch runs now honor saved time-sync settings and persist explicit `--city` / `--lat` / `--lon` changes back to the user config.
-- USNO validation now reuses the primary day fetch and fails surrounding-day retries faster during API outages.
-- The Rust support contract is now explicit: latest stable remains the active development target and the release line supports stable Rust `1.91+`.
-- Security and dependency updates include the current `rand`, `rustls-webpki`, `quinn-proto`, `chrono`, `clap`, and `anyhow` bumps captured in the changelog.
-
-## Install Or Upgrade
+Plan an observing session with `--night`: golden and blue hour, sunset, astronomical darkness, sunrise, the first moon-free dark window, and a timed Moon/planet snapshot. The report runs offline, prints once, and exits. Use `--json` for structured output.
 
 ```bash
-cargo install solunatus --force
+cargo install --locked solunatus --version 0.7.0 --force
+solunatus --city "Tucson" --night
+solunatus --city "Tucson" --date 2026-10-10 --night --json
 ```
 
-If you use Solunatus as a library:
+## Naming and dates
 
-```toml
-[dependencies]
-solunatus = "0.4.0"
-chrono = "0.4"
-chrono-tz = "0.10"
-```
+`--night` replaces the development name `--tonight`; `--tonight` remains a compatibility alias. Both cover local noon on the selected date through local noon the next day. Without `--date`, the date is today at the observing location. Daylight-saving transitions, the date line, and polar conditions are handled. Weather, terrain, and light pollution are not modeled.
 
-## Release Notes Source
+## Other changes
 
-The canonical per-release details should match the `CHANGELOG.md` entry for `0.4.0`. GitHub Releases for the default flow are tags plus notes only; do not imply binary attachments unless the release explicitly includes them.
+- The dashboard title bar and `--version` report 0.7.0 from the package version.
+- Minute-precision dark-window durations agree with their displayed endpoints; JSON preserves exact timestamps.
+- ICS text normalizes CRLF and bare-CR line endings and preserves UTF-8 folding.
+- Dependency security fixes include rustls, rustls-webpki, and lru; the changelog records the full dependency and CI maintenance since 0.6.1.
+- Public library documentation is enforced with `deny(missing_docs)`. docs.rs builds all features; CI validates documentation with all features and without optional features.
+- README, observing guide, CLI reference, installation instructions, and the actual-output preview now describe the published night planner.
+
+## Distribution and compatibility
+
+Rust 1.91 or newer is required; latest stable is recommended. Default features remain unchanged. No dependencies were added for the planner rename or this release preparation. Library users can set `solunatus = "0.7.0"`.
+
+This release contains the crates.io package, Git tag, and GitHub release notes. No prebuilt binaries are attached; the older 0.6.1 Linux downloads do not include the night planner.
+
+See [CHANGELOG.md](https://github.com/FunKite/solunatus/blob/v0.7.0/CHANGELOG.md) for the full release history.

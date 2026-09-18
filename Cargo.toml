@@ -1,6 +1,6 @@
 [package]
 name = "solunatus"
-version = "0.6.1"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.91"
 authors = ["Mike McLarney"]
@@ -18,9 +18,14 @@ exclude = [
     "*.html",
     "CPU_QUICK_REFERENCE.txt",
     ".cargo/",
+    ".claude/",
+    ".codex/",
     "CLAUDE.md",
     "target-m1max/",
 ]
+
+[package.metadata.docs.rs]
+all-features = true
 
 # Library configuration (default)
 [lib]

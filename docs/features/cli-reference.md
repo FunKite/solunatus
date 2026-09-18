@@ -77,13 +77,13 @@ Default: Today's date
 
 ## Output Options
 
-### `--tonight` (current source; not in v0.6.1)
+### `--night` (since v0.7.0; alias `--tonight`)
 
 Print an offline observing plan for local noon today (or `--date`) through noon tomorrow. Includes photography times, the first moon-free dark window, and a timed Moon/planet snapshot. Add `--json` for the night-plan schema.
 
 ```bash
-solunatus --city "Tucson" --tonight
-solunatus --city "Tucson" --date 2026-10-10 --tonight --json
+solunatus --city "Tucson" --night
+solunatus --city "Tucson" --date 2026-10-10 --night --json
 ```
 
 Exits after printing and does not save settings. Conflicts with `--watch`, `--calendar`, `--next`, and `--validate`. See the [observing guide](observing.md) for date boundaries, polar cases, and interpreting the result.

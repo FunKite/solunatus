@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render actual --tonight output as a dependency-free SVG for the README.
+"""Render actual --night output as a dependency-free SVG for the README.
 
 Run after cargo build: python3 scripts/render_night_demo.py --binary target/debug/solunatus
 The date and place are deliberately fixed so the preview is reproducible.
@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, default=ROOT / "target/debug/solunatus")
     args = parser.parse_args()
-    command = [str(args.binary.resolve()), "--city", "Tucson", "--date", "2026-09-15", "--tonight", "--no-save"]
+    command = [str(args.binary.resolve()), "--city", "Tucson", "--date", "2026-09-15", "--night", "--no-save"]
     result = subprocess.run(command, check=True, text=True, capture_output=True, timeout=30)
     lines = result.stdout.rstrip().splitlines()
     height = 150 + len(lines) * 26
@@ -28,7 +28,7 @@ def main():
 <circle cx="32" cy="30" r="6" fill="#ef8b82"/><circle cx="53" cy="30" r="6" fill="#e9c46a"/><circle cx="74" cy="30" r="6" fill="#81bfa7"/>
 <text x="110" y="36" fill="#9cb0c9" font-family="monospace" font-size="16">solunatus · an evening under the stars</text>
 <path d="M 22 55 H 1098" stroke="#30435c"/>
-<text x="32" y="87" fill="#9adbc6" font-family="monospace" font-size="18">$ solunatus --city Tucson --date 2026-09-15 --tonight</text>''']
+<text x="32" y="87" fill="#9adbc6" font-family="monospace" font-size="18">$ solunatus --city Tucson --date 2026-09-15 --night</text>''']
     for i, line in enumerate(lines):
         color = "#e4eaf3"
         if line.isupper() and line:

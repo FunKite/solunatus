@@ -18,9 +18,9 @@ To reinstall or upgrade:
 cargo install --locked solunatus --force
 ```
 
-## Linux downloads
+## Historical Linux downloads
 
-[v0.6.1](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) provides two prebuilt archives:
+v0.7.0 is distributed through Cargo; no prebuilt binaries are attached. The older [v0.6.1](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) provides two prebuilt archives, which do not include `--night`:
 
 - `solunatus-v0.6.1-linux-x86_64.tar.gz`
 - `solunatus-v0.6.1-linux-aarch64.tar.gz`
@@ -35,20 +35,20 @@ Proceed only if your downloaded archive is listed as `OK`. Extract the archive a
 
 ## Build the current source
 
-Use this method for unreleased features, including `--tonight`:
+Use this method to work with the current development source:
 
 ```bash
 git clone https://github.com/FunKite/solunatus.git
 cd solunatus
 cargo install --locked --path .
-solunatus --city "Tucson" --tonight
+solunatus --city "Tucson" --night
 ```
 
 To build without installing:
 
 ```bash
 cargo build --release --locked
-./target/release/solunatus --city "Tucson" --tonight
+./target/release/solunatus --city "Tucson" --night
 ```
 
 ## Optional integrations
@@ -63,13 +63,13 @@ cargo install --locked solunatus --no-default-features
 cargo install --locked --path . --no-default-features
 ```
 
-The default time check is independent of those features. Set `SOLUNATUS_SKIP_TIME_SYNC=1` for an offline dashboard; `--tonight` and `--next` are already offline.
+The default time check is independent of those features. Set `SOLUNATUS_SKIP_TIME_SYNC=1` for an offline dashboard; `--night` and `--next` are already offline.
 
 ## Use the library
 
 ```toml
 [dependencies]
-solunatus = "0.6.1"
+solunatus = "0.7.0"
 chrono = "0.4"
 chrono-tz = "0.10"
 ```

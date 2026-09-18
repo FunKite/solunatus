@@ -44,7 +44,7 @@ fn main() -> Result<()> {
     // Check system clock against authoritative source unless disabled by env/config.
     // Observing plans and event queries skip the sync to stay offline.
     let env_skips_time_sync =
-        env::var("SOLUNATUS_SKIP_TIME_SYNC").is_ok() || args.next.is_some() || args.tonight;
+        env::var("SOLUNATUS_SKIP_TIME_SYNC").is_ok() || args.next.is_some() || args.night;
     let (time_sync_info, time_sync_disabled, time_sync_server) =
         resolve_time_sync_state(config.as_ref(), env_skips_time_sync);
 
@@ -76,7 +76,7 @@ fn main() -> Result<()> {
     };
 
     // Observing plan: print once without opening the TUI or saving settings.
-    if args.tonight {
+    if args.night {
         print!(
             "{}",
             observing::generate(

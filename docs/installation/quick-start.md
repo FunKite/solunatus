@@ -8,7 +8,7 @@ With [Rust and Cargo](https://www.rust-lang.org/tools/install) installed:
 cargo install --locked solunatus
 ```
 
-No Rust toolchain? The [v0.6.1 release](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) also provides Linux x86_64 and ARM64 archives. See the [installation guide](README.md) for verification and source builds.
+v0.7.0 is available through Cargo on Linux, macOS, and Windows. See the [installation guide](README.md) for source builds and older Linux archives.
 
 ## 2. Open the sky dashboard
 
@@ -44,13 +44,11 @@ These commands print one event and exit without network access.
 
 ## 5. Try the new one-page night plan
 
-The new `--tonight` command is on `main`, not in v0.6.1 yet:
+The `--night` command is included in v0.7.0:
 
 ```bash
-git clone https://github.com/FunKite/solunatus.git
-cd solunatus
-cargo install --locked --path .
-solunatus --city "Tucson" --tonight
+solunatus --city "Tucson" --night
+solunatus --city "Tucson" --date 2026-10-10 --night
 ```
 
 It shows photography times, the first moon-free dark window, and a timed Moon/planet snapshot. [Plan a future night or export JSON →](../features/observing.md)
@@ -63,7 +61,7 @@ Core calculations run locally. The dashboard normally checks network time; disab
 SOLUNATUS_SKIP_TIME_SYNC=1 solunatus --city "Tucson" --no-save
 ```
 
-`--tonight` and `--next` skip the network-time check automatically. `--no-save` avoids saving settings to `~/.solunatus.json`.
+`--night` and `--next` skip the network-time check automatically. `--no-save` avoids saving settings to `~/.solunatus.json`.
 
 ## Next steps
 

@@ -6,7 +6,7 @@
 <circle cx="32" cy="30" r="6" fill="#ef8b82"/><circle cx="53" cy="30" r="6" fill="#e9c46a"/><circle cx="74" cy="30" r="6" fill="#81bfa7"/>
 <text x="110" y="36" fill="#9cb0c9" font-family="monospace" font-size="16">solunatus · an evening under the stars</text>
 <path d="M 22 55 H 1098" stroke="#30435c"/>
-<text x="32" y="87" fill="#9adbc6" font-family="monospace" font-size="18">$ solunatus --city Tucson --date 2026-09-15 --tonight</text>
+<text x="32" y="87" fill="#9adbc6" font-family="monospace" font-size="18">$ solunatus --city Tucson --date 2026-09-15 --night</text>
 <text x="32" y="130" xml:space="preserve" fill="#8ccdf5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">SOLUNATUS / NIGHT PLAN</text>
 <text x="32" y="156" xml:space="preserve" fill="#e4eaf3" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">Tucson · Night of 2026-09-15</text>
 <text x="32" y="182" xml:space="preserve" fill="#9cb0c9" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">America/Phoenix · local noon to next noon</text>

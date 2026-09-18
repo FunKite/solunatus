@@ -1,11 +1,11 @@
 # Plan a night of stargazing or astrophotography
 
-`--tonight` is available on the current `main` branch. It is not yet in the published v0.6.1 release. [Build from source](../installation/README.md#build-the-current-source) to try it.
+`--night` is available in v0.7.0. [Install or upgrade](../installation/README.md) with Cargo. The earlier `--tonight` spelling remains a compatibility alias with identical behavior, including when `--date` is supplied.
 
 ## Start with one question: when will it be dark without the Moon?
 
 ```bash
-solunatus --city "Tucson" --tonight
+solunatus --city "Tucson" --night
 ```
 
 The report includes:
@@ -23,7 +23,7 @@ The command runs offline, prints once, and exits. It does not enter watch mode o
 Use an IANA timezone so the plan follows the local clock and daylight-saving rules:
 
 ```bash
-solunatus --lat 36.24 --lon=-116.82 --tz America/Los_Angeles --tonight
+solunatus --lat 36.24 --lon=-116.82 --tz America/Los_Angeles --night
 ```
 
 Negative values can be supplied with `=` as shown above. City names use the built-in database; coordinates work anywhere. A city's dark interval says nothing about local light pollution.
@@ -31,7 +31,7 @@ Negative values can be supplied with `=` as shown above. City names use the buil
 ## Plan a future night
 
 ```bash
-solunatus --city "Tucson" --date 2026-10-10 --tonight
+solunatus --city "Tucson" --date 2026-10-10 --night
 ```
 
 A plan always spans **local noon on the selected date to local noon the next day**. With no `--date`, it uses today's date at the observing location, including before noon. For the night that began yesterday, pass yesterday's date explicitly. DST transitions can make the interval 23 or 25 hours long.
@@ -54,7 +54,7 @@ Weather, seeing, transparency, terrain, and light pollution are not modeled. Com
 ## Save or script a plan
 
 ```bash
-solunatus --city "Tucson" --date 2026-10-10 --tonight --json > night.json
+solunatus --city "Tucson" --date 2026-10-10 --night --json > night.json
 ```
 
 The night-plan JSON is a separate schema from the regular `--json` snapshot. Timestamps use RFC 3339 with local UTC offsets. Missing events and absent windows are `null`; `moon_free_window_clipped` identifies a window whose natural end falls beyond the plan.
@@ -72,7 +72,7 @@ Important fields:
 | `moon_illumination_percent`, `moon_altitude_degrees` | Moon lighting and position at the snapshot. |
 | `planets_above_horizon` | Names, altitude, and azimuth (degrees clockwise from north). |
 
-`--tonight` conflicts with `--watch`, `--calendar`, `--next`, and `--validate`. Use those modes separately.
+`--night` conflicts with `--watch`, `--calendar`, `--next`, and `--validate`. Use those modes separately.
 
 ## Keep the dashboard open at the telescope
 
