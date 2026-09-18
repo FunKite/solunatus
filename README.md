@@ -13,7 +13,7 @@ Find golden hour, moon-free darkness, and where the planets will be. Solunatus c
 
 ![Actual Solunatus night-plan output for Tucson: photography times, moon-free darkness, and planet positions](docs/images/night-plan.svg)
 
-*Preview of the new `--tonight` command on `main`; install from source below to try it. This feature is not in crates.io v0.6.1 yet. [How the preview is generated](docs/features/observing.md#readme-preview).*
+*Actual `--night` output, available in v0.7.0. [How the preview is generated](docs/features/observing.md#readme-preview).*
 
 ## Why take it observing?
 
@@ -40,17 +40,13 @@ solunatus --city "Tucson"
 
 This opens the live dashboard. Press **`g`** for the Sun/Moon altitude chart, **`s`** for settings and night mode, **`r`** for reports, and **`q`** to quit.
 
-Prefer a download? [v0.6.1 provides Linux x86_64 and ARM64 archives with SHA-256 checksums](https://github.com/FunKite/solunatus/releases/tag/v0.6.1). macOS and Windows users can install with Cargo. See the [installation guide](docs/installation/README.md).
+Install v0.7.0 with Cargo on Linux, macOS, or Windows. The [older v0.6.1 Linux archives](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) do not include the night planner. See the [installation guide](docs/installation/README.md).
 
-### Try the new night planner from source
-
-The examples using `--tonight` require the current `main` branch:
+### Install or upgrade to the night planner
 
 ```bash
-git clone https://github.com/FunKite/solunatus.git
-cd solunatus
-cargo install --locked --path .
-solunatus --city "Tucson" --tonight
+cargo install --locked solunatus --version 0.7.0 --force
+solunatus --city "Tucson" --night
 ```
 
 Latest stable Rust is recommended; the current minimum is Rust 1.91. The minimum may increase in a future minor release.
@@ -59,23 +55,21 @@ Latest stable Rust is recommended; the current minimum is Rust 1.91. The minimum
 
 ```bash
 # Coming evening through the following morning
-solunatus --city "Tucson" --tonight
+solunatus --city "Tucson" --night
 
 # Plan a trip to a particular observing site
 solunatus --lat 36.24 --lon=-116.82 --tz America/Los_Angeles \
-  --date 2026-10-10 --tonight
+  --date 2026-10-10 --night
 
 # Save a machine-readable plan
-solunatus --city "Tucson" --date 2026-10-10 --tonight --json > night.json
+solunatus --city "Tucson" --date 2026-10-10 --night --json > night.json
 ```
 
-`--tonight` prints one report and exits. It runs offline and does not save settings. The plan covers **local noon on the chosen date to local noon the next day**, including daylight-saving changes. Moon and planet positions are labeled with their snapshot time; the report does not imply that a planet stays up all night.
+`--night` prints one report and exits. `--tonight` remains a compatibility alias; both accept `--date`. It runs offline and does not save settings. The plan covers **local noon on the chosen date to local noon the next day**, including daylight-saving changes. Moon and planet positions are labeled with their snapshot time; the report does not imply that a planet stays up all night.
 
 [Read the night-plan guide →](docs/features/observing.md)
 
 ## More ways to use it
-
-These commands also work in v0.6.1.
 
 ### Catch the evening light
 
@@ -102,7 +96,7 @@ solunatus --city "Sydney" --json
 solunatus --lat=-33.8688 --lon 151.2093 --tz Australia/Sydney
 ```
 
-The dashboard and regular snapshots check network time by default. For fully offline use, set `SOLUNATUS_SKIP_TIME_SYNC=1`; `--tonight` and `--next` already skip that check. Optional USNO validation and AI insights require network access when explicitly used.
+The dashboard and regular snapshots check network time by default. For fully offline use, set `SOLUNATUS_SKIP_TIME_SYNC=1`; `--night` and `--next` already skip that check. Optional USNO validation and AI insights require network access when explicitly used.
 
 ## Accuracy you can inspect
 
@@ -114,7 +108,7 @@ These are approximations for observing and photography planning. Reference tests
 
 ```toml
 [dependencies]
-solunatus = "0.6.1"
+solunatus = "0.7.0"
 chrono = "0.4"
 chrono-tz = "0.10"
 ```
@@ -136,6 +130,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 [API documentation](https://docs.rs/solunatus) · [Runnable examples](examples/)
 
+All public library items are documented. Missing public API documentation fails compilation, and CI checks documentation with all features and with optional features disabled.
+
 ## Optional features and configuration
 
 The default build includes `usno-validation` and `ai-insights`. Core astronomy, the dashboard, and the night planner work without either:
@@ -144,7 +140,7 @@ The default build includes `usno-validation` and `ai-insights`. Core astronomy, 
 # Published release without optional integrations
 cargo install --locked solunatus --no-default-features
 
-# Current source, including the night planner, without optional integrations
+# Current source without optional integrations
 cargo install --locked --path . --no-default-features
 ```
 

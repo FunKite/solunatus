@@ -1,39 +1,39 @@
-# GitHub Release Instructions
+# Solunatus release procedure
 
-This file now documents the current Solunatus GitHub release flow.
+Release from a reviewed PR merged into `main`. Keep `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md`, README, installation and feature guides, preview image, and `dist/RELEASE_NOTES.md` consistent. The dashboard title and CLI version use `CARGO_PKG_VERSION`; verify the built app displays the new version.
 
-## Current Policy
+## Validate the release candidate
 
-- Publish the crate to crates.io first.
-- Create and push the matching Git tag after a successful publish.
-- Create a GitHub Release from that tag with curated release notes.
-- Do not attach binary artifacts unless that specific release intentionally includes a packaging step.
+1. Check current GitHub and crates.io versions; choose an unused version.
+2. Run `./scripts/safe_local_test.sh` (add `--allow-network` only if a dependency or advisory refresh is needed).
+3. Run formatting, Clippy, all-feature and no-default-feature tests, and the MSRV checks in CI.
+4. Build documentation with `RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --all-features`, and repeat with `--no-default-features`. Public library items must remain documented; do not suppress missing-documentation errors or hide public APIs to improve the percentage.
+5. Regenerate the preview with `python3 scripts/render_night_demo.py --binary target/debug/solunatus` after building. Smoke-test `--night`, its `--tonight` alias, help, completions, and the man page.
+6. Review package contents with `cargo package --locked --list`. Exclude local settings and old build artifacts.
+7. Merge only after all PR checks and review findings are resolved, then fast-forward local `main` to the merged commit.
 
-## Release Sequence
+## Publish, then tag
 
-1. Confirm `Cargo.toml`, `CHANGELOG.md`, and release-facing docs are finalized.
-2. Run local validation and `cargo publish --dry-run`.
-3. Run `cargo publish`.
-4. Create and push the release tag, for example `v0.4.0`.
-5. Create the GitHub Release with notes derived from the finalized changelog entry.
-
-## GitHub Web Flow
-
-1. Go to [GitHub Releases](https://github.com/FunKite/solunatus/releases).
-2. Click **Draft a new release**.
-3. Select the pushed release tag.
-4. Use the version number as the release title, for example `v0.4.0`.
-5. Paste or adapt the release notes from `dist/RELEASE_NOTES.md`.
-6. Publish the release without attaching binaries unless that release explicitly includes them.
-
-## GitHub CLI Flow
+From the clean committed release tree (substitute the new version below):
 
 ```bash
-gh release create v0.4.0 \
-  --title "v0.4.0" \
+cargo publish --locked --dry-run
+cargo package --locked
+shasum -a 256 target/package/solunatus-0.7.0.crate
+cargo publish --locked
+git tag -a v0.7.0 -m "Solunatus 0.7.0"
+git push origin v0.7.0
+gh release create v0.7.0 --verify-tag \
+  --title "Solunatus 0.7.0 — Plan any night" \
   --notes-file dist/RELEASE_NOTES.md
 ```
 
-## Historical Assets
+`cargo package --locked` retains the verified archive at the checksum path shown above; some Cargo versions keep publish dry-run archives under `target/package/tmp-crate/` instead.
 
-The `dist/` directory still contains older packaging artifacts from early binary-distribution experiments. Treat those files as historical only; they are not part of the default modern release process.
+The successful dry run must precede the real upload. Do not change source between them. Confirm the crates.io version and registry checksum match the tested archive before creating the tag. Never reuse a published version or move a published release tag.
+
+After publishing, verify the GitHub tag points to the published commit and docs.rs builds the exact version with **100% public API documentation coverage**. Check the installed executable's path and `--version` if upgrading a local installation, since an older executable may shadow it in `PATH`.
+
+## Release assets
+
+The default release consists of the crate, tag, and curated notes. Attach binaries only when a release intentionally includes a validated packaging step. Existing files under `dist/` may be historical; never attach old binaries to a new version.

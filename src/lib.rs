@@ -85,7 +85,7 @@
 //! RUSTFLAGS="-C target-cpu=native" cargo build --release
 //! ```
 
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 
 // Core modules (always public)
 pub mod astro;

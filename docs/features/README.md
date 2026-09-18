@@ -41,7 +41,7 @@ Monthly calendar showing exact times of:
 
 ### Night Plan (current source)
 
-`solunatus --city "Tucson" --tonight` prints photography times, the first moon-free dark window, and a timed Moon/planet snapshot. Add `--date` to plan ahead or `--json` to export it. This mode is not in v0.6.1 yet; see the [observing guide](observing.md) for source installation and interpretation.
+`solunatus --city "Tucson" --night` prints photography times, the first moon-free dark window, and a timed Moon/planet snapshot. Add `--date` to plan ahead or `--json` to export it. Available since v0.7.0, with `--tonight` retained as an alias. See the [observing guide](observing.md) for interpretation.
 
 ### Interactive Watch Mode (Default)
 Live-updating terminal display with:
