@@ -18,6 +18,7 @@ From the clean committed release tree (substitute the new version below):
 
 ```bash
 cargo publish --locked --dry-run
+cargo package --locked
 shasum -a 256 target/package/solunatus-0.7.0.crate
 cargo publish --locked
 git tag -a v0.7.0 -m "Solunatus 0.7.0"
@@ -26,6 +27,8 @@ gh release create v0.7.0 --verify-tag \
   --title "Solunatus 0.7.0 — Plan any night" \
   --notes-file dist/RELEASE_NOTES.md
 ```
+
+`cargo package --locked` retains the verified archive at the checksum path shown above; some Cargo versions keep publish dry-run archives under `target/package/tmp-crate/` instead.
 
 The successful dry run must precede the real upload. Do not change source between them. Confirm the crates.io version and registry checksum match the tested archive before creating the tag. Never reuse a published version or move a published release tag.
 

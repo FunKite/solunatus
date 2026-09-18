@@ -310,4 +310,4 @@ Happy coding! 🚀
 
 ## Preparing a release
 
-Follow the [release procedure](../../dist/GITHUB_RELEASE_INSTRUCTIONS.md) for version alignment, full validation, the required crates.io dry run, publication, tagging, and docs.rs coverage verification.
+Follow the [release procedure](https://github.com/FunKite/solunatus/blob/main/dist/GITHUB_RELEASE_INSTRUCTIONS.md) for version alignment, full validation, the required crates.io dry run, publication, tagging, and docs.rs coverage verification.
