@@ -19,12 +19,19 @@ fn default_time_sync_server() -> String {
     String::new() // Empty means use default servers
 }
 
+#[cfg(feature = "ai-insights")]
 fn default_ai_server() -> String {
     "http://localhost:11434".to_string()
 }
 
+#[cfg(feature = "ai-insights")]
 fn default_ai_model() -> String {
     "llama3.2:latest".to_string()
+}
+
+#[cfg(feature = "ai-insights")]
+fn default_ai_refresh_minutes() -> u64 {
+    2
 }
 
 /// Location input mode for determining how coordinates are obtained.
@@ -109,7 +116,7 @@ pub struct AiSettings {
     #[serde(default = "default_ai_model")]
     pub model: String,
     /// Auto-refresh interval in minutes (default: 2)
-    #[serde(default)]
+    #[serde(default = "default_ai_refresh_minutes")]
     pub refresh_minutes: u64,
     /// Refresh mode (default: auto and manual)
     #[serde(default)]
@@ -123,7 +130,7 @@ impl Default for AiSettings {
             enabled: false,
             server: default_ai_server(),
             model: default_ai_model(),
-            refresh_minutes: 2,
+            refresh_minutes: default_ai_refresh_minutes(),
             refresh_mode: AiRefreshMode::AutoAndManual,
         }
     }

@@ -36,4 +36,4 @@ After publishing, verify the GitHub tag points to the published commit and docs.
 
 ## Release assets
 
-The default release consists of the crate, tag, and curated notes. Attach binaries only when a release intentionally includes a validated packaging step. Existing files under `dist/` may be historical; never attach old binaries to a new version.
+The default release consists of the crate, tag, and curated notes. Attach binaries only when a release intentionally includes a validated packaging step. Build release binaries fresh for each version (outside git; `dist/*.tar.gz` and checksum files are ignored) and never attach binaries from an earlier version.

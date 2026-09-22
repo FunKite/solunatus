@@ -120,6 +120,8 @@ pub struct CachedMoonDetails {
     pub moon: LunarPosition,
     /// Whether moon is above or below horizon
     pub altitude_trend: MoonAltitudeTrend,
+    /// Days since the most recent new moon
+    pub age_days: f64,
 }
 
 impl CachedMoonDetails {
@@ -130,6 +132,7 @@ impl CachedMoonDetails {
             timestamp: positions.timestamp,
             moon: positions.moon,
             altitude_trend,
+            age_days: moon::lunar_age_days(&positions.timestamp),
         }
     }
 }

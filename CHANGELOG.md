@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Validation**: The USNO report now compares only the events USNO publishes. Golden-hour events (added in 0.6.0) have no USNO counterpart and were always counted as missing, so the weekly USNO drift workflow failed on every run despite all real comparisons passing; all three drift cases now report 7/7 with none missing.
+- **AI insights**: Settings saved from the dashboard (server, model, refresh interval, enabled) now survive a restart. Previously only the refresh mode was restored and the rest reverted to command-line defaults. Explicit `--ai-*` flags still override saved values; a saved "enabled" applies to the interactive dashboard, while one-shot text/JSON output still requires `--ai-insights`. The `--ai-model` default is now `llama3.2:latest`, matching the saved-config default (was `llama3`).
+- **Configuration**: An unreadable `~/.solunatus.json` is now reported on stderr and left untouched. Previously the parse error was swallowed, the user saw a misleading "No location specified" error, and the next run silently overwrote the file with defaults, losing display, AI, and time-sync preferences.
+- **Time sync**: The 30-minute NTP cache now keys on the requested server, so a result from the pool.ntp.org fallback (when time.google.com is unreachable) also throttles the next query. Previously every run re-queried pool.ntp.org in that situation, defeating the rate limit that exists for its terms of service. Cached results also display the same source label as fresh ones.
+- **Moon**: "Age" is now the time since the most recent new moon (from the Meeus phase times) instead of a phase-angle approximation that was off by up to 0.9 days.
+- **CLI**: `--date` without `--json` now prints the one-shot text report for that date. It previously opened the live dashboard, which silently ignored the date. `--watch --date` is rejected as a conflict.
+- **Text output**: The dark-sky window shows its date when it doesn't start today, and its duration matches the displayed minutes. The lunar-phase list shows the two most recent and two upcoming phases (as in the dashboard) instead of only the current calendar month.
+- **Build**: Removed compiler warnings in builds without the optional AI feature.
+
+### Deprecated
+- **CLI**: `--strict` never had any effect. It is now hidden from help and prints a deprecation warning; it will be removed in a future release. (`--next` already exits with an error when an event does not occur.)
+
+### Added
+- **Library**: `astro::moon::lunar_age_days` and `astro::moon::lunar_phases_near`; `ai::AiConfig::from_args_and_saved` layers CLI flags over saved AI settings.
+
+### Removed
+- **Library**: `ai::AiConfig::merge_with_saved`, superseded by `AiConfig::from_args_and_saved`. The `--ai-server`, `--ai-model` and `--ai-refresh-minutes` fields of `cli::Args` are now `Option`s.
+- **Repository**: Deleted obsolete 0.1.x "astrotimes" artifacts from `dist/` (macOS `.pkg`, tarballs, raw binaries, and an `install.sh` that installed the 0.1.0 macOS binary), about 21 MB. Local release tarballs under `dist/` are now git-ignored.
+
 ### Changed
 - **Dependencies**: Bumped `clap` from 4.6.6 to 4.6.7 and `clap_complete` from 4.6.9 to 4.6.11 via the production-dependencies group (Dependabot PR #103); fixes a zsh completion value-escaping bug in `clap_complete` and adds `clap`'s new opt-in `#[command(defer)]` attribute for lazy subcommand initialization (unused here). Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories.
 

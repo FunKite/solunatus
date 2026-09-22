@@ -73,6 +73,8 @@ solunatus --lat 40.7128 --lon -74.0060 --tz America/New_York --date 1969-07-20  
 
 Default: Today's date
 
+A dated request prints a one-shot text report (or JSON with `--json`) rather than opening the live dashboard, which always follows the current time. `--date` conflicts with `--watch`.
+
 **Night-plan/calendar range:** Astronomical years −0999 through 3000. Accuracy depends on the date and location.
 
 ## Output Options
@@ -201,15 +203,17 @@ solunatus --city "New York" --ai-insights
 
 **Setup required:** See [AI Insights Guide](ai-insights.md)
 
+Saved AI settings (server, model, refresh interval) from the dashboard's AI panel (`a`) apply automatically; each flag below overrides its saved value for one run. A saved "enabled" setting turns insights on in the interactive dashboard only; one-shot text and JSON output need `--ai-insights`.
+
 ### `--ai-server <URL>`
-Ollama server address (default: `http://localhost:11434`).
+Ollama server address (default: saved setting, else `http://localhost:11434`).
 
 ```bash
 solunatus --city "Boston" --ai-insights --ai-server "http://192.168.1.100:11434"
 ```
 
 ### `--ai-model <MODEL>`
-LLM model to use for insights.
+LLM model to use for insights (default: saved setting, else `llama3.2:latest`).
 
 ```bash
 solunatus --city "Tokyo" --ai-insights --ai-model "llama2"
@@ -228,7 +232,7 @@ How often to refresh AI insights (1-60 minutes).
 solunatus --city "Paris" --ai-insights --ai-refresh-minutes 5
 ```
 
-Default: 2 minutes
+Default: saved setting, else 2 minutes
 
 ## General Options
 

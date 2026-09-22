@@ -52,8 +52,13 @@ const CACHE_MIN_INTERVAL_SECS: i64 = 1800; // 30 minutes
 struct TimeSyncCache {
     /// UTC timestamp when this cache entry was created
     timestamp: DateTime<Utc>,
-    /// Source server that was queried
+    /// Source server that answered
     source: String,
+    /// Server that was requested (the primary default or a custom server).
+    /// Keys the cache so a fallback answer still counts as fresh; absent in
+    /// cache files written by older versions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    requested: Option<String>,
     /// Delta in microseconds (system time - NTP time)
     delta_micros: i64,
 }
@@ -138,17 +143,12 @@ pub fn check_time_sync_with_servers(custom_server: Option<&str>) -> TimeSyncInfo
     if let Ok(cache) = load_cache() {
         let age = Utc::now().signed_duration_since(cache.timestamp);
 
-        // Check if cache matches our target server and is fresh (< 30 minutes old)
-        // Note: We normalize server names for comparison (strip port if present in cache)
-        let cache_server_normalized = cache.source.split(':').next().unwrap_or(&cache.source);
-        let target_server_normalized = target_server.split(':').next().unwrap_or(target_server);
-
-        if cache_server_normalized == target_server_normalized
+        if cache_matches_target(&cache, target_server)
             && age.num_seconds() < CACHE_MIN_INTERVAL_SECS
         {
             let delta = ChronoDuration::microseconds(cache.delta_micros);
             return TimeSyncInfo {
-                source: cache.source,
+                source: display_label(&cache.source),
                 delta: Some(delta),
                 error: None,
             };
@@ -162,7 +162,8 @@ pub fn check_time_sync_with_servers(custom_server: Option<&str>) -> TimeSyncInfo
             if let Some(micros) = delta.num_microseconds() {
                 let cache = TimeSyncCache {
                     timestamp: Utc::now(),
-                    source: server_addr, // Store actual server address for cache matching
+                    source: server_addr,
+                    requested: Some(strip_port(target_server).to_string()),
                     delta_micros: micros,
                 };
                 let _ = save_cache(&cache); // Ignore save errors
@@ -180,6 +181,29 @@ pub fn check_time_sync_with_servers(custom_server: Option<&str>) -> TimeSyncInfo
             error: Some(err.to_string()),
         },
     }
+}
+
+/// Host part of a `host[:port]` server address.
+fn strip_port(server: &str) -> &str {
+    server.split(':').next().unwrap_or(server)
+}
+
+/// Whether a cache entry answers a query for `target_server`.
+///
+/// Matches on the server that was *requested*, so a result obtained from a
+/// fallback server (e.g. pool.ntp.org after time.google.com failed) still
+/// throttles the next query instead of re-querying on every run.
+fn cache_matches_target(cache: &TimeSyncCache, target_server: &str) -> bool {
+    let keyed_on = cache.requested.as_deref().unwrap_or(&cache.source);
+    strip_port(keyed_on) == strip_port(target_server)
+}
+
+/// Display label for a server address, matching fresh (uncached) results.
+fn display_label(server: &str) -> String {
+    TIME_SERVERS
+        .iter()
+        .find(|(addr, _)| strip_port(addr) == strip_port(server))
+        .map_or_else(|| server.to_string(), |(_, label)| (*label).to_string())
 }
 
 /// Formats a time offset as a human-readable string.
@@ -511,4 +535,44 @@ fn save_cache(cache: &TimeSyncCache) -> anyhow::Result<()> {
         .with_context(|| format!("failed to write cache file: {}", path.display()))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cache(source: &str, requested: Option<&str>) -> TimeSyncCache {
+        TimeSyncCache {
+            timestamp: Utc::now(),
+            source: source.to_string(),
+            requested: requested.map(str::to_string),
+            delta_micros: 0,
+        }
+    }
+
+    #[test]
+    fn fallback_answer_still_throttles_primary_queries() {
+        // time.google.com failed, pool.ntp.org answered.
+        let entry = cache("pool.ntp.org", Some("time.google.com"));
+        assert!(cache_matches_target(&entry, TIME_SERVERS[0].0));
+        assert_eq!(display_label(&entry.source), "pool.ntp.org (NTP)");
+    }
+
+    #[test]
+    fn changed_custom_server_forces_fresh_query() {
+        let entry = cache("ntp.example.org", Some("ntp.example.org"));
+        assert!(cache_matches_target(&entry, "ntp.example.org:123"));
+        assert!(!cache_matches_target(&entry, "other.example.org"));
+        assert!(!cache_matches_target(&entry, TIME_SERVERS[0].0));
+    }
+
+    #[test]
+    fn legacy_cache_without_requested_matches_on_source() {
+        let entry: TimeSyncCache = serde_json::from_str(
+            r#"{"timestamp":"2026-01-01T00:00:00Z","source":"time.google.com","delta_micros":5}"#,
+        )
+        .unwrap();
+        assert!(cache_matches_target(&entry, TIME_SERVERS[0].0));
+        assert!(!cache_matches_target(&entry, TIME_SERVERS[1].0));
+    }
 }

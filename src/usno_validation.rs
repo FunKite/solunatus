@@ -298,13 +298,24 @@ fn map_usno_event_name(phen: &str, is_sun: bool) -> Option<String> {
     }
 }
 
-/// Check if an event should be included in the validation report
-/// (excludes nautical and astronomical twilight since USNO doesn't provide them)
+/// Events USNO's one-day API publishes (the names `map_usno_event_name` produces).
+const USNO_COMPARABLE_EVENTS: &[&str] = &[
+    "Sunrise",
+    "Sunset",
+    "Solar noon",
+    "Civil dawn",
+    "Civil dusk",
+    "Moonrise",
+    "Moonset",
+];
+
+/// Check if an event should be included in the validation report.
+///
+/// Only events USNO publishes are compared; nautical/astronomical twilight,
+/// golden hour and dark-window events have no USNO counterpart and would
+/// otherwise always be reported as missing.
 fn should_include_in_report(event_name: &str) -> bool {
-    !event_name.contains("Nautical")
-        && !event_name.contains("Astronomical")
-        && !event_name.contains("Astro ")
-        && !event_name.contains("Dark win")
+    USNO_COMPARABLE_EVENTS.contains(&event_name)
 }
 
 fn insert_usno_events(
@@ -669,6 +680,7 @@ pub fn generate_html_report(report: &ValidationReport) -> String {
 mod tests {
     use super::{
         USNO_CONTEXT_FETCH_POLICY, USNO_PRIMARY_FETCH_POLICY, UsnoFetchPolicy, escape_html,
+        should_include_in_report,
     };
     use std::time::Duration;
 
@@ -707,5 +719,31 @@ mod tests {
             "&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;"
         );
         assert_eq!(escape_html("A & B"), "A &amp; B");
+    }
+
+    #[test]
+    fn report_only_compares_events_usno_publishes() {
+        for name in [
+            "Sunrise",
+            "Sunset",
+            "Solar noon",
+            "Civil dawn",
+            "Civil dusk",
+            "Moonrise",
+            "Moonset",
+        ] {
+            assert!(should_include_in_report(name), "{name} should be compared");
+        }
+        for name in [
+            "Golden dawn beg",
+            "Golden dawn end",
+            "Golden dusk beg",
+            "Golden dusk end",
+            "Nautical dawn",
+            "Astro dusk",
+            "Dark win start",
+        ] {
+            assert!(!should_include_in_report(name), "{name} has no USNO value");
+        }
     }
 }

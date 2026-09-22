@@ -568,7 +568,7 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &App) {
             format!(
                 "Phase:           {} (Age {:.1} days)",
                 moon::phase_name(moon_overview.phase_angle),
-                (moon_overview.phase_angle / 360.0 * 29.53)
+                moon_overview_details.age_days
             ),
         ))]));
         let trend_label = match moon_overview_details.altitude_trend {
@@ -659,7 +659,11 @@ fn render_main_content(f: &mut Frame, area: Rect, app: &App) {
             "All panels hidden. Use settings (s) to re-enable.",
             Style::default().fg(get_color(app, Color::Gray)),
         )]));
-        sections_rendered += 1;
+        // Only the AI section below reads the count.
+        #[cfg(feature = "ai-insights")]
+        {
+            sections_rendered += 1;
+        }
     }
 
     #[cfg(feature = "ai-insights")]
