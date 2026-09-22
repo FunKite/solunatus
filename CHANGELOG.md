@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dependencies**: Bumped `clap` from 4.6.6 to 4.6.7 and `clap_complete` from 4.6.9 to 4.6.11 via the production-dependencies group (Dependabot PR #103); adds `pwsh` detection to shell-completion generation and fixes a zsh completion value-escaping bug. Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories.
+
 ## [0.7.0] - 2026-09-18
 
 ### Added
