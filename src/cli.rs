@@ -61,7 +61,8 @@ pub struct Args {
     #[arg(long)]
     pub tz: Option<String>,
 
-    /// Date in YYYY-MM-DD format (defaults to today)
+    /// Date in YYYY-MM-DD format (defaults to today). Prints a one-shot
+    /// report for that date; the live dashboard always shows the current time.
     #[arg(long)]
     pub date: Option<String>,
 
@@ -108,7 +109,7 @@ pub struct Args {
     pub format: TimeFormatArg,
 
     /// Force watch mode (live updates)
-    #[arg(long)]
+    #[arg(long, conflicts_with = "date")]
     pub watch: bool,
 
     /// Disable all interactive prompts
@@ -119,8 +120,9 @@ pub struct Args {
     #[arg(long)]
     pub no_save: bool,
 
-    /// Strict mode: exit with error if events don't occur (polar regions)
-    #[arg(long)]
+    /// Deprecated no-op, hidden from help; slated for removal.
+    /// (`--next` already exits with an error when an event never occurs.)
+    #[arg(long, hide = true)]
     pub strict: bool,
 
     /// Enable AI insights via a local Ollama server
@@ -128,20 +130,20 @@ pub struct Args {
     #[arg(long)]
     pub ai_insights: bool,
 
-    /// Ollama server base URL or host:port (defaults to http://localhost:11434)
+    /// Ollama server base URL or host:port (default: saved setting, else http://localhost:11434)
     #[cfg(feature = "ai-insights")]
-    #[arg(long, default_value = "http://localhost:11434")]
-    pub ai_server: String,
+    #[arg(long)]
+    pub ai_server: Option<String>,
 
-    /// Ollama model to query for insights
+    /// Ollama model to query for insights (default: saved setting, else llama3.2:latest)
     #[cfg(feature = "ai-insights")]
-    #[arg(long, default_value = "llama3")]
-    pub ai_model: String,
+    #[arg(long)]
+    pub ai_model: Option<String>,
 
-    /// Minutes between AI insight refreshes in watch mode (1-60, default 2)
+    /// Minutes between AI insight refreshes in watch mode (1-60; default: saved setting, else 2)
     #[cfg(feature = "ai-insights")]
-    #[arg(long, default_value_t = 2, value_parser = clap::value_parser!(u64).range(1..=60))]
-    pub ai_refresh_minutes: u64,
+    #[arg(long, value_parser = clap::value_parser!(u64).range(1..=60))]
+    pub ai_refresh_minutes: Option<u64>,
 
     /// Generate USNO validation report comparing calculations with Naval Observatory data
     #[cfg(feature = "usno-validation")]
@@ -158,7 +160,11 @@ pub struct Args {
 }
 
 impl Args {
+    /// Whether to open the interactive dashboard.
+    ///
+    /// The dashboard tracks the current time, so a `--date` request gets the
+    /// one-shot text report instead of being silently ignored.
     pub fn should_watch(&self) -> bool {
-        self.watch || (!self.json && !self.no_prompt)
+        self.watch || (!self.json && !self.no_prompt && self.date.is_none())
     }
 }

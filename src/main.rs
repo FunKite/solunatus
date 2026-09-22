@@ -9,7 +9,7 @@ use solunatus::{
 };
 
 use anyhow::{Context, Result, anyhow};
-use chrono::{Datelike, Duration, Local, NaiveDate, Offset, TimeZone};
+use chrono::{Duration, Local, NaiveDate, Offset, TimeZone};
 use chrono_tz::Tz;
 use clap::Parser;
 use crossterm::{
@@ -38,8 +38,25 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Load or create configuration
-    let mut config = config::Config::load().ok().flatten();
+    if args.strict {
+        eprintln!(
+            "warning: --strict is deprecated, has no effect, and will be removed in a future release"
+        );
+    }
+
+    // Load saved configuration. An unreadable file is reported and left
+    // untouched: this run won't save over it, so no preferences are lost.
+    let (mut config, config_unreadable) = match config::Config::load() {
+        Ok(config) => (config, false),
+        Err(err) => {
+            eprintln!(
+                "warning: ignoring saved settings ({:#}); fix or remove ~/.solunatus.json. \
+                 Settings will not be saved until then.",
+                err
+            );
+            (None, true)
+        }
+    };
 
     // Check system clock against authoritative source unless disabled by env/config.
     // Observing plans and event queries skip the sync to stay offline.
@@ -49,16 +66,15 @@ fn main() -> Result<()> {
         resolve_time_sync_state(config.as_ref(), env_skips_time_sync);
 
     #[cfg(feature = "ai-insights")]
-    let mut ai_config = ai::AiConfig::from_args(&args)?;
-
-    // Merge with saved AI settings if config was loaded
-    #[cfg(feature = "ai-insights")]
-    if let Some(cfg) = &config {
-        ai_config = ai_config.merge_with_saved(&cfg.ai);
-    }
+    let ai_config = ai::AiConfig::from_args_and_saved(
+        &args,
+        config.as_ref().map(|cfg| &cfg.ai),
+        args.should_watch(),
+    )?;
 
     // Determine location
-    let (location, timezone, city_name, location_source) = determine_location(&args, &mut config)?;
+    let (location, timezone, city_name, location_source) =
+        determine_location(&args, &mut config, config_unreadable)?;
 
     // Determine date
     let dt = if let Some(date_str) = &args.date {
@@ -249,7 +265,7 @@ fn main() -> Result<()> {
             time_sync_server: time_sync_server.clone(),
             watch_prefs: config.as_ref().map(|cfg| cfg.watch.clone()),
         };
-        run_watch_mode(app_config)?;
+        run_watch_mode(app_config, !config_unreadable)?;
     } else {
         // Single output mode (text)
         #[cfg(feature = "ai-insights")]
@@ -274,7 +290,7 @@ fn main() -> Result<()> {
     }
 
     // Save config if requested
-    if !args.should_watch() && !args.no_save {
+    if !args.should_watch() && !args.no_save && !config_unreadable {
         let saved_config = build_saved_config(
             config.as_ref(),
             &location,
@@ -446,6 +462,7 @@ fn build_saved_config(
 fn determine_location(
     args: &cli::Args,
     config: &mut Option<config::Config>,
+    config_unreadable: bool,
 ) -> Result<(astro::Location, Tz, Option<String>, LocationSource)> {
     // Priority: CLI args > Config file > Auto-detection
 
@@ -491,6 +508,12 @@ fn determine_location(
         return Ok((location, tz, cfg.city.clone(), LocationSource::SavedConfig));
     }
 
+    if config_unreadable {
+        return Err(anyhow!(
+            "No usable location: ~/.solunatus.json could not be read (see warning above). \
+             Fix or remove it, or pass --lat/--lon/--tz or --city \"City Name\""
+        ));
+    }
     Err(anyhow!(
         "No location specified. Use --lat/--lon/--tz or --city \"City Name\""
     ))
@@ -515,7 +538,7 @@ impl Drop for TerminalGuard {
     }
 }
 
-fn run_watch_mode(config: tui::AppConfig) -> Result<()> {
+fn run_watch_mode(config: tui::AppConfig, persist_settings: bool) -> Result<()> {
     // Restore the terminal before the default panic handler prints, so a panic
     // inside the render/event loop can't leave the user's shell in raw mode.
     let original_hook = std::panic::take_hook();
@@ -567,8 +590,9 @@ fn run_watch_mode(config: tui::AppConfig) -> Result<()> {
 
         // Save if requested
         if app.should_save {
-            let config = app.build_config();
-            let _ = config.save();
+            if persist_settings {
+                let _ = app.build_config().save();
+            }
             app.should_save = false;
         }
 
@@ -726,13 +750,13 @@ fn moon_size_class(angular_diameter: f64) -> &'static str {
     }
 }
 
-fn print_moon_section(moon_pos: &astro::moon::LunarPosition) {
+fn print_moon_section(moon_pos: &astro::moon::LunarPosition, dt: &chrono::DateTime<Tz>) {
     println!("— Moon —");
     println!(
         "{} Phase:           {} (Age {:.1} days)",
         astro::moon::phase_emoji(moon_pos.phase_angle),
         astro::moon::phase_name(moon_pos.phase_angle),
-        (moon_pos.phase_angle / 360.0 * 29.53)
+        astro::moon::lunar_age_days(dt)
     );
     println!("💡 Fraction Illum.: {:.0}%", moon_pos.illumination * 100.0);
     println!(
@@ -759,13 +783,20 @@ fn print_moon_apsides(apsides: &[astro::moon::LunarApsis], timezone: &Tz) {
     }
 }
 
-fn print_lunar_phases_section(phases: &[astro::moon::LunarPhase], timezone: &Tz) {
-    if phases.is_empty() {
+/// Print the two most recent and two upcoming major phases (matching the TUI).
+fn print_lunar_phases_section(dt: &chrono::DateTime<Tz>, timezone: &Tz) {
+    let phases = astro::moon::lunar_phases_near(dt);
+    let future_start = phases
+        .iter()
+        .position(|phase| phase.datetime > *dt)
+        .unwrap_or(phases.len());
+    let shown = &phases[future_start.saturating_sub(2)..(future_start + 2).min(phases.len())];
+    if shown.is_empty() {
         return;
     }
 
     println!("— Lunar Phases —");
-    for phase in phases.iter().take(4) {
+    for phase in shown {
         let emoji = match phase.phase_type {
             astro::moon::LunarPhaseType::NewMoon => "🌑",
             astro::moon::LunarPhaseType::FirstQuarter => "🌓",
@@ -818,10 +849,17 @@ fn print_photography_section(location: &astro::Location, dt: &chrono::DateTime<T
 
     match events::next_dark_window(location, dt) {
         Some((start, Some(end))) => {
-            let minutes = end.signed_duration_since(start).num_minutes();
+            // Label a window that doesn't start today with its date, and match
+            // the duration to the minute precision of the displayed endpoints.
+            let fmt = if start.date_naive() == dt.date_naive() {
+                "%H:%M"
+            } else {
+                "%b %d %H:%M"
+            };
+            let minutes = end.timestamp().div_euclid(60) - start.timestamp().div_euclid(60);
             println!(
                 "🌌 Dark sky:       {} → {} ({}h {:02}m)",
-                start.format("%H:%M"),
+                start.format(fmt),
                 end.format("%H:%M"),
                 minutes / 60,
                 minutes % 60
@@ -958,11 +996,14 @@ fn print_text_output(
     let sun_pos = astro::sun::solar_position(location, dt);
     let moon_pos = astro::moon::lunar_position(location, dt);
     print_position_section(&sun_pos, &moon_pos);
-    print_moon_section(&moon_pos);
+    print_moon_section(&moon_pos, dt);
     print_moon_apsides(&astro::moon::next_lunar_apsides(dt), timezone);
 
-    let phases = astro::moon::lunar_phases(dt.year(), dt.month());
-    print_lunar_phases_section(&phases, timezone);
+    let phases = {
+        use chrono::Datelike;
+        astro::moon::lunar_phases(dt.year(), dt.month())
+    };
+    print_lunar_phases_section(dt, timezone);
 
     print_photography_section(location, dt);
     print_planets_section(location, dt);
@@ -1013,11 +1054,10 @@ fn print_text_output(
     let sun_pos = astro::sun::solar_position(location, dt);
     let moon_pos = astro::moon::lunar_position(location, dt);
     print_position_section(&sun_pos, &moon_pos);
-    print_moon_section(&moon_pos);
+    print_moon_section(&moon_pos, dt);
     print_moon_apsides(&astro::moon::next_lunar_apsides(dt), timezone);
 
-    let phases = astro::moon::lunar_phases(dt.year(), dt.month());
-    print_lunar_phases_section(&phases, timezone);
+    print_lunar_phases_section(dt, timezone);
 
     print_photography_section(location, dt);
     print_planets_section(location, dt);

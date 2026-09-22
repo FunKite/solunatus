@@ -127,6 +127,7 @@ fn handle_settings_keys(app: &mut App, key: KeyEvent) -> Result<()> {
             }
         }
         KeyCode::Tab | KeyCode::Down => {
+            #[cfg(feature = "ai-insights")]
             let previous = app.settings_draft.current_field();
             app.settings_draft.next_field();
             // Probe AI server when navigating away from AI server field
@@ -136,6 +137,7 @@ fn handle_settings_keys(app: &mut App, key: KeyEvent) -> Result<()> {
             }
         }
         KeyCode::BackTab | KeyCode::Up => {
+            #[cfg(feature = "ai-insights")]
             let previous = app.settings_draft.current_field();
             app.settings_draft.prev_field();
             // Probe AI server when navigating away from AI server field

@@ -790,6 +790,73 @@ pub fn is_supermoon(phase: &LunarPhase) -> bool {
         && lunar_distance_at_jd(julian_day(&phase.datetime)) <= SUPERMOON_DISTANCE_KM
 }
 
+/// Major lunar phases in the calendar months before, of, and after `dt`.
+///
+/// Returns the phases sorted chronologically (UTC). This always brackets
+/// `dt` with at least the two preceding and two following phases, regardless
+/// of where in the month `dt` falls.
+#[must_use]
+pub fn lunar_phases_near<T: TimeZone>(dt: &DateTime<T>) -> Vec<LunarPhase> {
+    let utc = dt.with_timezone(&chrono::Utc);
+    let (year, month) = (utc.year(), utc.month());
+    let prev = if month == 1 {
+        (year - 1, 12)
+    } else {
+        (year, month - 1)
+    };
+    let next = if month == 12 {
+        (year + 1, 1)
+    } else {
+        (year, month + 1)
+    };
+
+    let mut phases: Vec<LunarPhase> = [prev, (year, month), next]
+        .into_iter()
+        .flat_map(|(y, m)| lunar_phases(y, m))
+        .collect();
+    phases.sort_by_key(|a| a.datetime);
+    phases.dedup_by(|a, b| a.datetime == b.datetime && a.phase_type == b.phase_type);
+    phases
+}
+
+/// Age of the moon in days: time elapsed since the most recent new moon.
+///
+/// Uses the Meeus new-moon times from [`lunar_phases`], so it agrees with the
+/// phase list shown alongside it. (Scaling the current phase angle to a mean
+/// 29.53-day month instead is off by up to ~0.9 days because the moon's
+/// orbital speed varies.)
+///
+/// # Examples
+///
+/// ```
+/// use chrono::{TimeZone, Utc};
+/// use solunatus::astro::moon::lunar_age_days;
+///
+/// // New moon: 2025-10-21 12:25 UTC; one day later the moon is ~1 day old.
+/// let dt = Utc.with_ymd_and_hms(2025, 10, 22, 12, 25, 0).unwrap();
+/// assert!((lunar_age_days(&dt) - 1.0).abs() < 0.05);
+/// ```
+#[must_use]
+pub fn lunar_age_days<T: TimeZone>(dt: &DateTime<T>) -> f64 {
+    let utc = dt.with_timezone(&chrono::Utc);
+    // The previous new moon is at most ~29.9 days back, so this month and the
+    // previous one always contain it.
+    let previous_month = if utc.month() == 1 {
+        (utc.year() - 1, 12)
+    } else {
+        (utc.year(), utc.month() - 1)
+    };
+    [previous_month, (utc.year(), utc.month())]
+        .into_iter()
+        .flat_map(|(year, month)| lunar_phases(year, month))
+        .filter(|phase| phase.phase_type == LunarPhaseType::NewMoon && phase.datetime <= utc)
+        .map(|phase| phase.datetime)
+        .max()
+        .map_or(0.0, |new_moon| {
+            (utc - new_moon).num_seconds() as f64 / 86_400.0
+        })
+}
+
 /// Get the descriptive name of a lunar phase from its phase angle.
 ///
 /// Converts a numeric phase angle to a human-readable phase name.
@@ -986,5 +1053,19 @@ mod tests {
             4,
             "expected one instance of each primary phase for October 2025"
         );
+    }
+
+    #[test]
+    fn lunar_age_counts_from_previous_new_moon() {
+        // New moon 2025-10-21 12:25 UTC (USNO); first quarter 2025-10-29 16:21.
+        let first_quarter = Utc.with_ymd_and_hms(2025, 10, 29, 16, 21, 0).unwrap();
+        let age = lunar_age_days(&first_quarter);
+        assert!((age - 8.16).abs() < 0.05, "age {age}");
+
+        // Just before a new moon the age approaches a full lunation, and
+        // January reaches back into the previous year's December.
+        let jan = Utc.with_ymd_and_hms(2026, 1, 2, 0, 0, 0).unwrap();
+        let age = lunar_age_days(&jan);
+        assert!((12.0..14.5).contains(&age), "age {age}");
     }
 }

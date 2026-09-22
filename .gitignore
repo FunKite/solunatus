@@ -15,8 +15,10 @@
 .DS_Store
 Thumbs.db
 
-# Local release artifacts
+# Local release artifacts (binaries are built per release, never committed)
 dist/linux-binaries-v0.2.2/
+dist/*.tar.gz
+dist/*SHA256SUMS.txt
 
 # Config
 .env

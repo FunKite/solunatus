@@ -9,7 +9,9 @@ use crate::astro::*;
 use crate::events;
 use crate::time_sync;
 use anyhow::Result;
-use chrono::{DateTime, Datelike, Utc};
+#[cfg(feature = "ai-insights")]
+use chrono::Utc;
+use chrono::{DateTime, Datelike};
 use chrono_tz::Tz;
 use serde::Serialize;
 

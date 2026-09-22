@@ -256,10 +256,36 @@ struct OllamaRequest<'a> {
 }
 
 impl AiConfig {
-    /// Build an AI configuration from parsed CLI arguments, validating the refresh interval.
+    /// Build an AI configuration from parsed CLI arguments alone.
+    ///
+    /// Options not given on the command line fall back to the built-in
+    /// defaults. Use [`AiConfig::from_args_and_saved`] to honor saved settings.
     pub fn from_args(args: &crate::cli::Args) -> Result<Self> {
-        let enabled = args.ai_insights;
-        let refresh_minutes = args.ai_refresh_minutes;
+        Self::from_args_and_saved(args, None, false)
+    }
+
+    /// Build an AI configuration from CLI arguments layered over saved settings.
+    ///
+    /// Precedence per field is: explicit CLI flag, then the saved config
+    /// (`~/.solunatus.json`), then the built-in default. A saved `enabled`
+    /// flag only takes effect in interactive watch mode (where it is toggled);
+    /// one-shot text/JSON output requires `--ai-insights` so scripts never
+    /// block on an Ollama request they did not ask for.
+    pub fn from_args_and_saved(
+        args: &crate::cli::Args,
+        saved: Option<&crate::config::AiSettings>,
+        watch_mode: bool,
+    ) -> Result<Self> {
+        let defaults = crate::config::AiSettings::default();
+        let saved = saved.unwrap_or(&defaults);
+
+        let enabled = args.ai_insights || (watch_mode && saved.enabled);
+        let refresh_minutes = args.ai_refresh_minutes.unwrap_or(saved.refresh_minutes);
+        let refresh_minutes = if refresh_minutes == 0 {
+            defaults.refresh_minutes
+        } else {
+            refresh_minutes
+        };
         if !(1..=60).contains(&refresh_minutes) {
             return Err(anyhow!(
                 "AI refresh minutes must be between 1 and 60 (got {})",
@@ -267,19 +293,22 @@ impl AiConfig {
             ));
         }
 
+        let server = args.ai_server.as_deref().unwrap_or(&saved.server);
+        let model = args
+            .ai_model
+            .as_deref()
+            .map(str::trim)
+            .filter(|m| !m.is_empty())
+            .or_else(|| Some(saved.model.trim()).filter(|m| !m.is_empty()))
+            .unwrap_or(&defaults.model);
+
         Ok(Self {
             enabled,
-            server: Self::normalized_server(enabled, &args.ai_server),
-            model: args.ai_model.trim().to_string(),
+            server: Self::normalized_server(enabled, server),
+            model: model.to_string(),
             refresh: StdDuration::from_secs(refresh_minutes * 60),
-            refresh_mode: crate::config::AiRefreshMode::AutoAndManual,
+            refresh_mode: saved.refresh_mode,
         })
-    }
-
-    /// Overlay settings persisted in the config file onto this configuration.
-    pub fn merge_with_saved(mut self, saved_settings: &crate::config::AiSettings) -> Self {
-        self.refresh_mode = saved_settings.refresh_mode;
-        self
     }
 
     /// Full URL of the Ollama generate endpoint.
@@ -712,4 +741,82 @@ pub fn probe_server(server: &str) -> Result<Vec<String>> {
     }
 
     Ok(models)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AiConfig;
+    use crate::cli::Args;
+    use crate::config::{AiRefreshMode, AiSettings};
+    use clap::Parser;
+
+    fn saved() -> AiSettings {
+        AiSettings {
+            enabled: true,
+            server: "http://studio.local:11434".into(),
+            model: "custom:7b".into(),
+            refresh_minutes: 10,
+            refresh_mode: AiRefreshMode::ManualOnly,
+        }
+    }
+
+    fn args(extra: &[&str]) -> Args {
+        Args::try_parse_from(["solunatus"].iter().chain(extra)).unwrap()
+    }
+
+    #[test]
+    fn saved_settings_apply_when_flags_are_absent() {
+        let cfg = AiConfig::from_args_and_saved(&args(&[]), Some(&saved()), true).unwrap();
+        assert!(cfg.enabled);
+        assert_eq!(cfg.server, "http://studio.local:11434");
+        assert_eq!(cfg.model, "custom:7b");
+        assert_eq!(cfg.refresh_minutes(), 10);
+        assert_eq!(cfg.refresh_mode, AiRefreshMode::ManualOnly);
+    }
+
+    #[test]
+    fn explicit_flags_override_saved_settings() {
+        let cli = args(&[
+            "--ai-server",
+            "gpu:11434",
+            "--ai-model",
+            "llama3",
+            "--ai-refresh-minutes",
+            "5",
+        ]);
+        let cfg = AiConfig::from_args_and_saved(&cli, Some(&saved()), true).unwrap();
+        assert_eq!(cfg.server, "http://gpu:11434");
+        assert_eq!(cfg.model, "llama3");
+        assert_eq!(cfg.refresh_minutes(), 5);
+    }
+
+    #[test]
+    fn saved_enabled_flag_only_applies_to_watch_mode() {
+        let one_shot = AiConfig::from_args_and_saved(&args(&[]), Some(&saved()), false).unwrap();
+        assert!(!one_shot.enabled);
+        assert_eq!(one_shot.model, "custom:7b");
+
+        let opted_in =
+            AiConfig::from_args_and_saved(&args(&["--ai-insights"]), Some(&saved()), false)
+                .unwrap();
+        assert!(opted_in.enabled);
+    }
+
+    #[test]
+    fn defaults_without_saved_settings_match_config_defaults() {
+        let cfg = AiConfig::from_args(&args(&[])).unwrap();
+        let defaults = AiSettings::default();
+        assert!(!cfg.enabled);
+        assert_eq!(cfg.server, defaults.server);
+        assert_eq!(cfg.model, defaults.model);
+        assert_eq!(cfg.refresh_minutes(), defaults.refresh_minutes);
+    }
+
+    #[test]
+    fn partial_saved_ai_section_keeps_default_refresh() {
+        let partial: AiSettings = serde_json::from_str(r#"{"model": "custom:7b"}"#).unwrap();
+        assert_eq!(partial.refresh_minutes, 2);
+        let cfg = AiConfig::from_args_and_saved(&args(&[]), Some(&partial), true).unwrap();
+        assert_eq!(cfg.refresh_minutes(), 2);
+    }
 }

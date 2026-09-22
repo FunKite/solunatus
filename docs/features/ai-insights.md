@@ -73,6 +73,8 @@ solunatus --city "London" --ai-insights --ai-refresh-minutes 5
 5. Set refresh interval
 6. Press Enter to save
 
+Saved settings persist across restarts: the dashboard reopens with insights enabled, and one-shot runs reuse the saved server, model, and interval when you pass `--ai-insights`. Command-line flags override saved values for that run.
+
 ## Features
 
 - **Automatic refresh** - Updates narrative every N minutes

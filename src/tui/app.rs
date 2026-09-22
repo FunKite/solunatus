@@ -9,15 +9,20 @@ use crate::config::{self, WatchPreferences};
 use crate::events;
 use crate::location_source::LocationSource;
 use crate::time_sync::TimeSyncInfo;
-use anyhow::{Context, Result, anyhow};
+#[cfg(feature = "ai-insights")]
+use anyhow::anyhow;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveDate, TimeZone};
 use chrono_tz::Tz;
 use std::{
     fs,
     path::PathBuf,
+    time::{Duration, Instant},
+};
+#[cfg(feature = "ai-insights")]
+use std::{
     sync::mpsc::{self, Receiver},
     thread,
-    time::{Duration, Instant},
 };
 
 // Re-export types from submodules
@@ -283,30 +288,7 @@ impl App {
     }
 
     fn collect_lunar_phases(now_tz: &DateTime<Tz>) -> Vec<moon::LunarPhase> {
-        use chrono::Datelike;
-
-        let year = now_tz.year();
-        let month = now_tz.month();
-
-        let (prev_year, prev_month) = if month == 1 {
-            (year - 1, 12)
-        } else {
-            (year, month - 1)
-        };
-
-        let (next_year, next_month) = if month == 12 {
-            (year + 1, 1)
-        } else {
-            (year, month + 1)
-        };
-
-        let mut phases = Vec::new();
-        phases.extend(moon::lunar_phases(prev_year, prev_month));
-        phases.extend(moon::lunar_phases(year, month));
-        phases.extend(moon::lunar_phases(next_year, next_month));
-        phases.sort_by_key(|a| a.datetime);
-        phases.dedup_by(|a, b| a.datetime == b.datetime && a.phase_type == b.phase_type);
-        phases
+        moon::lunar_phases_near(now_tz)
     }
 
     fn regenerate_events(&mut self) {
