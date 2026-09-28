@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Dependencies**: Bumped `clap` from 4.6.6 to 4.6.7 and `clap_complete` from 4.6.9 to 4.6.11 via the production-dependencies group (Dependabot PR #103); fixes a zsh completion value-escaping bug in `clap_complete` and adds `clap`'s new opt-in `#[command(defer)]` attribute for lazy subcommand initialization (unused here). Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories.
 
+### Security
+- **CI**: Advanced the `github/codeql-action/init` and `.../analyze` SHA pin from v4.38.1 (`1c5b675`) to v4.38.2 (`2892aa5`) in `codeql.yml` via the workflow-dependencies group (Dependabot PR #107); upstream only updates the default CodeQL bundle to 2.27.1. Full-commit pin retained and verified against the upstream `v4.38.2` tag.
+
 ## [0.7.0] - 2026-09-18
 
 ### Added
