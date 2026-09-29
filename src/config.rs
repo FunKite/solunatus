@@ -339,6 +339,13 @@ impl Config {
 
         fs::write(&path, contents).context("Failed to write config file")?;
 
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600))
+                .context("Failed to restrict config file permissions")?;
+        }
+
         Ok(())
     }
 }
