@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - **CI**: Advanced the `github/codeql-action/init` and `.../analyze` SHA pin from v4.38.1 (`1c5b675`) to v4.38.2 (`2892aa5`) in `codeql.yml` via the workflow-dependencies group (Dependabot PR #107); upstream only updates the default CodeQL bundle to 2.27.1. Full-commit pin retained and verified against the upstream `v4.38.2` tag.
+- **Configuration**: `~/.solunatus.json` is now created with `0600` permissions on Unix (set at `open(2)` time, not via a `chmod` after an umask-default `write`), so location, timezone, and AI-server settings are never briefly world- or group-readable and are readable and writable only by the owning user.
+- **Docs**: `SECURITY.md` described a nonexistent `~/.astro_times.json` config path (the real file is `~/.solunatus.json`) and pointed installation/checksum examples at the long-superseded v0.2.2 release, including binaries no longer published. Corrected to the current config path and v0.7.0/v0.6.1 release artifacts, and removed the false claim that config file permissions were already checked.
 
 ## [0.7.0] - 2026-09-18
 

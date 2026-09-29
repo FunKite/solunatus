@@ -100,6 +100,23 @@ fn readable_config_is_still_saved() {
     let home = temp_home("save-config");
     let output = run_in(&home, &["--city", "Tucson", "--no-prompt"]);
     assert!(output.status.success());
-    let saved = std::fs::read_to_string(home.join(".solunatus.json")).unwrap();
+    let path = home.join(".solunatus.json");
+    let saved = std::fs::read_to_string(&path).unwrap();
     assert!(saved.contains("\"city\": \"Tucson\""));
+}
+
+#[cfg(unix)]
+#[test]
+fn saved_config_is_not_readable_by_other_users() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let home = temp_home("config-permissions");
+    let output = run_in(&home, &["--city", "Tucson", "--no-prompt"]);
+    assert!(output.status.success());
+    let path = home.join(".solunatus.json");
+    let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+    assert_eq!(
+        mode, 0o600,
+        "config file must be readable only by its owner"
+    );
 }

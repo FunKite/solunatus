@@ -337,6 +337,30 @@ impl Config {
 
         let contents = serde_json::to_string_pretty(self).context("Failed to serialize config")?;
 
+        #[cfg(unix)]
+        {
+            // Set the restrictive mode at creation time via `open(2)`'s mode argument
+            // instead of writing with the umask's default mode and `chmod`-ing
+            // afterward, which would leave the file world- or group-readable for a
+            // brief window. `set_permissions` still runs afterward to tighten a file
+            // left over from an older version that wrote with default permissions.
+            use std::io::Write;
+            use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&path)
+                .context("Failed to open config file")?;
+            file.write_all(contents.as_bytes())
+                .context("Failed to write config file")?;
+            file.set_permissions(fs::Permissions::from_mode(0o600))
+                .context("Failed to restrict config file permissions")?;
+        }
+
+        #[cfg(not(unix))]
         fs::write(&path, contents).context("Failed to write config file")?;
 
         Ok(())
