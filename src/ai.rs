@@ -319,13 +319,7 @@ impl AiConfig {
     /// Refresh interval in minutes, clamped to the 1-60 range.
     pub fn refresh_minutes(&self) -> u64 {
         let mins = self.refresh.as_secs() / 60;
-        if mins == 0 {
-            1
-        } else if mins > 60 {
-            60
-        } else {
-            mins
-        }
+        mins.clamp(1, 60)
     }
 
     /// Human-readable label for the current refresh mode.

@@ -100,6 +100,60 @@ fn readable_config_is_still_saved() {
     let home = temp_home("save-config");
     let output = run_in(&home, &["--city", "Tucson", "--no-prompt"]);
     assert!(output.status.success());
-    let saved = std::fs::read_to_string(home.join(".solunatus.json")).unwrap();
+    let path = home.join(".solunatus.json");
+    let saved = std::fs::read_to_string(&path).unwrap();
     assert!(saved.contains("\"city\": \"Tucson\""));
+}
+
+#[cfg(unix)]
+#[test]
+fn saved_config_is_not_readable_by_other_users() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let home = temp_home("config-permissions");
+    let output = run_in(&home, &["--city", "Tucson", "--no-prompt"]);
+    assert!(output.status.success());
+    let path = home.join(".solunatus.json");
+    let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+    assert_eq!(
+        mode, 0o600,
+        "config file must be readable only by its owner"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn saving_legacy_config_does_not_expose_new_settings_through_old_descriptor() {
+    use std::io::Read;
+    use std::os::unix::fs::PermissionsExt;
+
+    let home = temp_home("legacy-config-permissions");
+    let output = run_in(&home, &["--city", "Boston", "--no-prompt"]);
+    assert!(output.status.success());
+    let path = home.join(".solunatus.json");
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+    let previous = std::fs::read_to_string(&path).unwrap();
+    let mut old_descriptor = std::fs::File::open(&path).unwrap();
+
+    let output = run_in(&home, &["--city", "Tucson", "--no-prompt"]);
+    assert!(output.status.success());
+    let mut visible_through_old_descriptor = String::new();
+    old_descriptor
+        .read_to_string(&mut visible_through_old_descriptor)
+        .unwrap();
+    assert_eq!(visible_through_old_descriptor, previous);
+    assert!(
+        std::fs::read_to_string(&path)
+            .unwrap()
+            .contains("\"city\": \"Tucson\"")
+    );
+    assert_eq!(
+        std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    assert_eq!(
+        std::fs::read_dir(&home).unwrap().count(),
+        1,
+        "temporary file must be removed"
+    );
 }

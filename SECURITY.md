@@ -62,12 +62,12 @@ Always install from trusted, official sources:
 
 ```bash
 # Recommended: Install from crates.io
-cargo install solunatus
+cargo install --locked solunatus
 
-# Alternative: Install from official GitHub repository
-cargo install --git https://github.com/FunKite/solunatus.git --tag v0.2.2
+# Alternative: Install from the official GitHub repository
+cargo install --locked --git https://github.com/FunKite/solunatus.git --tag v0.7.0
 
-# Or download pre-built binaries from official GitHub releases
+# Or download prebuilt archives from official GitHub releases
 # https://github.com/FunKite/solunatus/releases
 ```
 
@@ -75,24 +75,21 @@ cargo install --git https://github.com/FunKite/solunatus.git --tag v0.2.2
 
 ### Verify Checksums
 
-When downloading binaries from GitHub releases, always verify checksums to ensure integrity:
+The v0.7.0 release is distributed through Cargo; no prebuilt binaries are attached. Cargo verifies downloaded registry packages against the SHA-256 checksums in the [registry index](https://doc.rust-lang.org/cargo/reference/registry-index.html), not publisher signatures. The older [v0.6.1](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) release still provides prebuilt Linux archives (no `--night` support), which can be checksum-verified before use:
 
 ```bash
-# Download the binary and checksum file
-curl -LO https://github.com/FunKite/solunatus/releases/download/v0.2.2/solunatus-v0.2.2-linux-x86_64.tar.gz
-curl -LO https://github.com/FunKite/solunatus/releases/download/v0.2.2/solunatus-v0.2.2-linux-x86_64.tar.gz.sha256
+# Download the archive and its checksum file from the v0.6.1 release
+curl -LO https://github.com/FunKite/solunatus/releases/download/v0.6.1/solunatus-v0.6.1-linux-x86_64.tar.gz
+curl -LO https://github.com/FunKite/solunatus/releases/download/v0.6.1/solunatus-v0.6.1-SHA256SUMS.txt
 
-# Verify checksum (Linux/macOS)
-sha256sum -c solunatus-v0.2.2-linux-x86_64.tar.gz.sha256
+# Verify checksum on Linux
+sha256sum --check --ignore-missing solunatus-v0.6.1-SHA256SUMS.txt
 
-# On macOS, you can also use:
-shasum -a 256 -c solunatus-v0.2.2-macos-universal.tar.gz.sha256
-
-# Windows PowerShell
-Get-FileHash solunatus-v0.2.2-windows-x86_64.zip -Algorithm SHA256
+# On macOS, use:
+shasum -a 256 --check --ignore-missing solunatus-v0.6.1-SHA256SUMS.txt
 ```
 
-If the checksum doesn't match, **do not run the binary** and report it immediately.
+Proceed only if the archive is listed as `OK`. Unsigned macOS and Windows binaries are not provided; use Cargo on those platforms. See the [installation guide](docs/installation/README.md) for current details.
 
 ### Verify Source Code Before Building
 
@@ -107,7 +104,7 @@ cd solunatus
 git remote -v
 
 # Checkout a specific release tag
-git checkout v0.2.2
+git checkout v0.7.0
 
 # Review the source code before building
 # Especially check build.rs and any procedural macros
@@ -157,12 +154,13 @@ Solunatus doesn't require elevated privileges:
 
 ### Configuration File
 
-Solunatus stores your location preferences in `~/.astro_times.json`. This file contains:
+Solunatus stores your location preferences in `~/.solunatus.json`. This file contains:
 - Latitude/longitude coordinates
 - Timezone information
 - City name (if selected)
+- AI insights server/model settings, if configured
 
-**Privacy note**: This information is stored locally and never transmitted over the network.
+**Privacy note**: The configuration file is stored locally. On Unix systems each save writes a new file with `0600` permissions and atomically replaces the old file, so a reader holding an old descriptor cannot see newly saved settings. Existing files from older versions are replaced on their next successful save. Optional network features can transmit location data as described below.
 
 ### Network Requests
 
@@ -176,8 +174,12 @@ Solunatus makes network requests for:
 - **USNO validation** (optional): Queries aa.usno.navy.mil
   - Only when using `--validate` or pressing 'r' in watch mode
   - Purpose: Accuracy verification against U.S. Naval Observatory data
+  - Data sent: Latitude, longitude, and date
 
-**No location data or personal information is ever transmitted.**
+- **AI insights** (optional): Sends requests to the configured Ollama server
+  - Only when AI insights are enabled
+  - Default server: `http://localhost:11434`; a configured remote server receives the same data
+  - Data sent: Latitude, longitude, optional city name, and astronomical context
 
 ### Dependencies
 
@@ -257,15 +259,14 @@ This policy does NOT cover:
 - ✅ Secure HTTP client configuration
 - ✅ Error handling without information leakage
 - ✅ No shell command execution with user input
-- ✅ Configuration file permissions checked
+- ✅ Configuration file restricted to owner-only permissions (`0600`) on Unix
 
 ### Future Enhancements
 
 We're considering these additional security measures:
 
 #### Short-term (Next Release)
-- Enhanced configuration file permission warnings
-- Optional strict mode for paranoid users
+- Windows/macOS ACL hardening for the configuration file (currently `0600`-restricted on Unix only)
 - Additional input validation hardening
 
 #### Medium-term
@@ -288,5 +289,5 @@ If you have questions about security that don't involve reporting a vulnerabilit
 
 ---
 
-**Last Updated**: 2025-01-14
+**Last Updated**: 2026-09-29
 **Maintainer**: @FunKite
