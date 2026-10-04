@@ -75,15 +75,18 @@ cargo install --locked --git https://github.com/FunKite/solunatus.git --tag v0.7
 
 ### Verify Checksums
 
-Starting from v0.7.0, published releases are distributed through Cargo (`cargo install` verifies the crates.io package signature); no prebuilt binaries are attached. The older [v0.6.1](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) release still provides prebuilt Linux archives (no `--night` support), which can be checksum-verified before use:
+The v0.7.0 release is distributed through Cargo; no prebuilt binaries are attached. Cargo verifies downloaded registry packages against the SHA-256 checksums in the [registry index](https://doc.rust-lang.org/cargo/reference/registry-index.html), not publisher signatures. The older [v0.6.1](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) release still provides prebuilt Linux archives (no `--night` support), which can be checksum-verified before use:
 
 ```bash
 # Download the archive and its checksum file from the v0.6.1 release
 curl -LO https://github.com/FunKite/solunatus/releases/download/v0.6.1/solunatus-v0.6.1-linux-x86_64.tar.gz
 curl -LO https://github.com/FunKite/solunatus/releases/download/v0.6.1/solunatus-v0.6.1-SHA256SUMS.txt
 
-# Verify checksum (Linux/macOS)
+# Verify checksum on Linux
 sha256sum --check --ignore-missing solunatus-v0.6.1-SHA256SUMS.txt
+
+# On macOS, use:
+shasum -a 256 --check --ignore-missing solunatus-v0.6.1-SHA256SUMS.txt
 ```
 
 Proceed only if the archive is listed as `OK`. Unsigned macOS and Windows binaries are not provided; use Cargo on those platforms. See the [installation guide](docs/installation/README.md) for current details.
@@ -157,7 +160,7 @@ Solunatus stores your location preferences in `~/.solunatus.json`. This file con
 - City name (if selected)
 - AI insights server/model settings, if configured
 
-**Privacy note**: This information is stored locally and never transmitted over the network. On Unix systems the file is written with `0600` permissions (readable and writable only by its owner).
+**Privacy note**: The configuration file is stored locally. On Unix systems each save writes a new file with `0600` permissions and atomically replaces the old file, so a reader holding an old descriptor cannot see newly saved settings. Existing files from older versions are replaced on their next successful save. Optional network features can transmit location data as described below.
 
 ### Network Requests
 
@@ -171,8 +174,12 @@ Solunatus makes network requests for:
 - **USNO validation** (optional): Queries aa.usno.navy.mil
   - Only when using `--validate` or pressing 'r' in watch mode
   - Purpose: Accuracy verification against U.S. Naval Observatory data
+  - Data sent: Latitude, longitude, and date
 
-**No location data or personal information is ever transmitted.**
+- **AI insights** (optional): Sends requests to the configured Ollama server
+  - Only when AI insights are enabled
+  - Default server: `http://localhost:11434`; a configured remote server receives the same data
+  - Data sent: Latitude, longitude, optional city name, and astronomical context
 
 ### Dependencies
 

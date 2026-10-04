@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI**: `--date` without `--json` now prints the one-shot text report for that date. It previously opened the live dashboard, which silently ignored the date. `--watch --date` is rejected as a conflict.
 - **Text output**: The dark-sky window shows its date when it doesn't start today, and its duration matches the displayed minutes. The lunar-phase list shows the two most recent and two upcoming phases (as in the dashboard) instead of only the current calendar month.
 - **Build**: Removed compiler warnings in builds without the optional AI feature.
+- **Build**: Used `clamp` for AI refresh-minute bounds and removed a redundant observing-output closure borrow so Rust 1.99 Clippy passes, preserving existing behavior.
 
 ### Deprecated
 - **CLI**: `--strict` never had any effect. It is now hidden from help and prints a deprecation warning; it will be removed in a future release. (`--next` already exits with an error when an event does not occur.)
@@ -32,8 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - **CI**: Advanced the `github/codeql-action/init` and `.../analyze` SHA pin from v4.38.1 (`1c5b675`) to v4.38.2 (`2892aa5`) in `codeql.yml` via the workflow-dependencies group (Dependabot PR #107); upstream only updates the default CodeQL bundle to 2.27.1. Full-commit pin retained and verified against the upstream `v4.38.2` tag.
-- **Configuration**: `~/.solunatus.json` is now created with `0600` permissions on Unix (set at `open(2)` time, not via a `chmod` after an umask-default `write`), so location, timezone, and AI-server settings are never briefly world- or group-readable and are readable and writable only by the owning user.
-- **Docs**: `SECURITY.md` described a nonexistent `~/.astro_times.json` config path (the real file is `~/.solunatus.json`) and pointed installation/checksum examples at the long-superseded v0.2.2 release, including binaries no longer published. Corrected to the current config path and v0.7.0/v0.6.1 release artifacts, and removed the false claim that config file permissions were already checked.
+- **Configuration**: Each save of `~/.solunatus.json` now writes a private `0600` sibling file on Unix and atomically replaces the previous file. This protects newly saved location, timezone, and AI-server settings even when upgrading a legacy permissive file whose old descriptor is still open, and preserves the previous config if writing fails.
+- **Docs**: Corrected the config path and installation/checksum examples in `SECURITY.md` to `~/.solunatus.json` and the v0.7.0/v0.6.1 release artifacts. Documented Cargo's registry checksums accurately, supplied the macOS checksum command, and clarified that optional USNO validation and AI insights transmit location data.
 
 ## [0.7.0] - 2026-09-18
 

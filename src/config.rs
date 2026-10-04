@@ -7,6 +7,58 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 
+/// Write to a private sibling file, then replace the config atomically. Changing
+/// permissions on an existing file cannot revoke descriptors already held by readers.
+#[cfg(unix)]
+fn save_private_config(path: &std::path::Path, contents: &str) -> Result<()> {
+    use std::io::{ErrorKind, Write};
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_TEMP_FILE: AtomicU64 = AtomicU64::new(0);
+
+    struct PendingConfig(PathBuf);
+    impl Drop for PendingConfig {
+        fn drop(&mut self) {
+            let _ = fs::remove_file(&self.0);
+        }
+    }
+
+    let mut pending = None;
+    for _ in 0..128 {
+        let sequence = NEXT_TEMP_FILE.fetch_add(1, Ordering::Relaxed);
+        let temp_path = path.with_file_name(format!(
+            ".solunatus.json.tmp-{}-{sequence}",
+            std::process::id()
+        ));
+        // create_new rejects existing files and symlinks; collisions are retried.
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&temp_path)
+        {
+            Ok(file) => {
+                pending = Some((PendingConfig(temp_path), file));
+                break;
+            }
+            Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error).context("Failed to create private config file"),
+        }
+    }
+    let (pending, mut file) =
+        pending.ok_or_else(|| anyhow::anyhow!("Could not create a unique private config file"))?;
+    // Restore owner permissions if a restrictive umask removed them, before writing.
+    file.set_permissions(fs::Permissions::from_mode(0o600))
+        .context("Failed to restrict config file permissions")?;
+    file.write_all(contents.as_bytes())
+        .context("Failed to write config file")?;
+    file.sync_all().context("Failed to sync config file")?;
+    drop(file);
+    fs::rename(&pending.0, path).context("Failed to replace config file")?;
+    Ok(())
+}
+
 fn default_true() -> bool {
     true
 }
@@ -326,6 +378,7 @@ impl Config {
     /// Saves configuration to the config file.
     ///
     /// Creates or overwrites `~/.solunatus.json` with the current configuration.
+    /// On Unix, writes a private file and atomically replaces the previous config.
     ///
     /// # Errors
     ///
@@ -338,31 +391,34 @@ impl Config {
         let contents = serde_json::to_string_pretty(self).context("Failed to serialize config")?;
 
         #[cfg(unix)]
-        {
-            // Set the restrictive mode at creation time via `open(2)`'s mode argument
-            // instead of writing with the umask's default mode and `chmod`-ing
-            // afterward, which would leave the file world- or group-readable for a
-            // brief window. `set_permissions` still runs afterward to tighten a file
-            // left over from an older version that wrote with default permissions.
-            use std::io::Write;
-            use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-
-            let mut file = fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .mode(0o600)
-                .open(&path)
-                .context("Failed to open config file")?;
-            file.write_all(contents.as_bytes())
-                .context("Failed to write config file")?;
-            file.set_permissions(fs::Permissions::from_mode(0o600))
-                .context("Failed to restrict config file permissions")?;
-        }
+        save_private_config(&path, &contents)?;
 
         #[cfg(not(unix))]
         fs::write(&path, contents).context("Failed to write config file")?;
 
         Ok(())
+    }
+}
+
+#[cfg(all(test, unix))]
+mod private_config_tests {
+    use super::*;
+
+    #[test]
+    fn failed_replacement_preserves_destination_and_cleans_up_temporary_file() {
+        let home = std::env::temp_dir().join(format!(
+            "solunatus-config-replace-failure-{}",
+            std::process::id()
+        ));
+        fs::create_dir(&home).unwrap();
+        let destination = home.join(".solunatus.json");
+        fs::create_dir(&destination).unwrap();
+        let marker = destination.join("keep");
+        fs::write(&marker, "previous contents").unwrap();
+
+        assert!(save_private_config(&destination, "new settings").is_err());
+        assert_eq!(fs::read_to_string(&marker).unwrap(), "previous contents");
+        assert_eq!(fs::read_dir(&home).unwrap().count(), 1);
+        fs::remove_dir_all(home).unwrap();
     }
 }

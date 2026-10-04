@@ -158,7 +158,7 @@ fn render(plan: &NightPlan) -> String {
             out,
             "{label:<18}{}",
             value
-                .map(&period_text)
+                .map(period_text)
                 .unwrap_or_else(|| "No interval in this plan".into())
         );
     }
