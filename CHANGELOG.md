@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Repository**: Deleted obsolete 0.1.x "astrotimes" artifacts from `dist/` (macOS `.pkg`, tarballs, raw binaries, and an `install.sh` that installed the 0.1.0 macOS binary), about 21 MB. Local release tarballs under `dist/` are now git-ignored.
 
 ### Changed
+- **Dependencies**: Updated `serde_json` 1.0.151 → 1.0.154 in the lockfile (Dependabot PR #110), including more precise invalid-UTF-8 error locations and fixes for optional arbitrary-precision numbers and no-std ordered maps. No dependency constraints or features changed.
 - **Dependencies**: Bumped `clap` from 4.6.6 to 4.6.7 and `clap_complete` from 4.6.9 to 4.6.11 via the production-dependencies group (Dependabot PR #103); fixes a zsh completion value-escaping bug in `clap_complete` and adds `clap`'s new opt-in `#[command(defer)]` attribute for lazy subcommand initialization (unused here). Lockfile-only; no `Cargo.toml` constraints changed and `cargo audit` reports no known advisories.
 
 ### Security
