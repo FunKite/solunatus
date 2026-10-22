@@ -65,7 +65,7 @@ Always install from trusted, official sources:
 cargo install --locked solunatus
 
 # Alternative: Install from the official GitHub repository
-cargo install --locked --git https://github.com/FunKite/solunatus.git --tag v0.7.0
+cargo install --locked --git https://github.com/FunKite/solunatus.git --tag v0.8.0
 
 # Or download prebuilt archives from official GitHub releases
 # https://github.com/FunKite/solunatus/releases
@@ -75,7 +75,7 @@ cargo install --locked --git https://github.com/FunKite/solunatus.git --tag v0.7
 
 ### Verify Checksums
 
-The v0.7.0 release is distributed through Cargo; no prebuilt binaries are attached. Cargo verifies downloaded registry packages against the SHA-256 checksums in the [registry index](https://doc.rust-lang.org/cargo/reference/registry-index.html), not publisher signatures. The older [v0.6.1](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) release still provides prebuilt Linux archives (no `--night` support), which can be checksum-verified before use:
+The v0.8.0 release is distributed through Cargo; no prebuilt binaries are attached. Cargo verifies downloaded registry packages against the SHA-256 checksums in the [registry index](https://doc.rust-lang.org/cargo/reference/registry-index.html), not publisher signatures. The older [v0.6.1](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) release still provides prebuilt Linux archives (no `--night` support), which can be checksum-verified before use:
 
 ```bash
 # Download the archive and its checksum file from the v0.6.1 release
@@ -104,7 +104,7 @@ cd solunatus
 git remote -v
 
 # Checkout a specific release tag
-git checkout v0.7.0
+git checkout v0.8.0
 
 # Review the source code before building
 # Especially check build.rs and any procedural macros

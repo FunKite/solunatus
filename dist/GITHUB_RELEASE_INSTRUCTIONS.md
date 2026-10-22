@@ -8,9 +8,10 @@ Release from a reviewed PR merged into `main`. Keep `Cargo.toml`, `Cargo.lock`, 
 2. Run `./scripts/safe_local_test.sh` (add `--allow-network` only if a dependency or advisory refresh is needed).
 3. Run formatting, Clippy, all-feature and no-default-feature tests, and the MSRV checks in CI.
 4. Build documentation with `RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --all-features`, and repeat with `--no-default-features`. Public library items must remain documented; do not suppress missing-documentation errors or hide public APIs to improve the percentage.
-5. Regenerate the preview with `python3 scripts/render_night_demo.py --binary target/debug/solunatus` after building. Smoke-test `--night`, its `--tonight` alias, help, completions, and the man page.
-6. Review package contents with `cargo package --locked --list`. Exclude local settings and old build artifacts.
-7. Merge only after all PR checks and review findings are resolved, then fast-forward local `main` to the merged commit.
+5. Measure actual public-item documentation coverage with `cargo +nightly rustdoc --locked --lib --all-features -- -Z unstable-options --show-coverage` and record the documented/total count. It must be 100%; do not infer the metric from a successful build.
+6. Regenerate the preview with `python3 scripts/render_night_demo.py --binary target/debug/solunatus` after building. Smoke-test `--night`, its `--tonight` alias, help, completions, and the man page.
+7. Review package contents with `cargo package --locked --list`. Exclude local settings and old build artifacts.
+8. Merge only after all PR checks and review findings are resolved, then fast-forward local `main` to the merged commit.
 
 ## Publish, then tag
 
@@ -19,12 +20,12 @@ From the clean committed release tree (substitute the new version below):
 ```bash
 cargo publish --locked --dry-run
 cargo package --locked
-shasum -a 256 target/package/solunatus-0.7.0.crate
+shasum -a 256 target/package/solunatus-0.8.0.crate
 cargo publish --locked
-git tag -a v0.7.0 -m "Solunatus 0.7.0"
-git push origin v0.7.0
-gh release create v0.7.0 --verify-tag \
-  --title "Solunatus 0.7.0 — Plan any night" \
+git tag -a v0.8.0 -m "Solunatus 0.8.0"
+git push origin v0.8.0
+gh release create v0.8.0 --verify-tag \
+  --title "Solunatus 0.8.0 — Reliability and security" \
   --notes-file dist/RELEASE_NOTES.md
 ```
 

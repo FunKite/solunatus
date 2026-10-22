@@ -8,7 +8,7 @@ With [Rust and Cargo](https://www.rust-lang.org/tools/install) installed:
 cargo install --locked solunatus
 ```
 
-v0.7.0 is available through Cargo on Linux, macOS, and Windows. See the [installation guide](README.md) for source builds and older Linux archives.
+v0.8.0 is available through Cargo on Linux, macOS, and Windows. See the [installation guide](README.md) for source builds and older Linux archives.
 
 ## 2. Open the sky dashboard
 
@@ -44,7 +44,7 @@ These commands print one event and exit without network access.
 
 ## 5. Try the new one-page night plan
 
-The `--night` command is included in v0.7.0:
+The `--night` command has been available since v0.7.0:
 
 ```bash
 solunatus --city "Tucson" --night

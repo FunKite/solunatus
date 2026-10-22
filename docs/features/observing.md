@@ -1,6 +1,6 @@
 # Plan a night of stargazing or astrophotography
 
-`--night` is available in v0.7.0. [Install or upgrade](../installation/README.md) with Cargo. The earlier `--tonight` spelling remains a compatibility alias with identical behavior, including when `--date` is supplied.
+`--night` is available since v0.7.0. [Install or upgrade](../installation/README.md) with Cargo. The earlier `--tonight` spelling remains a compatibility alias with identical behavior, including when `--date` is supplied.
 
 ## Start with one question: when will it be dark without the Moon?
 

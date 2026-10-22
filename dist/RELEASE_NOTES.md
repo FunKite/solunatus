@@ -1,32 +1,42 @@
-# Solunatus v0.7.0 — Plan any night
+# Solunatus v0.8.0 — Reliability and security
 
-Release date: 2026-09-18
+Release date: 2026-10-22
 
-Plan an observing session with `--night`: golden and blue hour, sunset, astronomical darkness, sunrise, the first moon-free dark window, and a timed Moon/planet snapshot. The report runs offline, prints once, and exits. Use `--json` for structured output.
+This release preserves saved dashboard settings, protects unreadable configuration, corrects lunar-age and date reporting, and updates transport and certificate-trust dependencies. The default features and Rust 1.91 minimum remain unchanged.
 
 ```bash
-cargo install --locked solunatus --version 0.7.0 --force
+cargo install --locked solunatus --version 0.8.0 --force
 solunatus --city "Tucson" --night
-solunatus --city "Tucson" --date 2026-10-10 --night --json
+solunatus --city "Boston" --date 2026-12-25
 ```
 
-## Naming and dates
+## Library compatibility
 
-`--night` replaces the development name `--tonight`; `--tonight` remains a compatibility alias. Both cover local noon on the selected date through local noon the next day. Without `--date`, the date is today at the observing location. Daylight-saving transitions, the date line, and polar conditions are handled. Weather, terrain, and light pollution are not modeled.
+0.8.0 includes public API changes from the unreleased work after 0.7.0:
 
-## Other changes
+- `AiConfig::merge_with_saved` is removed. Use `AiConfig::from_args_and_saved` to construct AI configuration from CLI arguments and optional saved settings; `AiConfig::from_args` remains available for CLI-only defaults.
+- The public `Args::ai_server`, `Args::ai_model`, and `Args::ai_refresh_minutes` fields are now `Option` values so an omitted flag can be distinguished from an explicit override.
+- New public helpers `astro::moon::lunar_age_days` and `astro::moon::lunar_phases_near` expose the lunar-age and nearby-phase calculations used by the CLI.
 
-- The dashboard title bar and `--version` report 0.7.0 from the package version.
-- Minute-precision dark-window durations agree with their displayed endpoints; JSON preserves exact timestamps.
-- ICS text normalizes CRLF and bare-CR line endings and preserves UTF-8 folding.
-- Dependency security fixes include rustls, rustls-webpki, and lru; the changelog records the full dependency and CI maintenance since 0.6.1.
-- Public library documentation is enforced with `deny(missing_docs)`. docs.rs builds all features; CI validates documentation with all features and without optional features.
-- README, observing guide, CLI reference, installation instructions, and the actual-output preview now describe the published night planner.
+Library consumers should update to `solunatus = "0.8.0"` and adjust callers of the changed APIs. CLI flags remain compatible; the ineffective `--strict` flag is deprecated and warns when used.
 
-## Distribution and compatibility
+## Correctness and configuration
 
-Rust 1.91 or newer is required; latest stable is recommended. Default features remain unchanged. No dependencies were added for the planner rename or this release preparation. Library users can set `solunatus = "0.7.0"`.
+- Saved AI server, model, refresh interval, and enabled state survive dashboard restarts. Explicit CLI flags still take precedence.
+- Unreadable configuration is reported and preserved, including when applying TUI settings. Settings writes use private `0600` files on Unix and atomic replacement.
+- Lunar age uses the preceding Meeus new moon, including months after a February with no new moon. Nearby phase lists include preceding and following phases.
+- `--date` produces a one-shot text report without requiring `--json`; `--watch --date` is rejected. Dark-sky dates and displayed durations are consistent.
+- The NTP cache tracks the requested server even when a fallback answers, preserving its 30-minute rate limit.
+- USNO validation compares only published USNO events rather than treating golden-hour events as missing.
 
-This release contains the crates.io package, Git tag, and GitHub release notes. No prebuilt binaries are attached; the older 0.6.1 Linux downloads do not include the night planner.
+## Security and validation
 
-See [CHANGELOG.md](https://github.com/FunKite/solunatus/blob/v0.7.0/CHANGELOG.md) for the full release history.
+- Updated `quinn-proto`, `rustls`, `rustls-webpki`, and `webpki-roots` address the advisories listed in the changelog, including distrusted emSign intermediate keys and the affected root trust entry.
+- Workflow actions retain full commit SHA pins and live pin-drift checks. CodeQL is updated to 4.39.1.
+- Public library documentation remains enforced with `deny(missing_docs)`. docs.rs builds all features; CI validates all-feature and minimal-feature documentation, default/all/minimal tests, and the declared MSRV.
+
+## Distribution
+
+This release consists of the crates.io package, annotated Git tag, and these GitHub release notes. No prebuilt binaries are attached. Older 0.6.1 Linux archives do not include the night planner or these fixes.
+
+See [CHANGELOG.md](https://github.com/FunKite/solunatus/blob/v0.8.0/CHANGELOG.md) for the full release history.

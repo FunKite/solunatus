@@ -20,7 +20,7 @@ cargo install --locked solunatus --force
 
 ## Historical Linux downloads
 
-v0.7.0 is distributed through Cargo; no prebuilt binaries are attached. The older [v0.6.1](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) provides two prebuilt archives, which do not include `--night`:
+v0.8.0 is distributed through Cargo; no prebuilt binaries are attached. The older [v0.6.1](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) provides two prebuilt archives, which do not include `--night`:
 
 - `solunatus-v0.6.1-linux-x86_64.tar.gz`
 - `solunatus-v0.6.1-linux-aarch64.tar.gz`
@@ -69,7 +69,7 @@ The default time check is independent of those features. Set `SOLUNATUS_SKIP_TIM
 
 ```toml
 [dependencies]
-solunatus = "0.7.0"
+solunatus = "0.8.0"
 chrono = "0.4"
 chrono-tz = "0.10"
 ```
