@@ -839,16 +839,12 @@ pub fn lunar_phases_near<T: TimeZone>(dt: &DateTime<T>) -> Vec<LunarPhase> {
 #[must_use]
 pub fn lunar_age_days<T: TimeZone>(dt: &DateTime<T>) -> f64 {
     let utc = dt.with_timezone(&chrono::Utc);
-    // The previous new moon is at most ~29.9 days back, so this month and the
-    // previous one always contain it.
-    let previous_month = if utc.month() == 1 {
-        (utc.year() - 1, 12)
-    } else {
-        (utc.year(), utc.month() - 1)
-    };
-    [previous_month, (utc.year(), utc.month())]
-        .into_iter()
-        .flat_map(|(year, month)| lunar_phases(year, month))
+    // A lunation can skip February, so include two preceding months.
+    // A linear month index handles both year boundaries and negative years.
+    let month_index = utc.year() * 12 + utc.month0() as i32;
+    (0..=2)
+        .map(|offset| month_index - offset)
+        .flat_map(|month| lunar_phases(month.div_euclid(12), month.rem_euclid(12) as u32 + 1))
         .filter(|phase| phase.phase_type == LunarPhaseType::NewMoon && phase.datetime <= utc)
         .map(|phase| phase.datetime)
         .max()
@@ -1053,6 +1049,19 @@ mod tests {
             4,
             "expected one instance of each primary phase for October 2025"
         );
+    }
+
+    #[test]
+    fn lunar_age_after_a_month_without_new_moon() {
+        // February 2014 had no new moon. Before the March 1 new moon,
+        // the preceding new moon was January 30, about 29.1 days earlier.
+        let before = Utc.with_ymd_and_hms(2014, 3, 1, 0, 0, 0).unwrap();
+        let age = lunar_age_days(&before);
+        assert!((29.0..29.3).contains(&age), "age {age}");
+
+        let after = Utc.with_ymd_and_hms(2014, 3, 1, 12, 0, 0).unwrap();
+        let age = lunar_age_days(&after);
+        assert!((0.0..0.3).contains(&age), "age {age}");
     }
 
     #[test]

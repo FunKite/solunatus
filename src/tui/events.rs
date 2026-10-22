@@ -115,11 +115,9 @@ fn handle_settings_keys(app: &mut App, key: KeyEvent) -> Result<()> {
             match app.apply_settings_changes() {
                 Ok(()) => {
                     app.mode = AppMode::Watch;
-                    // Save configuration
-                    let config = app.build_config();
-                    let _ = config.save();
-                    app.should_save = false;
-                    app.set_status_message("Settings saved and applied");
+                    // The watch loop owns persistence and its unreadable-config guard.
+                    app.should_save = true;
+                    app.set_status_message("Settings applied");
                 }
                 Err(e) => {
                     app.settings_draft.set_error(e.to_string());
@@ -589,4 +587,77 @@ fn handle_reports_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         _ => {}
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn settings_enter_defers_persistence() {
+        // Run the event handler in a child with an isolated home so the
+        // regression can never overwrite the developer's real settings.
+        if std::env::var_os("SOLUNATUS_SETTINGS_TEST_CHILD").is_none() {
+            let home = std::env::temp_dir()
+                .join(format!("solunatus-settings-event-{}", std::process::id()));
+            std::fs::create_dir_all(&home).unwrap();
+            let path = home.join(".solunatus.json");
+            let corrupt = "{ unreadable configuration";
+            std::fs::write(&path, corrupt).unwrap();
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "tui::events::tests::settings_enter_defers_persistence",
+                    "--nocapture",
+                ])
+                .env("HOME", &home)
+                .env("SOLUNATUS_SETTINGS_TEST_CHILD", "1")
+                .output()
+                .unwrap();
+            let preserved = std::fs::read_to_string(&path).unwrap() == corrupt;
+            std::fs::remove_dir_all(&home).unwrap();
+            assert!(
+                preserved,
+                "Settings Enter overwrote unreadable configuration"
+            );
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+
+        let mut app = App::new(super::super::app::AppConfig {
+            location: crate::astro::Location::new(42.36, -71.06).unwrap(),
+            timezone: chrono_tz::America::New_York,
+            city_name: Some("Boston".into()),
+            location_source: LocationSource::ManualCli,
+            location_mode: crate::config::LocationMode::Manual,
+            time_sync: crate::time_sync::TimeSyncInfo {
+                source: "test".into(),
+                delta: None,
+                error: None,
+            },
+            time_sync_disabled: true,
+            time_sync_server: "time.google.com:123".into(),
+            #[cfg(feature = "ai-insights")]
+            ai_config: crate::ai::AiConfig {
+                enabled: false,
+                server: "http://localhost:11434".into(),
+                model: "llama3.2:latest".into(),
+                refresh: Duration::from_secs(120),
+                refresh_mode: crate::config::AiRefreshMode::AutoAndManual,
+            },
+            watch_prefs: None,
+        });
+        app.open_settings();
+        app.settings_draft.field_index = 9; // NightMode, rather than a location picker.
+        let night_mode = !app.night_mode;
+        app.settings_draft.night_mode = night_mode;
+        handle_key_event(&mut app, KeyEvent::from(KeyCode::Enter)).unwrap();
+        assert!(matches!(app.mode, AppMode::Watch));
+        assert_eq!(app.night_mode, night_mode);
+        assert!(app.should_save, "the guarded watch loop must handle saving");
+    }
 }
