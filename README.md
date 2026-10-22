@@ -13,7 +13,7 @@ Find golden hour, moon-free darkness, and where the planets will be. Solunatus c
 
 ![Actual Solunatus night-plan output for Tucson: photography times, moon-free darkness, and planet positions](docs/images/night-plan.svg)
 
-*Actual `--night` output, available in v0.7.0. [How the preview is generated](docs/features/observing.md#readme-preview).*
+*Actual `--night` output from v0.8.0. [How the preview is generated](docs/features/observing.md#readme-preview).*
 
 ## Why take it observing?
 
@@ -40,12 +40,12 @@ solunatus --city "Tucson"
 
 This opens the live dashboard. Press **`g`** for the Sun/Moon altitude chart, **`s`** for settings and night mode, **`r`** for reports, and **`q`** to quit.
 
-Install v0.7.0 with Cargo on Linux, macOS, or Windows. The [older v0.6.1 Linux archives](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) do not include the night planner. See the [installation guide](docs/installation/README.md).
+Install v0.8.0 with Cargo on Linux, macOS, or Windows. The [older v0.6.1 Linux archives](https://github.com/FunKite/solunatus/releases/tag/v0.6.1) do not include the night planner. See the [installation guide](docs/installation/README.md).
 
 ### Install or upgrade to the night planner
 
 ```bash
-cargo install --locked solunatus --version 0.7.0 --force
+cargo install --locked solunatus --version 0.8.0 --force
 solunatus --city "Tucson" --night
 ```
 
@@ -108,7 +108,7 @@ These are approximations for observing and photography planning. Reference tests
 
 ```toml
 [dependencies]
-solunatus = "0.7.0"
+solunatus = "0.8.0"
 chrono = "0.4"
 chrono-tz = "0.10"
 ```
