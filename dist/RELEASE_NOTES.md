@@ -31,7 +31,7 @@ Library consumers should update to `solunatus = "0.8.0"` and adjust callers of t
 
 ## Security and validation
 
-- Updated `quinn-proto`, `rustls`, `rustls-webpki`, and `webpki-roots` address the advisories listed in the changelog, including distrusted emSign intermediate keys and the affected root trust entry.
+- Updated `quinn-proto`, `rustls`, `rustls-webpki`, and `webpki-roots` address the advisories listed in the changelog, including distrusted emSign intermediate keys and the affected root trust entry. The CLI installation command uses the patched locked graph; library applications should also refresh their own lockfiles.
 - Workflow actions retain full commit SHA pins and live pin-drift checks. CodeQL is updated to 4.39.1.
 - Public library documentation remains enforced with `deny(missing_docs)`. docs.rs builds all features; CI validates all-feature and minimal-feature documentation, default/all/minimal tests, and the declared MSRV.
 
