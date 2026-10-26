@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Dependencies**: Updated the locked Tokio version from 1.52.3 to 1.53.3 for [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386.html), an informational unsoundness advisory covering Unix `AsyncFd` constructors and file-descriptor lifetime safety. Solunatus does not call those constructors directly; Tokio is included through the optional HTTP stack. Dependency constraints, default features, and the Rust 1.91 minimum are unchanged.
+
 ## [0.8.0] - 2026-10-22
 
 ### Fixed
