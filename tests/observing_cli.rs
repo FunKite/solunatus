@@ -1,8 +1,10 @@
 //! Exercise the actual one-shot CLI, including feature-minimal builds.
-use std::process::Command;
+mod common;
+use common::temp_home;
 
 fn run_with_flag(flag: &str, extra: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_solunatus"))
+    let home = temp_home("observing");
+    home.command()
         .args([
             "--city",
             "New York",
@@ -79,8 +81,9 @@ fn tonight_alias_preserves_text_and_json_for_selected_dates() {
             let mut flags = vec!["--date", date];
             flags.extend(format);
             // Supply each date only once; clap deliberately rejects duplicate options.
+            let home = temp_home("alias");
             let invoke = |flag| {
-                Command::new(env!("CARGO_BIN_EXE_solunatus"))
+                home.command()
                     .args(["--city", "Tucson", "--no-save", flag])
                     .args(&flags)
                     .output()
@@ -102,10 +105,8 @@ fn generated_help_and_completions_expose_night() {
         vec!["--completions", "bash"],
         vec!["--manpage"],
     ] {
-        let output = Command::new(env!("CARGO_BIN_EXE_solunatus"))
-            .args(flags)
-            .output()
-            .unwrap();
+        let home = temp_home("help");
+        let output = home.command().args(flags).output().unwrap();
         assert!(output.status.success());
         let text = String::from_utf8(output.stdout).unwrap();
         // Man pages escape hyphens in roff.

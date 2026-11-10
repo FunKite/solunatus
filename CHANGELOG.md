@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **CI**: Run the existing Rust, security and CodeQL checks on follow-up pull requests targeting the review branch, so stacked fixes can be validated before any merge.
+- **Testing**: CLI integration tests use isolated configuration directories on every platform. Added Windows CI for default, all-feature, and minimal builds, including synthetic key press/release regression tests (not an interactive console test).
+- **Configuration**: `SOLUNATUS_CONFIG_DIR` selects an existing absolute directory for `.solunatus.json`, enabling isolated runs without changing the platform home directory. Invalid overrides never fall back to personal settings.
 - **Documentation**: The CLI reference, lunar-calculation notes and accuracy summary describe the coordinate rules, the phase algorithm and the civil-day rise/set search as implemented.
 
 ### Security

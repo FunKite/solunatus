@@ -336,12 +336,21 @@ impl Config {
         }
     }
 
-    /// Returns the path to the configuration file (`~/.solunatus.json`).
+    /// Returns the configuration path, using `SOLUNATUS_CONFIG_DIR` when set.
+    /// Otherwise uses `~/.solunatus.json` (the Windows profile on Windows).
     ///
     /// # Errors
     ///
-    /// Returns an error if the home directory cannot be determined.
+    /// Returns an error if the override is not absolute or the home cannot be determined.
     pub fn config_path() -> Result<PathBuf> {
+        if let Some(directory) = std::env::var_os("SOLUNATUS_CONFIG_DIR") {
+            let directory = PathBuf::from(directory);
+            anyhow::ensure!(
+                directory.is_absolute(),
+                "SOLUNATUS_CONFIG_DIR must be an absolute directory path"
+            );
+            return Ok(directory.join(".solunatus.json"));
+        }
         let home_dir = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
         Ok(home_dir.join(".solunatus.json"))
@@ -377,7 +386,7 @@ impl Config {
 
     /// Saves configuration to the config file.
     ///
-    /// Creates or overwrites `~/.solunatus.json` with the current configuration.
+    /// Creates or overwrites the file returned by [`Self::config_path`].
     /// On Unix, writes a private file and atomically replaces the previous config.
     ///
     /// # Errors

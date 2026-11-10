@@ -762,6 +762,7 @@ mod tests {
                     "--nocapture",
                 ])
                 .env("HOME", &home)
+                .env("SOLUNATUS_CONFIG_DIR", &home)
                 .env("SOLUNATUS_SETTINGS_TEST_CHILD", "1")
                 .output()
                 .unwrap();
