@@ -279,10 +279,21 @@ impl AiConfig {
         let defaults = crate::config::AiSettings::default();
         let saved = saved.unwrap_or(&defaults);
 
-        let enabled = args.ai_insights || (watch_mode && saved.enabled);
+        // These terminal modes never consume AI output, even with AI flags.
+        #[cfg(feature = "usno-validation")]
+        let validation = args.validate;
+        #[cfg(not(feature = "usno-validation"))]
+        let validation = false;
+        let uses_ai = !(args.next.is_some() || args.night || args.calendar || validation);
+        let enabled = uses_ai && (args.ai_insights || (watch_mode && saved.enabled));
         let refresh_minutes = args.ai_refresh_minutes.unwrap_or(saved.refresh_minutes);
         let refresh_minutes = if refresh_minutes == 0 {
             defaults.refresh_minutes
+        } else {
+            refresh_minutes
+        };
+        let refresh_minutes = if !uses_ai || (!enabled && args.ai_refresh_minutes.is_none()) {
+            refresh_minutes.clamp(1, 60)
         } else {
             refresh_minutes
         };
@@ -756,6 +767,31 @@ mod tests {
 
     fn args(extra: &[&str]) -> Args {
         Args::try_parse_from(["solunatus"].iter().chain(extra)).unwrap()
+    }
+
+    #[test]
+    fn unused_invalid_saved_refresh_does_not_block_non_ai_commands() {
+        let mut invalid = saved();
+        invalid.refresh_minutes = u64::MAX;
+        let cfg = AiConfig::from_args_and_saved(&args(&[]), Some(&invalid), false).unwrap();
+        assert!(!cfg.enabled);
+        assert_eq!(invalid.refresh_minutes, u64::MAX);
+        for extra in [&["--night"][..], &["--next", "sunrise"], &["--calendar"]] {
+            let cfg = AiConfig::from_args_and_saved(&args(extra), Some(&invalid), true).unwrap();
+            assert!(!cfg.enabled);
+        }
+        #[cfg(feature = "usno-validation")]
+        assert!(
+            !AiConfig::from_args_and_saved(&args(&["--validate"]), Some(&invalid), true)
+                .unwrap()
+                .enabled
+        );
+        assert!(AiConfig::from_args_and_saved(&args(&[]), Some(&invalid), true).is_err());
+        assert!(
+            AiConfig::from_args_and_saved(&args(&["--ai-insights"]), Some(&invalid), false)
+                .is_err()
+        );
+        assert!(Args::try_parse_from(["solunatus", "--ai-refresh-minutes", "61"]).is_err());
     }
 
     #[test]

@@ -405,6 +405,10 @@ fn run_next_query(
 /// One-shot modes whose output has no time-sync line: querying NTP for them
 /// would only add network traffic and, when offline, seconds of timeouts.
 fn mode_never_shows_time_sync(args: &cli::Args) -> bool {
+    #[cfg(feature = "usno-validation")]
+    if args.validate {
+        return true;
+    }
     args.next.is_some() || args.night || args.calendar
 }
 
@@ -1193,6 +1197,8 @@ mod tests {
             mode_never_shows_time_sync(&args)
         };
 
+        #[cfg(feature = "usno-validation")]
+        assert!(skips(&["--validate"]));
         assert!(skips(&["--night"]));
         assert!(skips(&["--next", "sunrise"]));
         assert!(skips(&[
