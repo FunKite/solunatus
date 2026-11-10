@@ -78,6 +78,20 @@ jobs:
       - name: Test without optional features
         run: cargo test --verbose --no-default-features --locked
 
+  windows_tests:
+    name: Windows Tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+      - name: Test default feature set
+        run: cargo test --verbose --locked
+      - name: Test all features
+        run: cargo test --verbose --all-features --locked
+      - name: Test without optional features
+        run: cargo test --verbose --no-default-features --locked
+
   documentation:
     name: Documentation
     runs-on: ubuntu-latest

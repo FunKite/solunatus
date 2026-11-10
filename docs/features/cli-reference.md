@@ -21,7 +21,23 @@ solunatus --city "Tokyo"
 solunatus --city "London"
 ```
 
-City names must match a database entry (case-insensitive). Fuzzy search is available in the interactive settings city picker, not in `--city`. Use coordinates for an unlisted observing site.
+City names must match a database entry (case-insensitive). For duplicate names,
+add comma-separated state/country codes or an IANA timezone from the database:
+
+```bash
+solunatus --city "Portland, ME"
+solunatus --city "Portland, OR, US"
+solunatus --city "Alexandria, EG"
+solunatus --city "Portland, America/New_York"
+```
+
+Qualifiers are exact, case-insensitive matches (use `ME`, not `Maine`); spaces
+around commas are ignored. A plain ambiguous name preserves the historical
+first match and warns on stderr with explicit alternatives. A qualified name
+that still matches multiple cities (for example `Columbus, US`) is an error.
+`--tz` does not disambiguate a city; include a timezone inside `--city` instead.
+
+Fuzzy search is available in the interactive settings city picker, not in `--city`. Use coordinates for an unlisted observing site.
 
 ### `--lat <LAT>`
 Latitude in decimal degrees (range: -90 to +90).
@@ -32,7 +48,9 @@ solunatus --lat -33.8688  # Sydney
 ```
 
 **Required with:** `--lon` (giving only one coordinate is an error). Add `--tz`
-for local times; without it, times are shown in UTC.
+for local times; without it, times are shown in UTC and a warning is printed
+on stderr. UTC is also stored if settings are saved; an existing saved timezone
+is not reused for new coordinates. Use `--tz UTC` to choose UTC explicitly.
 
 ### `--lon <LON>`
 Longitude in decimal degrees (range: -180 to +180).
@@ -43,7 +61,9 @@ solunatus --lon 151.2093  # Sydney
 ```
 
 **Required with:** `--lat` (giving only one coordinate is an error). Add `--tz`
-for local times; without it, times are shown in UTC.
+for local times; without it, times are shown in UTC and a warning is printed
+on stderr. UTC is also stored if settings are saved; an existing saved timezone
+is not reused for new coordinates. Use `--tz UTC` to choose UTC explicitly.
 
 ### `--tz <TIMEZONE>`
 Timezone in IANA format (e.g., `America/New_York`).
