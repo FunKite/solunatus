@@ -96,7 +96,7 @@ solunatus --city "Sydney" --json
 solunatus --lat=-33.8688 --lon 151.2093 --tz Australia/Sydney
 ```
 
-For an isolated configuration, set `SOLUNATUS_CONFIG_DIR` to an existing absolute directory. Solunatus reads and writes `.solunatus.json` there instead of your home directory (Windows profile on Windows). An empty or relative override is rejected without falling back to your normal settings; the directory is not created automatically. `--no-save` prevents writes but still reads saved settings.
+For an isolated configuration, set `SOLUNATUS_CONFIG_DIR` to an existing absolute directory. Solunatus reads and writes `.solunatus.json` there instead of your home directory (Windows profile on Windows). An empty or relative override is rejected without falling back to your normal settings; the directory is not created automatically. For one-shot output, `--no-save` prevents preference saves but still reads saved settings. The interactive dashboard currently does not honor `--no-save`; use an isolated directory when trying settings without changing your normal preferences.
 
 The dashboard and regular snapshots check network time by default. For fully offline use, set `SOLUNATUS_SKIP_TIME_SYNC=1`; `--night` and `--next` already skip that check. Optional USNO validation and AI insights require network access when explicitly used.
 
