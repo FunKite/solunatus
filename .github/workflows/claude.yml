@@ -1,14 +1,17 @@
 name: Claude
 
-# On-demand help from Claude Fable 5.2. Runs only when the repository owner
-# mentions @claude in an issue, a PR comment or a PR review. Shared rules:
-# AGENTS.md (via CLAUDE.md).
+# On-demand help from Claude Fable 5.2. Runs only when the repository owner,
+# or Codex on a pull request from this repository, mentions @claude in an
+# issue, a PR comment or a PR review. Shared rules: AGENTS.md (via CLAUDE.md).
 #
 # - Issues and pull requests from branches in this repository: full mode.
 #   Claude can build and test, and works on a claude/ branch. It never merges.
-# - Pull requests from forks: review-only mode. Claude reads the diff through
-#   the GitHub API and posts review comments. The fork's code is never checked
-#   out or run, and the job cannot push, approve or merge.
+# - Pull requests from forks: review-only mode, owner only. Claude reads the
+#   diff through the GitHub API and posts review comments. The fork's code is
+#   never checked out or run, and the job cannot push, approve or merge.
+# - Codex (chatgpt-codex-connector[bot]): pull requests from this repository
+#   only, and at most CODEX_CALL_LIMIT calls per pull request. Claude is told
+#   never to mention Codex, so the two agents cannot loop.
 
 on:
   issue_comment:
@@ -29,9 +32,10 @@ concurrency:
 
 jobs:
   route:
-    # Public repo: only the owner's own account can start Claude.
+    # Public repo: only the owner's own account can start Claude, plus Codex
+    # (ChatGPT's GitHub app) on pull requests. Fork and cap checks are below.
     if: |
-      github.actor == github.repository_owner && (
+      (github.actor == github.repository_owner && (
       (github.event_name == 'issue_comment' &&
         github.event.comment.author_association == 'OWNER' &&
         contains(github.event.comment.body, '@claude')) ||
@@ -43,36 +47,76 @@ jobs:
         contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' &&
         github.event.issue.author_association == 'OWNER' &&
-        (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))))
+        (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))))) ||
+      (github.actor == 'chatgpt-codex-connector[bot]' && (
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        github.event.comment.user.login == 'chatgpt-codex-connector[bot]' &&
+        contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' &&
+        github.event.comment.user.login == 'chatgpt-codex-connector[bot]' &&
+        contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' &&
+        github.event.review.user.login == 'chatgpt-codex-connector[bot]' &&
+        contains(github.event.review.body, '@claude'))))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      issues: read
       pull-requests: read
     outputs:
-      fork: ${{ steps.route.outputs.fork }}
+      mode: ${{ steps.route.outputs.mode }}
     steps:
-      - name: Detect fork pull requests
+      - name: Pick full, review-only or skip
         id: route
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          CODEX: chatgpt-codex-connector[bot]
+          # Claude answers at most this many @claude calls from Codex per pull request.
+          CODEX_CALL_LIMIT: "3"
+          EVENT_AT: ${{ github.event.comment.created_at || github.event.review.submitted_at || '' }}
           PR_NUMBER: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) || '' }}
         run: |
           set -euo pipefail
-          fork=false
+          mode=full
           if [[ -n "${PR_NUMBER}" ]]; then
             head_repo="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name // ""')"
             # A deleted fork has no head repo; treat anything not this repo as a fork.
             if [[ "${head_repo}" != "${REPO}" ]]; then
-              fork=true
+              mode=review-only
             fi
           fi
-          echo "fork=${fork}" >> "${GITHUB_OUTPUT}"
-          echo "Fork pull request: ${fork}"
+
+          if [[ "${ACTOR}" == "${CODEX}" ]]; then
+            if [[ -z "${PR_NUMBER}" || "${mode}" != "full" || -z "${EVENT_AT}" ]]; then
+              echo "Codex can call Claude only on pull requests from this repository."
+              mode=skip
+            else
+              # Codex's @claude calls on this pull request up to and including this one.
+              filter='.[] | select(.user.login == env.CODEX)
+                | select(((.body // "") | test("@claude"; "i")) and ((.created_at // .submitted_at // "") <= env.EVENT_AT))
+                | 1'
+              calls="$( {
+                gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" --jq "${filter}"
+                gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/comments" --jq "${filter}"
+                gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/reviews" --jq "${filter}"
+              } | wc -l )"
+              echo "Codex @claude calls on this pull request: ${calls} (limit ${CODEX_CALL_LIMIT})"
+              if (( calls > CODEX_CALL_LIMIT )); then
+                echo "Limit reached; Claude will not answer. The owner can still comment @claude."
+                mode=skip
+              fi
+            fi
+          fi
+
+          echo "mode=${mode}" >> "${GITHUB_OUTPUT}"
+          echo "Mode: ${mode}"
 
   claude:
     needs: route
-    if: needs.route.outputs.fork == 'false'
+    if: needs.route.outputs.mode == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -104,14 +148,18 @@ jobs:
           branch_prefix: "claude/"
           # Only the owner's and the two agents' comments reach Claude (public repo).
           include_comments_by_actor: "FunKite,chatgpt-codex-connector[bot],claude[bot]"
+          # Codex may call Claude on this repository's pull requests (the route
+          # job enforces the per-PR limit). No other bot can.
+          allowed_bots: "chatgpt-codex-connector"
           claude_args: |
             --model claude-fable-5-2
             --max-turns 40
+            --append-system-prompt "Never write @codex or @chatgpt-codex-connector in any comment, review, commit message or pull request text. Mentioning Codex would start a loop between the two agents. If Codex should look again, say so in plain words and leave it to the owner."
             --allowedTools "Bash(cargo build:*),Bash(cargo test:*),Bash(cargo clippy:*),Bash(cargo fmt:*),Bash(cargo doc:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*)"
 
   fork-review:
     needs: route
-    if: needs.route.outputs.fork == 'true'
+    if: needs.route.outputs.mode == 'review-only'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Read the code, comment on the pull request; nothing else.
