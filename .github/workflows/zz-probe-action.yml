@@ -1,0 +1,23 @@
+name: Probe Action Policy
+
+# TEMPORARY test: does the repository allow the pinned Claude action at all?
+# The step never runs; a startup failure here means the Actions policy blocks it.
+
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: github.event.pull_request.head.ref == 'codex/claude-boundary-test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Reached the job
+        run: echo "The Claude action passed the repository's action policy."
+      # anthropics/claude-code-action v1.0.270
+      - if: ${{ false }}
+        uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9

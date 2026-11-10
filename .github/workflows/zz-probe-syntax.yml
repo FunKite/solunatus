@@ -1,0 +1,59 @@
+name: Probe Syntax
+
+# Claude Fable 5.2 reviews pull requests that Codex opens (codex/ branches),
+# so each agent's work is reviewed by the other. Codex already reviews every
+# PR through the ChatGPT Codex connector. Runs once when a codex/ PR is opened
+# ready for review or marked ready; ask for another pass with "@claude review".
+
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: probe-syntax-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Public repo: never runs for forks or other authors.
+    if: |
+      github.actor == github.repository_owner &&
+      github.event.pull_request.draft == false &&
+      startsWith(github.event.pull_request.head.ref, 'codex/') &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login == 'FunKite'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Read the code, comment on the pull request; nothing else.
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      # Strip Anthropic and GitHub Actions secrets from the environment of any
+      # command Claude runs.
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+    steps:
+      # actions/checkout v7 (same pin as the other workflows; see Pin Drift Check)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB needs bubblewrap. Same setup as the
+      # action's own isolation step (Ubuntu packages only); fails closed.
+      - name: Install subprocess isolation
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends bubblewrap socat
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid true
+          echo "bubblewrap $(bwrap --version) works"
+
+      - name: Stand-in for the Claude step
+        run: echo "Workflow syntax and other steps are fine."
