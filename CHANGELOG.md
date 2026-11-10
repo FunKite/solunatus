@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Location selection**: Ambiguous plain city names keep their historical first match but now warn with explicit alternatives. `--city` accepts comma-separated state/country codes or IANA timezones to select another matching city; ambiguous qualified queries fail rather than silently choose. Manual coordinates without `--tz` now warn that UTC is used and saved when settings are saved.
+- **Settings resilience**: Failed NTP queries are cached for one minute rather than delaying every invocation; successful checks still cache for 30 minutes. Validation reports skip unused NTP checks. Enabling time sync or changing its server schedules a check on the next dashboard tick, respecting cached results.
+- **AI settings**: Saving dashboard settings normalizes bare server addresses without requiring field navigation. Invalid saved refresh intervals no longer block commands that do not use AI; active AI still validates the interval, and one-shot commands preserve saved preferences.
 - **Astronomical time scales**: Lunar phase and seasonal-event times now use epoch-specific TT−UTC leap-second offsets for January 1972 through June 2027. The previous polynomial estimates TT−UT1 and made 2025 results about five seconds early. Outside the verified interval, the existing approximate UT1 fallback remains, with its limitations documented. The table includes an explicit expiry instead of assuming the present offset forever.
 - **Sun**: Solar events now belong to the requested civil date in zones beside the international date line. In places that keep a calendar a day away from their longitude's solar day (Apia and Nuku'alofa in the city database, Kiritimati, the Chatham Islands, the western Aleutians), `solar_event_time` and `solar_noon` returned the neighboring day's events. JSON output listed tomorrow's sunrise and sunset, iCalendar exports placed every sun event a day late, the events list missed the previous evening, and `--next` skipped an event still ahead today. All other locations are unchanged.
 - **CLI**: `--next` no longer skips an occurrence that is still ahead today. With coordinates and the default UTC timezone at western longitudes, the next sunset could be reported about 26 hours away instead of 2. The search also steps by calendar date, so it no longer jumps over the 23-hour day when run late on the evening before clocks spring forward.
@@ -23,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **CI**: Run the existing Rust, security and CodeQL checks on follow-up pull requests targeting the review branch, so stacked fixes can be validated before any merge.
+- **Testing**: CLI integration tests use isolated configuration directories on every platform. Added Windows CI for default, all-feature, and minimal builds, including synthetic key press/release regression tests (not an interactive console test).
+- **Configuration**: `SOLUNATUS_CONFIG_DIR` selects an existing absolute directory for `.solunatus.json`, enabling isolated runs without changing the platform home directory. Invalid overrides never fall back to personal settings.
 - **Documentation**: The CLI reference, lunar-calculation notes and accuracy summary describe the coordinate rules, the phase algorithm and the civil-day rise/set search as implemented.
 
 ### Security

@@ -260,6 +260,10 @@ sudo cp target/release/solunatus /usr/local/bin/
 
 ## Running Tests
 
+Prefer `./scripts/safe_local_test.sh` for local validation: it scrubs common credential variables, uses an isolated build directory, and runs Cargo offline by default.
+
+CLI integration tests must use the shared `tests/common` helper. It selects a fresh configuration directory with `SOLUNATUS_CONFIG_DIR` for each child process and removes it afterward. Do not rely on `--no-save` (which still reads settings), `HOME`, or `USERPROFILE` alone: Windows home lookup uses the Known Folder API. Only Unix permission tests should be Unix-gated. The Windows CI job runs the three feature configurations and synthetic dashboard key-event regressions; an actual interactive Windows terminal remains a separate manual check.
+
 ```bash
 # All tests
 cargo test

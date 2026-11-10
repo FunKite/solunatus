@@ -13,7 +13,8 @@
 //! # Cache Behavior
 //!
 //! To prevent abuse of public NTP servers, this module caches time sync results
-//! for 30 minutes minimum. The cache is stored at `~/.solunatus_ntp_cache.json`.
+//! for 30 minutes on success. Failed queries are cached for one minute to
+//! avoid repeated startup delays while allowing recovery after connectivity returns. The cache is stored at `~/.solunatus_ntp_cache.json`.
 //!
 //! # Examples
 //!
@@ -44,6 +45,7 @@ const SYNC_THRESHOLD_MICROS: i64 = 50_000; // 50 ms tolerance treated as in sync
 
 // Cache settings - 30 minutes minimum between NTP queries (pool.ntp.org ToS compliance)
 const CACHE_MIN_INTERVAL_SECS: i64 = 1800; // 30 minutes
+const FAILURE_RETRY_INTERVAL_SECS: i64 = 60;
 
 /// Cached NTP time synchronization result.
 ///
@@ -60,7 +62,9 @@ struct TimeSyncCache {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     requested: Option<String>,
     /// Delta in microseconds (system time - NTP time)
-    delta_micros: i64,
+    delta_micros: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
 }
 
 /// Returns the default NTP servers to use for time synchronization.
@@ -140,19 +144,10 @@ pub fn check_time_sync_with_servers(custom_server: Option<&str>) -> TimeSyncInfo
         .unwrap_or(TIME_SERVERS[0].0); // Default to primary server
 
     // Try to load from cache first
-    if let Ok(cache) = load_cache() {
-        let age = Utc::now().signed_duration_since(cache.timestamp);
-
-        if cache_matches_target(&cache, target_server)
-            && age.num_seconds() < CACHE_MIN_INTERVAL_SECS
-        {
-            let delta = ChronoDuration::microseconds(cache.delta_micros);
-            return TimeSyncInfo {
-                source: display_label(&cache.source),
-                delta: Some(delta),
-                error: None,
-            };
-        }
+    if let Ok(cache) = load_cache()
+        && let Some(info) = cached_info(&cache, target_server, Utc::now())
+    {
+        return info;
     }
 
     // Cache is stale, missing, or for different server - perform fresh NTP query
@@ -164,7 +159,8 @@ pub fn check_time_sync_with_servers(custom_server: Option<&str>) -> TimeSyncInfo
                     timestamp: Utc::now(),
                     source: server_addr,
                     requested: Some(strip_port(target_server).to_string()),
-                    delta_micros: micros,
+                    delta_micros: Some(micros),
+                    error: None,
                 };
                 let _ = save_cache(&cache); // Ignore save errors
             }
@@ -175,12 +171,50 @@ pub fn check_time_sync_with_servers(custom_server: Option<&str>) -> TimeSyncInfo
                 error: None,
             }
         }
-        Err(err) => TimeSyncInfo {
-            source: target_server.to_string(),
-            delta: None,
-            error: Some(err.to_string()),
-        },
+        Err(err) => {
+            let error = err.to_string();
+            let cache = TimeSyncCache {
+                timestamp: Utc::now(),
+                source: target_server.to_string(),
+                requested: Some(strip_port(target_server).to_string()),
+                delta_micros: None,
+                error: Some(error.clone()),
+            };
+            let _ = save_cache(&cache);
+            TimeSyncInfo {
+                source: display_label(target_server),
+                delta: None,
+                error: Some(error),
+            }
+        }
     }
+}
+
+/// Reuse successes for 30 minutes and failures for one minute. A future
+/// timestamp (for example after a clock correction) is never considered fresh.
+fn cached_info(cache: &TimeSyncCache, target: &str, now: DateTime<Utc>) -> Option<TimeSyncInfo> {
+    let age = now.signed_duration_since(cache.timestamp);
+    let ttl = if cache.error.is_some() {
+        FAILURE_RETRY_INTERVAL_SECS
+    } else {
+        CACHE_MIN_INTERVAL_SECS
+    };
+    if !cache_matches_target(cache, target)
+        || age < ChronoDuration::zero()
+        || age >= ChronoDuration::seconds(ttl)
+        || (cache.delta_micros.is_none() && cache.error.is_none())
+    {
+        return None;
+    }
+    Some(TimeSyncInfo {
+        source: display_label(&cache.source),
+        delta: if cache.error.is_none() {
+            cache.delta_micros.map(ChronoDuration::microseconds)
+        } else {
+            None
+        },
+        error: cache.error.clone(),
+    })
 }
 
 /// Host part of a `host[:port]` server address.
@@ -546,8 +580,65 @@ mod tests {
             timestamp: Utc::now(),
             source: source.to_string(),
             requested: requested.map(str::to_string),
-            delta_micros: 0,
+            delta_micros: Some(0),
+            error: None,
         }
+    }
+
+    #[test]
+    fn failures_are_cached_without_claiming_clock_sync() {
+        let mut entry = cache("time.google.com", Some("time.google.com"));
+        entry.delta_micros = None;
+        entry.error = Some("network unavailable".into());
+        let json = serde_json::to_string(&entry).unwrap();
+        assert!(json.contains("\"delta_micros\":null"));
+        let entry: TimeSyncCache = serde_json::from_str(&json).unwrap();
+        let hit = cached_info(
+            &entry,
+            TIME_SERVERS[0].0,
+            entry.timestamp + ChronoDuration::seconds(59),
+        )
+        .unwrap();
+        assert_eq!(hit.error.as_deref(), Some("network unavailable"));
+        assert!(hit.delta.is_none());
+        assert!(
+            cached_info(
+                &entry,
+                TIME_SERVERS[0].0,
+                entry.timestamp + ChronoDuration::seconds(60)
+            )
+            .is_none()
+        );
+        assert!(cached_info(&entry, "different.example", entry.timestamp).is_none());
+    }
+
+    #[test]
+    fn successful_cache_expires_at_thirty_minutes_and_rejects_clock_rollback() {
+        let entry = cache("time.google.com", None);
+        assert!(
+            cached_info(
+                &entry,
+                TIME_SERVERS[0].0,
+                entry.timestamp + ChronoDuration::seconds(1799)
+            )
+            .is_some()
+        );
+        assert!(
+            cached_info(
+                &entry,
+                TIME_SERVERS[0].0,
+                entry.timestamp + ChronoDuration::seconds(1800)
+            )
+            .is_none()
+        );
+        assert!(
+            cached_info(
+                &entry,
+                TIME_SERVERS[0].0,
+                entry.timestamp - ChronoDuration::seconds(1)
+            )
+            .is_none()
+        );
     }
 
     #[test]

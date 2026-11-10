@@ -405,6 +405,10 @@ fn run_next_query(
 /// One-shot modes whose output has no time-sync line: querying NTP for them
 /// would only add network traffic and, when offline, seconds of timeouts.
 fn mode_never_shows_time_sync(args: &cli::Args) -> bool {
+    #[cfg(feature = "usno-validation")]
+    if args.validate {
+        return true;
+    }
     args.next.is_some() || args.night || args.calendar
 }
 
@@ -522,9 +526,35 @@ fn determine_location(
     // Check if city is specified
     if let Some(city_name) = &args.city {
         let db = city::CityDatabase::load()?;
-        let city = db
-            .find_exact(city_name)
+        let matches = db.find_qualified(city_name);
+        let city = matches
+            .first()
             .ok_or_else(|| anyhow!("City '{}' not found in database", city_name))?;
+        if matches.len() > 1 {
+            let alternatives = matches
+                .iter()
+                .map(|city| match &city.state {
+                    Some(state) => format!("{}, {}, {}", city.name, state, city.country),
+                    None => format!("{}, {}", city.name, city.country),
+                })
+                .collect::<Vec<_>>()
+                .join("; ");
+            if city_name.contains(',') {
+                return Err(anyhow!(
+                    "City '{}' is ambiguous; use --city with one of: {}",
+                    city_name,
+                    alternatives
+                ));
+            }
+            eprintln!(
+                "warning: city '{}' is ambiguous; using the first match ({}, {}). \
+                 Select explicitly with --city: {}",
+                city_name,
+                city.state.as_deref().unwrap_or(&city.country),
+                city.tz,
+                alternatives
+            );
+        }
 
         let location = astro::Location::new(city.lat, city.lon)
             .map_err(|e| anyhow!("City '{}' has invalid coordinates: {}", city.name, e))?;
@@ -545,6 +575,13 @@ fn determine_location(
             .with_context(|| format!("Invalid timezone '{}'", tz_str))?;
         let location =
             astro::Location::new(lat, lon).map_err(|e| anyhow!("Invalid location: {}", e))?;
+        if args.tz.is_none() {
+            eprintln!(
+                "warning: --lat/--lon without --tz uses UTC, not the location's local timezone. \
+                 Pass --tz <IANA_TIMEZONE> for local times or --tz UTC to select UTC explicitly. \
+                 If settings are saved, UTC is saved too."
+            );
+        }
         return Ok((location, tz, None, LocationSource::ManualCli));
     }
 
@@ -1193,6 +1230,8 @@ mod tests {
             mode_never_shows_time_sync(&args)
         };
 
+        #[cfg(feature = "usno-validation")]
+        assert!(skips(&["--validate"]));
         assert!(skips(&["--night"]));
         assert!(skips(&["--next", "sunrise"]));
         assert!(skips(&[

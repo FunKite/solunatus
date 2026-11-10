@@ -66,7 +66,7 @@ pub struct Args {
     #[arg(long, allow_hyphen_values = true)]
     pub date: Option<String>,
 
-    /// Select a city from the built-in database
+    /// Select a city, optionally qualified by state/country/timezone (e.g. "Portland, ME")
     #[arg(long)]
     pub city: Option<String>,
 

@@ -969,8 +969,14 @@ impl App {
         self.location_mode = self.settings_draft.location_mode;
 
         // Apply time sync settings
+        let sync_changed = self.time_sync_disabled == self.settings_draft.time_sync_enabled
+            || self.time_sync_server != self.settings_draft.time_sync_server.trim();
         self.time_sync_disabled = !self.settings_draft.time_sync_enabled;
-        self.time_sync_server = self.settings_draft.time_sync_server.clone();
+        self.time_sync_server = self.settings_draft.time_sync_server.trim().to_string();
+        if sync_changed && !self.time_sync_disabled {
+            // Check on the next tick, honoring the on-disk cache and its backoff.
+            self.time_sync_last_check = Instant::now() - TIME_SYNC_REFRESH_INTERVAL;
+        }
 
         // Apply panel visibility
         self.show_location_date = self.settings_draft.show_location_date;
@@ -987,7 +993,8 @@ impl App {
         #[cfg(feature = "ai-insights")]
         {
             self.ai_config.enabled = self.settings_draft.ai_enabled;
-            self.ai_config.server = self.settings_draft.ai_server.clone();
+            self.ai_config.server =
+                ai::AiConfig::normalized_server(true, &self.settings_draft.ai_server);
             self.ai_config.model = self.settings_draft.ai_model.clone();
 
             // Reset AI refresh if settings changed
@@ -1140,6 +1147,59 @@ fn compute_chart_cache(location: &Location, timezone: &Tz, today: NaiveDate) -> 
 mod tests {
     use super::*;
     use chrono_tz::America::New_York;
+
+    fn settings_app() -> App {
+        App::new(AppConfig {
+            location: Location::new(42.36, -71.06).unwrap(),
+            timezone: New_York,
+            city_name: Some("Boston".into()),
+            location_source: LocationSource::CityDatabase,
+            location_mode: config::LocationMode::City,
+            time_sync: TimeSyncInfo {
+                source: "test".into(),
+                delta: None,
+                error: Some("disabled".into()),
+            },
+            time_sync_disabled: true,
+            time_sync_server: "time.google.com".into(),
+            #[cfg(feature = "ai-insights")]
+            ai_config: ai::AiConfig::from_args(&<crate::cli::Args as clap::Parser>::parse_from([
+                "solunatus",
+            ]))
+            .unwrap(),
+            watch_prefs: None,
+        })
+    }
+
+    #[test]
+    fn enabling_or_changing_time_sync_schedules_a_check_without_network_in_save() {
+        let mut app = settings_app();
+        app.settings_draft.time_sync_enabled = true;
+        app.apply_settings_changes().unwrap();
+        assert!(app.time_sync_last_check.elapsed() >= TIME_SYNC_REFRESH_INTERVAL);
+        assert!(!app.time_sync_disabled);
+        app.time_sync_last_check = Instant::now();
+        app.apply_settings_changes().unwrap();
+        assert!(app.time_sync_last_check.elapsed() < TIME_SYNC_REFRESH_INTERVAL);
+        app.settings_draft.time_sync_server = " pool.ntp.org ".into();
+        app.apply_settings_changes().unwrap();
+        assert!(app.time_sync_last_check.elapsed() >= TIME_SYNC_REFRESH_INTERVAL);
+        assert_eq!(app.time_sync_server, "pool.ntp.org");
+        app.settings_draft.time_sync_enabled = false;
+        app.apply_settings_changes().unwrap();
+        assert_eq!(app.time_sync_countdown(), None);
+    }
+
+    #[cfg(feature = "ai-insights")]
+    #[test]
+    fn settings_save_normalizes_server_without_field_blur_or_probe() {
+        let mut app = settings_app();
+        app.settings_draft.ai_server = " studio.local:11434/ ".into();
+        app.apply_settings_changes().unwrap();
+        assert_eq!(app.ai_config.server, "http://studio.local:11434");
+        assert_eq!(app.build_config().ai.server, "http://studio.local:11434");
+        assert!(app.ai_job_rx.is_none());
+    }
 
     #[test]
     fn chart_cache_samples_full_day() {
