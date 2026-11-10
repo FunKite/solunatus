@@ -300,3 +300,65 @@ fn calendar_accepts_negative_years() {
         "calendar generation must not save settings"
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn ambiguous_city_warns_without_changing_legacy_choice_or_json() {
+    let home = temp_home("ambiguous-city");
+    let output = run_in(&home, &["--city", "Portland", "--json", "--no-save"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stderr(&output).contains("city 'Portland' is ambiguous"));
+    assert!(stderr(&output).contains("Portland, ME, US"));
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["location"]["timezone"], "America/Los_Angeles");
+
+    let output = run_in(
+        &home,
+        &["--city", " portland, me, us ", "--json", "--no-save"],
+    );
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("ambiguous"));
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["location"]["timezone"], "America/New_York");
+}
+
+#[cfg(unix)]
+#[test]
+fn ambiguous_or_unknown_qualified_city_fails_without_saving() {
+    let home = temp_home("bad-qualified-city");
+    for query in [
+        "Columbus, US",
+        "Columbus, America/New_York",
+        "Portland, ZZ",
+        "Portland,",
+    ] {
+        let output = run_in(&home, &["--city", query, "--no-prompt"]);
+        assert!(!output.status.success(), "{query}");
+        assert!(!home.join(".solunatus.json").exists());
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn coordinate_utc_default_warns_and_explicit_timezone_does_not() {
+    let home = temp_home("utc-default-warning");
+    // A saved timezone must not silently leak into new manual coordinates.
+    let output = run_in(&home, &["--city", "Boston", "--no-prompt"]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let base = ["--lat", "45.5", "--lon", "-122.6", "--no-prompt"];
+    let output = run_in(&home, &base);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stderr(&output).contains("without --tz uses UTC"));
+    let saved: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(home.join(".solunatus.json")).unwrap())
+            .unwrap();
+    assert_eq!(saved["tz"], "UTC");
+    for timezone in ["UTC", "America/Los_Angeles"] {
+        let output = run_in(&home, &[&base[..], &["--tz", timezone]].concat());
+        assert!(output.status.success(), "{}", stderr(&output));
+        assert!(!stderr(&output).contains("without --tz"));
+    }
+    let output = run_in(&home, &[&base[..], &["--city", "Boston"]].concat());
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("without --tz"));
+}
