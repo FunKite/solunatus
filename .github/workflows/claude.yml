@@ -6,9 +6,11 @@ name: Claude
 #
 # - Issues and pull requests from branches in this repository: full mode.
 #   Claude can build and test, and works on a claude/ branch. It never merges.
-# - Pull requests from forks: review-only mode, owner only. Claude reads the
-#   diff through the GitHub API and posts review comments. The fork's code is
-#   never checked out or run, and the job cannot push, approve or merge.
+# - Pull requests from forks: review-only mode, owner only, and only for a
+#   top-level @claude comment on the pull request (review and inline-comment
+#   events from forks get no secrets). Claude reads the diff through the GitHub
+#   API and posts review comments. The fork's code is never checked out or run,
+#   and the job token cannot push or merge.
 # - Codex (chatgpt-codex-connector[bot]): pull requests from this repository
 #   only, and at most CODEX_CALL_LIMIT calls per pull request. Claude is told
 #   never to mention Codex, so the two agents cannot loop.
@@ -73,6 +75,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           ACTOR: ${{ github.actor }}
+          EVENT_NAME: ${{ github.event_name }}
           CODEX: chatgpt-codex-connector[bot]
           # Claude answers at most this many @claude calls from Codex per pull request.
           CODEX_CALL_LIMIT: "3"
@@ -86,6 +89,13 @@ jobs:
             # A deleted fork has no head repo; treat anything not this repo as a fork.
             if [[ "${head_repo}" != "${REPO}" ]]; then
               mode=review-only
+              # Review and inline-comment events on fork PRs run without secrets
+              # and with a read-only token, so Claude could not answer anyway.
+              # Top-level PR comments run on the default branch with both.
+              if [[ "${EVENT_NAME}" != "issue_comment" ]]; then
+                echo "Fork pull request: Claude answers only a top-level @claude comment on the pull request."
+                mode=skip
+              fi
             fi
           fi
 
@@ -146,8 +156,10 @@ jobs:
           # not a pay-as-you-go API key.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           branch_prefix: "claude/"
-          # Only the owner's and the two agents' comments reach Claude (public repo).
-          include_comments_by_actor: "FunKite,chatgpt-codex-connector[bot],claude[bot]"
+          # Only the owner's and the agents' comments reach Claude (public repo).
+          # github-actions[bot] is the review-only and Codex-PR reviewer posting
+          # with the job token; only this repository's own workflows can post as it.
+          include_comments_by_actor: "FunKite,chatgpt-codex-connector[bot],claude[bot],github-actions[bot]"
           # Codex may call Claude on this repository's pull requests (the route
           # job enforces the per-PR limit). No other bot can.
           allowed_bots: "chatgpt-codex-connector"
@@ -171,12 +183,36 @@ jobs:
       # command Claude runs, so text in the fork cannot get a token echoed out.
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
     steps:
-      # Checks out this repository's default branch only, never the fork's code.
+      # Checks out this repository's default branch only, never the fork's code,
+      # so AGENTS.md and CLAUDE.md come from the owner's branch.
       # actions/checkout v7 (same pin as the other workflows; see Pin Drift Check)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 1
           persist-credentials: false
+
+      - name: Confirm the trusted default branch is checked out
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "refs/heads/${DEFAULT_BRANCH}"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
+          echo "Checked out ${DEFAULT_BRANCH} at $(git rev-parse HEAD)"
+
+      # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB needs bubblewrap. Same setup as the
+      # action's own isolation step (Ubuntu packages only); fails closed.
+      - name: Install subprocess isolation
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends bubblewrap socat
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid true
+          echo "bubblewrap $(bwrap --version) works"
 
       # anthropics/claude-code-action v1.0.270
       # A prompt runs the action in agent mode, which does not check out the

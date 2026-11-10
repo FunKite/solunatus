@@ -72,10 +72,11 @@ Live validation workflows (USNO, JPL Horizons) need network and run on a schedul
 3. **Cross-review.** Codex reviews every PR automatically (ChatGPT Codex connector).
    Claude reviews `codex/*` PRs automatically, any PR or issue when the owner
    comments `@claude`, and this repository's PRs when Codex asks (see 7). On PRs
-   from forks, Claude runs review-only: it reads the diff through the API, never
-   checks out or runs the fork's code, and only comments. The author agent answers
-   every finding: fix it in a new commit, or reply with the reason it is not a
-   problem. Do not resolve a thread without one.
+   from forks, Claude runs review-only, and only for a top-level `@claude` comment
+   on the PR: it reads the diff through the API, never checks out or runs the
+   fork's code, and only comments. The author agent answers every finding: fix it
+   in a new commit, or reply with the reason it is not a problem. Do not resolve a
+   thread without one.
 4. **Hand-off in the PR body.** Use these sections so the other agent can pick up:
    - `## Summary`: what changed and why, in plain language.
    - `## Verification`: commands run and their results, platform and Rust version.
