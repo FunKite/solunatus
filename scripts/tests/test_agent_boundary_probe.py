@@ -18,9 +18,22 @@ class DenialTests(unittest.TestCase):
         self.assertTrue(probe.is_api_denial(1, response(403, "Resource not accessible by integration")))
 
     def test_approval_disabled_only_for_approval(self):
-        output = response(422, probe.APPROVAL_DISABLED)
+        output = response(422, "GitHub Actions is not permitted to create or approve pull requests.")
         self.assertTrue(probe.is_api_denial(1, output, approval=True))
         self.assertFalse(probe.is_api_denial(1, output))
+
+    def test_nested_approval_policy_denial(self):
+        output = "HTTP/2.0 422 Unprocessable Entity\n\n" + json.dumps({
+            "message": "Validation Failed", "errors": [{
+                "resource": "PullRequestReview", "code": "custom",
+                "message": "GitHub Actions is not permitted to approve pull requests.",
+            }],
+        })
+        self.assertTrue(probe.is_api_denial(1, output, approval=True))
+        self.assertFalse(probe.is_api_denial(1, output))
+        output = output.replace("GitHub Actions is not permitted to approve pull requests.",
+                                "Can not approve your own pull request")
+        self.assertFalse(probe.is_api_denial(1, output, approval=True))
 
     def test_unrelated_http_failures_do_not_pass(self):
         for status, message in [(409, "Head branch was modified"), (422, "Validation Failed"),

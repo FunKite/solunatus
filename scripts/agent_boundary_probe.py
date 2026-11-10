@@ -13,7 +13,10 @@ PERMISSION_DENIALS = {
     "Resource not accessible by integration",
     "Resource not accessible by personal access token",
 }
-APPROVAL_DISABLED = "GitHub Actions is not permitted to create or approve pull requests."
+APPROVAL_DISABLED = {
+    "GitHub Actions is not permitted to create or approve pull requests",
+    "GitHub Actions is not permitted to approve pull requests",
+}
 
 
 def api_response(output):
@@ -22,21 +25,33 @@ def api_response(output):
     first_line = parts[0].splitlines()[0] if parts[0] else ""
     match = re.fullmatch(r"HTTP/\S+ (\d{3})(?: .*)?", first_line)
     if not match or len(parts) != 2:
-        return None, ""
+        return None, {}
     try:
         body = json.loads(parts[1])
     except json.JSONDecodeError:
-        return int(match[1]), ""
-    return int(match[1]), body.get("message", "") if isinstance(body, dict) else ""
+        return int(match[1]), {}
+    return int(match[1]), body if isinstance(body, dict) else {}
 
 
 def is_api_denial(returncode, output, *, approval=False):
-    status, message = api_response(output)
+    status, body = api_response(output)
+    message = body.get("message", "")
     if returncode == 0:
         return False
     if status == 403 and message in PERMISSION_DENIALS:
         return True
-    return approval and status == 422 and message == APPROVAL_DISABLED
+    if not approval or status != 422:
+        return False
+    if message.rstrip(".") in APPROVAL_DISABLED:
+        return True
+    errors = body.get("errors", [])
+    # GitHub also wraps the policy denial in a Validation Failed response.
+    return message == "Validation Failed" and bool(errors) and all(
+        isinstance(error, dict)
+        and error.get("resource") == "PullRequestReview"
+        and error.get("message", "").rstrip(".") in APPROVAL_DISABLED
+        for error in errors
+    )
 
 
 def is_push_denial(returncode, output):
@@ -53,12 +68,13 @@ def is_push_denial(returncode, output):
 
 def expect_api_denied(name, args, *, approval=False):
     result = subprocess.run(["gh", "api", "--include", *args], capture_output=True, text=True)
-    status, _ = api_response(result.stdout)
+    status, body = api_response(result.stdout)
     if not is_api_denial(result.returncode, result.stdout, approval=approval):
         # Never print complete command output: a transport failure could contain credentials.
         raise RuntimeError(
             f"FAIL: {name}: expected an explicit permission denial; "
-            f"exit={result.returncode}, HTTP={status}. "
+            f"exit={result.returncode}, HTTP={status}, "
+            f"API message={body.get('message', '')!r}, errors={body.get('errors', [])!r}. "
             "Stop and inspect before retrying; a successful operation may need cleanup."
         )
     print(f"OK: {name}: explicit permission denial (HTTP {status})", flush=True)
