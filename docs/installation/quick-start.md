@@ -8,7 +8,7 @@ With [Rust and Cargo](https://www.rust-lang.org/tools/install) installed:
 cargo install --locked solunatus
 ```
 
-v0.8.0 is available through Cargo on Linux, macOS, and Windows. See the [installation guide](README.md) for source builds and older Linux archives.
+v0.8.1 is available through Cargo on Linux, macOS, and Windows. See the [installation guide](README.md) for source builds and older Linux archives.
 
 ## 2. Open the sky dashboard
 

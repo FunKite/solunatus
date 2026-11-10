@@ -1,42 +1,44 @@
-# Solunatus v0.8.0 — Reliability and security
+# Solunatus v0.8.1 — Accuracy and reliability fixes
 
-Release date: 2026-10-22
+Release date: 2026-11-10
 
-This release preserves saved dashboard settings, protects unreadable configuration, corrects lunar-age and date reporting, and updates transport and certificate-trust dependencies. The default features and Rust 1.91 minimum remain unchanged.
+This release corrects lunar phase and seasonal times, fixes sun events near the international date line and rise/set searches on daylight-saving days, and makes the CLI and dashboard more forgiving. The public library API only gains additions, so it is a drop-in update for 0.8.0. The default features and Rust 1.91 minimum remain unchanged.
 
 ```bash
-cargo install --locked solunatus --version 0.8.0 --force
+cargo install --locked solunatus --version 0.8.1 --force
 solunatus --city "Tucson" --night
 solunatus --city "Boston" --date 2026-12-25
 ```
 
 ## Library compatibility
 
-0.8.0 includes public API changes from the unreleased work after 0.7.0:
+0.8.1 is compatible with 0.8.0. New public helpers: `CityDatabase::find_qualified` selects a city with a state/country code or IANA timezone qualifier, and `tui::drafts` settings drafts report whether the current field takes text. Results change where 0.8.0 was wrong: lunar phase and season times, sun events in zones beside the date line, and rise/set events on 23- and 25-hour days. Library consumers can update to `solunatus = "0.8.1"` without code changes.
 
-- `AiConfig::merge_with_saved` is removed. Use `AiConfig::from_args_and_saved` to construct AI configuration from CLI arguments and optional saved settings; `AiConfig::from_args` remains available for CLI-only defaults.
-- The public `Args::ai_server`, `Args::ai_model`, and `Args::ai_refresh_minutes` fields are now `Option` values so an omitted flag can be distinguished from an explicit override.
-- New public helpers `astro::moon::lunar_age_days` and `astro::moon::lunar_phases_near` expose the lunar-age and nearby-phase calculations used by the CLI.
+## Accuracy
 
-Library consumers should update to `solunatus = "0.8.0"` and adjust callers of the changed APIs. CLI flags remain compatible; the ineffective `--strict` flag is deprecated and warns when used.
+- Lunar phase times use the complete Meeus chapter 49 series and are converted from Terrestrial Time to UTC. They were up to about six minutes off and now match Meeus' worked examples and published USNO times to the minute.
+- Lunar phase and seasonal-event times use the published TT−UTC leap-second offsets from 1972 through June 2027. 2025 results were about five seconds early.
+- Solar events belong to the requested civil date in places that keep a calendar a day away from their longitude's solar day, such as Apia, Nuku'alofa and Kiritimati.
+- Moon and planet rise/set searches cover the local civil day, so events in the extra hour of a 25-hour day are no longer missed.
 
-## Correctness and configuration
+## CLI and dashboard
 
-- Saved AI server, model, refresh interval, and enabled state survive dashboard restarts. Explicit CLI flags still take precedence.
-- Unreadable configuration is reported and preserved, including when applying TUI settings. Settings writes use private `0600` files on Unix and atomic replacement.
-- Lunar age uses the preceding Meeus new moon, including months after a February with no new moon. Nearby phase lists include preceding and following phases.
-- `--date` produces a one-shot text report without requiring `--json`; `--watch --date` is rejected. Dark-sky dates and displayed durations are consistent.
-- The NTP cache tracks the requested server even when a fallback answers, preserving its 30-minute rate limit.
-- USNO validation compares only published USNO events rather than treating golden-hour events as missing.
+- `--next` no longer skips an occurrence still ahead today, including near daylight-saving changes.
+- Negative coordinates and years work in the ordinary form (`--lon -74.0060`).
+- `--lat` without `--lon` is an error; an ignored `--tz`, or coordinates beside `--city`, print a warning.
+- Ambiguous city names warn and list alternatives; `--city` accepts qualifiers such as `"Portland, ME"` or `"Portland, America/New_York"`.
+- Typing `d` in a Settings text field enters the letter instead of resetting every setting. Manually entered locations are saved, and Windows terminals no longer act twice on one key press.
+- Failed NTP checks are cached for a minute instead of delaying every run, and `--calendar` no longer queries NTP.
+- `SOLUNATUS_CONFIG_DIR` selects a separate settings directory.
 
 ## Security and validation
 
-- Updated `quinn-proto`, `rustls`, `rustls-webpki`, and `webpki-roots` address the advisories listed in the changelog, including distrusted emSign intermediate keys and the affected root trust entry. The CLI installation command uses the patched locked graph; library applications should also refresh their own lockfiles.
-- Workflow actions retain full commit SHA pins and live pin-drift checks. CodeQL is updated to 4.39.1.
-- Public library documentation remains enforced with `deny(missing_docs)`. docs.rs builds all features; CI validates all-feature and minimal-feature documentation, default/all/minimal tests, and the declared MSRV.
+- Tokio is updated for RUSTSEC-2026-0386 (informational; Solunatus does not call the affected constructors).
+- CodeQL action pins are refreshed to v4.39.3. Windows CI now covers default, all-feature and minimal builds.
+- The published crate no longer includes GitHub workflows or workflow tests.
 
 ## Distribution
 
 This release consists of the crates.io package, annotated Git tag, and these GitHub release notes. No prebuilt binaries are attached. Older 0.6.1 Linux archives do not include the night planner or these fixes.
 
-See [CHANGELOG.md](https://github.com/FunKite/solunatus/blob/v0.8.0/CHANGELOG.md) for the full release history.
+See [CHANGELOG.md](https://github.com/FunKite/solunatus/blob/v0.8.1/CHANGELOG.md) for the full release history.

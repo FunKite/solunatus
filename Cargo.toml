@@ -1,6 +1,6 @@
 [package]
 name = "solunatus"
-version = "0.8.0"
+version = "0.8.1"
 edition = "2024"
 rust-version = "1.91"
 authors = ["Mike McLarney"]
@@ -17,7 +17,9 @@ exclude = [
     "dist/*",
     "*.html",
     "CPU_QUICK_REFERENCE.txt",
+    "scripts/tests/",
     ".cargo/",
+    ".github/",
     ".claude/",
     ".codex/",
     "AGENTS.md",

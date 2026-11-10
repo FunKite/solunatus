@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-10
+
 ### Fixed
 - **Location selection**: Ambiguous plain city names keep their historical first match but now warn with explicit alternatives. `--city` accepts comma-separated state/country codes or IANA timezones to select another matching city; ambiguous qualified queries fail rather than silently choose. Manual coordinates without `--tz` now warn that UTC is used and saved when settings are saved.
 - **Settings resilience**: Failed NTP queries are cached for one minute rather than delaying every invocation; successful checks still cache for 30 minutes. Validation reports skip unused NTP checks. Enabling time sync or changing its server schedules a check on the next dashboard tick, respecting cached results.
@@ -31,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Testing**: CLI integration tests use isolated configuration directories on every platform. Added Windows CI for default, all-feature, and minimal builds, including synthetic key press/release regression tests (not an interactive console test).
 - **Configuration**: `SOLUNATUS_CONFIG_DIR` selects an existing absolute directory for `.solunatus.json`, enabling isolated runs without changing the platform home directory. Invalid overrides never fall back to personal settings.
 - **Documentation**: The CLI reference, lunar-calculation notes and accuracy summary describe the coordinate rules, the phase algorithm and the civil-day rise/set search as implemented.
+- **Packaging**: The published crate no longer includes the `.github/` workflows and templates or the workflow routing tests in `scripts/tests/`. They are repository tooling, not part of the library or CLI.
 
 ### Security
 - **CI**: Refreshed both CodeQL action SHA pins to the verified v4.39.3 commit (`33d7b85`), restoring agreement with the tracked `v4` tag. This includes the CodeQL 2.27.4 bundle and the upstream alert-filtering fix for paths containing spaces, special characters, or non-ASCII characters. Full SHA pinning and existing security checks remain enforced.
