@@ -64,5 +64,5 @@ jobs:
             --max-turns 1
             --safe-mode
             --disable-slash-commands
-            --tools ""
-            --disallowedTools "mcp__github_inline_comment__create_inline_comment"
+            --tools "Read"
+            --disallowedTools "Read,mcp__github_inline_comment__create_inline_comment"
