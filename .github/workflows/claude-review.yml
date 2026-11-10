@@ -40,7 +40,9 @@ jobs:
       - name: Claude review
         uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Uses the owner's Claude subscription (token from `claude setup-token`),
+          # not a pay-as-you-go API key.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           track_progress: true
           include_comments_by_actor: "FunKite,chatgpt-codex-connector[bot],claude[bot]"
           prompt: |
