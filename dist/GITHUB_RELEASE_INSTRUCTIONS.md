@@ -20,12 +20,12 @@ From the clean committed release tree (substitute the new version below):
 ```bash
 cargo publish --locked --dry-run
 cargo package --locked
-shasum -a 256 target/package/solunatus-0.8.0.crate
+shasum -a 256 target/package/solunatus-0.8.1.crate
 cargo publish --locked
-git tag -a v0.8.0 -m "Solunatus 0.8.0"
-git push origin v0.8.0
-gh release create v0.8.0 --verify-tag \
-  --title "Solunatus 0.8.0 — Reliability and security" \
+git tag -a v0.8.1 -m "Solunatus 0.8.1"
+git push origin v0.8.1
+gh release create v0.8.1 --verify-tag \
+  --title "Solunatus 0.8.1 — Accuracy and reliability fixes" \
   --notes-file dist/RELEASE_NOTES.md
 ```
 
