@@ -20,7 +20,9 @@ exclude = [
     ".cargo/",
     ".claude/",
     ".codex/",
+    "AGENTS.md",
     "CLAUDE.md",
+    "CLAUDE.local.md",
     "target-m1max/",
 ]
 

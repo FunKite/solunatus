@@ -1,0 +1,70 @@
+name: Claude
+
+# On-demand help from Claude Fable 5.2. Runs only when the repository owner
+# mentions @claude in an issue, a PR comment or a PR review. Claude works on a
+# claude/ branch and never merges. Shared rules: AGENTS.md (via CLAUDE.md).
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  issues:
+    types: [opened, assigned]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  claude:
+    if: |
+      (github.event_name == 'issue_comment' &&
+        github.event.comment.author_association == 'OWNER' &&
+        contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' &&
+        github.event.comment.author_association == 'OWNER' &&
+        contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' &&
+        github.event.review.author_association == 'OWNER' &&
+        contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' &&
+        github.event.issue.author_association == 'OWNER' &&
+        (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      # actions/checkout v7 (same pin as the other workflows; see Pin Drift Check)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+
+      # dtolnay/rust-toolchain stable (same pin as the other workflows)
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          components: clippy, rustfmt
+
+      # anthropics/claude-code-action v1.0.270
+      - name: Run Claude
+        uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          branch_prefix: "claude/"
+          # Only the owner's and the two agents' comments reach Claude (public repo).
+          include_comments_by_actor: "FunKite,chatgpt-codex-connector[bot],claude[bot]"
+          claude_args: |
+            --model claude-fable-5-2
+            --max-turns 40
+            --allowedTools "Bash(cargo build:*),Bash(cargo test:*),Bash(cargo clippy:*),Bash(cargo fmt:*),Bash(cargo doc:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*)"

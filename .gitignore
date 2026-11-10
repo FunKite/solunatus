@@ -24,7 +24,8 @@ dist/*SHA256SUMS.txt
 .env
 
 # Local development files and notes
-CLAUDE.md
+# CLAUDE.md and AGENTS.md are shared agent instructions and are committed.
+CLAUDE.local.md
 .claude/
 .codex/
 PRIVATE_FILES_SUMMARY.md
