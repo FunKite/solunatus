@@ -7,11 +7,11 @@
 //! # Accuracy
 //!
 //! Within the years 1000–3000 the underlying algorithm is accurate to well
-//! under a minute. Results are converted from Terrestrial Time to UTC with a
-//! ΔT estimate that is precise for 1986–2150 and approximate outside that
-//! range.
+//! under a minute. The time-scale conversion uses known TT−UTC offsets from
+//! 1972 through June 2027. Outside that interval, results use the existing
+//! polynomial ΔT model as an approximate UT1 timestamp, not exact UTC.
+//! Forecast uncertainty grows outside the observed interval.
 
-use super::moon::jd_to_datetime;
 use super::{DEG_TO_RAD, julian_century};
 use chrono::{DateTime, Datelike, TimeZone, Utc};
 
@@ -48,7 +48,8 @@ impl SeasonalEventKind {
 pub struct SeasonalEvent {
     /// Which equinox or solstice this is
     pub kind: SeasonalEventKind,
-    /// UTC time of the event
+    /// UTC time of the event within the known leap-second interval
+    /// (1972 through June 2027), or approximate UT1 outside that interval.
     pub datetime: DateTime<Utc>,
 }
 
@@ -120,7 +121,10 @@ fn mean_event_jde(kind: SeasonalEventKind, year: i32) -> f64 {
     }
 }
 
-/// Estimate ΔT = TT − UT in seconds for a given year.
+/// Estimate ΔT = TT − UT1 in seconds for a given year.
+///
+/// This extrapolated model is not TT−UTC. See
+/// https://eclipse.gsfc.nasa.gov/SEcat5/deltatpoly.html.
 ///
 /// Uses the Espenak–Meeus polynomial expressions for 1986–2150 and the
 /// long-term parabolic fit elsewhere.
@@ -182,8 +186,8 @@ pub fn seasonal_events(year: i32) -> Vec<SeasonalEvent> {
     .into_iter()
     .filter_map(|kind| {
         let jde = seasonal_event_jde(kind, year);
-        let jd_utc = jde - delta_t_seconds(year) / 86400.0;
-        jd_to_datetime(jd_utc).map(|datetime| SeasonalEvent { kind, datetime })
+        super::time_scales::tt_jde_to_datetime(jde, year)
+            .map(|datetime| SeasonalEvent { kind, datetime })
     })
     .collect()
 }

@@ -13,8 +13,10 @@
 //!
 //! The algorithms provide geocentric moon positions accurate to within a few arcminutes.
 //! Lunar phase times use the complete Meeus series and are converted from
-//! Terrestrial Time to UTC, so they agree with published almanac times to
-//! well under a minute for current dates.
+//! Terrestrial Time to UTC using known leap-second offsets for 1972 through
+//! June 2027. The current-date reference sample agrees within one minute.
+//! Outside the known interval, a ΔT-based UT1 approximation is used instead;
+//! it is not an exact historical or future UTC conversion.
 
 use super::*;
 use chrono::{DateTime, Datelike, Duration, LocalResult, TimeZone};
@@ -41,7 +43,9 @@ pub enum LunarPhaseType {
 pub struct LunarPhase {
     /// The type of lunar phase
     pub phase_type: LunarPhaseType,
-    /// The UTC date and time when this phase occurs
+    /// The UTC date and time when this phase occurs. Outside the known
+    /// leap-second interval (1972 through June 2027), this carries an
+    /// approximate UT1 value; see the module accuracy notes.
     pub datetime: DateTime<chrono::Utc>,
 }
 
@@ -580,11 +584,12 @@ fn lunar_phase_jde(k: f64, phase_type: LunarPhaseType) -> f64 {
 }
 
 /// UTC instant of a lunar phase: the Meeus JDE converted from Terrestrial
-/// Time with the same ΔT estimate used for equinoxes and solstices.
+/// Time using the same bounded leap-second table (or approximate UT1
+/// fallback) as equinoxes and solstices.
 fn lunar_phase_datetime(k: f64, phase_type: LunarPhaseType) -> Option<DateTime<chrono::Utc>> {
     let jde = lunar_phase_jde(k, phase_type);
     let year = (2000.0 + (jde - 2451545.0) / 365.25).floor() as i32;
-    jd_to_datetime(jde - super::seasons::delta_t_seconds(year) / 86_400.0)
+    super::time_scales::tt_jde_to_datetime(jde, year)
 }
 
 /// Convert Julian Day to DateTime
@@ -1153,11 +1158,14 @@ mod tests {
         );
     }
 
-    /// Phase times are published in UTC to the minute (USNO). Each phase
+    /// USNO publishes Universal Time rounded to the minute:
+    /// https://aa.usno.navy.mil/calculated/moon/phases?date=2025-10-06&format=p&nump=50&submit=Get+Data
+    /// Independently checked 2026-11-09. UT1 and UTC differ by less than
+    /// one second in this sample; these are not second-precision fixtures. Each phase
     /// type must match its published time, which requires the complete series
     /// and the Terrestrial Time to UTC conversion.
     #[test]
-    fn phase_times_match_published_utc_minutes() {
+    fn phase_times_match_published_universal_time_minutes() {
         use LunarPhaseType::{FirstQuarter, FullMoon, LastQuarter, NewMoon};
 
         let published = [
@@ -1184,7 +1192,7 @@ mod tests {
                 .min_by_key(|phase| (phase.datetime - expected).num_seconds().abs())
                 .unwrap_or_else(|| panic!("no {phase_type:?} in {year}-{month}"));
             // Published times are rounded to the minute; allow a few seconds
-            // more for the ΔT estimate.
+            // more for the phase-series approximation and UT1−UTC difference.
             let off = (computed.datetime - expected).num_seconds();
             assert!(
                 off.abs() <= 40,
