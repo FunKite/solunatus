@@ -21,6 +21,7 @@ pub mod moon;
 pub mod planets;
 pub mod seasons;
 pub mod sun;
+mod time_scales;
 pub mod time_utils;
 pub mod units;
 
