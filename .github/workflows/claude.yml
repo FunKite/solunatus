@@ -23,7 +23,9 @@ concurrency:
 
 jobs:
   claude:
+    # Public repo: only the owner's own account can start Claude.
     if: |
+      github.actor == github.repository_owner && (
       (github.event_name == 'issue_comment' &&
         github.event.comment.author_association == 'OWNER' &&
         contains(github.event.comment.body, '@claude')) ||
@@ -35,7 +37,7 @@ jobs:
         contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' &&
         github.event.issue.author_association == 'OWNER' &&
-        (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+        (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))))
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -49,6 +51,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       # dtolnay/rust-toolchain stable (same pin as the other workflows)
       - name: Install Rust toolchain

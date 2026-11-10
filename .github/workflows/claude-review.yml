@@ -18,7 +18,9 @@ concurrency:
 
 jobs:
   review:
+    # Public repo: never runs for forks or other authors.
     if: |
+      github.actor == github.repository_owner &&
       github.event.pull_request.draft == false &&
       startsWith(github.event.pull_request.head.ref, 'codex/') &&
       github.event.pull_request.head.repo.full_name == github.repository &&
@@ -35,6 +37,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       # anthropics/claude-code-action v1.0.270
       - name: Claude review
