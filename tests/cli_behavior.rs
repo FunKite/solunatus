@@ -368,3 +368,37 @@ fn coordinate_utc_default_warns_and_explicit_timezone_does_not() {
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(!stderr(&output).contains("without --tz"));
 }
+
+#[cfg(feature = "ai-insights")]
+#[test]
+fn invalid_saved_ai_refresh_does_not_block_offline_outputs_or_modify_preferences() {
+    let home = temp_home("invalid-ai-refresh");
+    let config = r#"{"lat":42.36,"lon":-71.06,"tz":"America/New_York","ai":{"enabled":true,"refresh_minutes":999}}"#;
+    std::fs::write(home.join(".solunatus.json"), config).unwrap();
+    for mode in [
+        &["--night"][..],
+        &["--next", "sunrise"],
+        &["--json"],
+        &["--no-prompt"],
+        &[
+            "--calendar",
+            "--calendar-start",
+            "2026-11-10",
+            "--calendar-end",
+            "2026-11-10",
+        ],
+    ] {
+        let mut args = vec!["--city", "Boston", "--no-save"];
+        args.extend_from_slice(mode);
+        let output = run_in(&home, &args);
+        assert!(
+            output.status.success(),
+            "{mode:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            std::fs::read_to_string(home.join(".solunatus.json")).unwrap(),
+            config
+        );
+    }
+}
