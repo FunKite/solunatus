@@ -1,0 +1,102 @@
+name: Release
+
+# Publishes a release when the owner pushes a version tag (for example v0.8.1)
+# that points at a commit on main. crates.io authentication uses Trusted
+# Publishing: GitHub issues a short-lived OIDC token, crates.io exchanges it for
+# a temporary publish token, and the auth action revokes that token when the
+# job ends. No crates.io token is stored in this repository.
+#
+# One-time setup on crates.io (solunatus > Settings > Trusted Publishing):
+#   owner FunKite, repository solunatus, workflow release.yml, environment release.
+
+on:
+  push:
+    tags: [ "v*" ]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # actions/checkout v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      # dtolnay/rust-toolchain stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+
+      - name: Check tag, version, release notes and branch
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="$(cargo metadata --no-deps --locked --format-version 1 \
+            | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"] == "solunatus"))')"
+          if [[ "${TAG}" != "v${version}" ]]; then
+            echo "Tag ${TAG} does not match Cargo.toml version ${version} (expected v${version})." >&2
+            exit 1
+          fi
+          if ! head -n 1 dist/RELEASE_NOTES.md | grep -qF "v${version}"; then
+            echo "dist/RELEASE_NOTES.md does not start with the v${version} heading." >&2
+            exit 1
+          fi
+          if ! grep -qF "## [${version}]" CHANGELOG.md; then
+            echo "CHANGELOG.md has no [${version}] section." >&2
+            exit 1
+          fi
+          git fetch --no-tags --depth=200 origin main
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" FETCH_HEAD; then
+            echo "Tag ${TAG} does not point at a commit on main." >&2
+            exit 1
+          fi
+          echo "Releasing solunatus ${version} from ${GITHUB_SHA}."
+
+      - name: Package dry run
+        run: cargo publish --locked --dry-run
+
+      # rust-lang/crates-io-auth-action v1.0.6
+      - name: Get a temporary crates.io token
+        id: auth
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish --locked
+
+  github-release:
+    name: Create GitHub release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # actions/checkout v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Create release from dist/RELEASE_NOTES.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          title="$(head -n 1 dist/RELEASE_NOTES.md | sed -E 's/^#[[:space:]]+//')"
+          gh release create "${TAG}" --repo "${GITHUB_REPOSITORY}" --verify-tag \
+            --title "${title}" --notes-file dist/RELEASE_NOTES.md
