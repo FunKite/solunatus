@@ -601,6 +601,7 @@ impl App {
         self.city_name = Some(city.name.clone());
         self.nearest_city_info = None; // Clear nearest city info when using city picker
         self.location_source = LocationSource::CityDatabase;
+        self.location_mode = config::LocationMode::City;
         self.should_save = true;
         self.update_time();
         self.reset_cached_data();

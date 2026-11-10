@@ -43,6 +43,9 @@ fn main() -> Result<()> {
             "warning: --strict is deprecated, has no effect, and will be removed in a future release"
         );
     }
+    for (flag, reason) in ignored_location_flags(&args) {
+        eprintln!("warning: {flag} is ignored: {reason}");
+    }
 
     // Load saved configuration. An unreadable file is reported and left
     // untouched: this run won't save over it, so no preferences are lost.
@@ -59,9 +62,10 @@ fn main() -> Result<()> {
     };
 
     // Check system clock against authoritative source unless disabled by env/config.
-    // Observing plans and event queries skip the sync to stay offline.
+    // Observing plans, event queries, and calendars never show the result, so
+    // they skip the sync to stay offline and avoid waiting on NTP timeouts.
     let env_skips_time_sync =
-        env::var("SOLUNATUS_SKIP_TIME_SYNC").is_ok() || args.next.is_some() || args.night;
+        env::var("SOLUNATUS_SKIP_TIME_SYNC").is_ok() || mode_never_shows_time_sync(&args);
     let (time_sync_info, time_sync_disabled, time_sync_server) =
         resolve_time_sync_state(config.as_ref(), env_skips_time_sync);
 
@@ -336,6 +340,36 @@ fn next_query_event_time(
     }
 }
 
+/// How far ahead `--next` searches. 366 days covers polar-region gaps where
+/// an event can be absent for months.
+const NEXT_SEARCH_DAYS: i64 = 366;
+
+/// Find the first occurrence of `event` strictly after `reference`.
+///
+/// Candidates are computed per civil date. The search starts at the previous
+/// date because a solar event belonging to yesterday's calculation date can
+/// still lie ahead: with the default UTC timezone and a western longitude,
+/// "yesterday's" sunset falls in the early hours of today. It also steps by
+/// calendar date rather than by 24 hours, which would skip a 23-hour
+/// daylight-saving day when the reference is late in the evening before it.
+fn find_next_event(
+    event: cli::NextEventArg,
+    location: &astro::Location,
+    reference: &chrono::DateTime<Tz>,
+) -> Option<chrono::DateTime<Tz>> {
+    let timezone = reference.timezone();
+    let today = reference.date_naive();
+
+    (-1..NEXT_SEARCH_DAYS).find_map(|offset| {
+        let date = today.checked_add_signed(Duration::days(offset))?;
+        // Any instant on the date identifies it; noon avoids DST transitions.
+        let day = timezone
+            .from_local_datetime(&date.and_hms_opt(12, 0, 0)?)
+            .earliest()?;
+        next_query_event_time(event, location, &day).filter(|t| t > reference)
+    })
+}
+
 /// `--next` handler: find the next occurrence of an event after the reference
 /// time and print it in the requested format.
 fn run_next_query(
@@ -344,18 +378,10 @@ fn run_next_query(
     location: &astro::Location,
     reference: &chrono::DateTime<Tz>,
 ) -> Result<()> {
-    // 366 days covers polar-region gaps where an event can be absent for months.
-    const SEARCH_DAYS: i64 = 366;
-
-    let found = (0..SEARCH_DAYS).find_map(|offset| {
-        let day = reference.checked_add_signed(Duration::days(offset))?;
-        next_query_event_time(event, location, &day).filter(|t| t > reference)
-    });
-
-    let Some(time) = found else {
+    let Some(time) = find_next_event(event, location, reference) else {
         return Err(anyhow!(
             "no occurrence of the requested event within the next {} days",
-            SEARCH_DAYS
+            NEXT_SEARCH_DAYS
         ));
     };
 
@@ -374,6 +400,12 @@ fn run_next_query(
     };
     println!("{}", line);
     Ok(())
+}
+
+/// One-shot modes whose output has no time-sync line: querying NTP for them
+/// would only add network traffic and, when offline, seconds of timeouts.
+fn mode_never_shows_time_sync(args: &cli::Args) -> bool {
+    args.next.is_some() || args.night || args.calendar
 }
 
 fn resolve_time_sync_state(
@@ -457,6 +489,27 @@ fn build_saved_config(
     };
 
     saved
+}
+
+/// Location flags that have no effect for this invocation, with the reason,
+/// so they are reported instead of being silently ignored.
+///
+/// `--city` takes its coordinates and timezone from the built-in database,
+/// and `--tz` only applies together with `--lat`/`--lon`.
+fn ignored_location_flags(args: &cli::Args) -> Vec<(&'static str, &'static str)> {
+    let mut ignored = Vec::new();
+    let has_coordinates = args.lat.is_some() && args.lon.is_some();
+    if args.city.is_some() {
+        if has_coordinates {
+            ignored.push(("--lat/--lon", "--city selects the location"));
+        }
+        if args.tz.is_some() {
+            ignored.push(("--tz", "--city uses the city's own timezone"));
+        }
+    } else if args.tz.is_some() && !has_coordinates {
+        ignored.push(("--tz", "it only applies together with --lat and --lon"));
+    }
+    ignored
 }
 
 fn determine_location(
@@ -1064,4 +1117,116 @@ fn print_text_output(
     print_seasons_section(dt, timezone);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Timelike;
+
+    /// With coordinates but no `--tz`, times are in UTC. Los Angeles' sunset
+    /// is then around 03:00 UTC and belongs to the previous calculation date,
+    /// so at 01:00 UTC the next sunset is two hours away, not twenty-six.
+    #[test]
+    fn next_finds_an_event_from_the_previous_calculation_date() {
+        let location = astro::Location::new(34.0522, -118.2437).unwrap();
+        let reference = chrono_tz::UTC
+            .with_ymd_and_hms(2026, 6, 15, 1, 0, 0)
+            .unwrap();
+
+        let sunset = find_next_event(cli::NextEventArg::Sunset, &location, &reference).unwrap();
+        assert_eq!(
+            sunset.format("%Y-%m-%d %H").to_string(),
+            "2026-06-15 03",
+            "{sunset}"
+        );
+
+        // Once that sunset has passed, the following one is returned.
+        let later = chrono_tz::UTC
+            .with_ymd_and_hms(2026, 6, 15, 4, 0, 0)
+            .unwrap();
+        let sunset = find_next_event(cli::NextEventArg::Sunset, &location, &later).unwrap();
+        assert_eq!(sunset.format("%Y-%m-%d %H").to_string(), "2026-06-16 03");
+    }
+
+    /// Late on the evening before clocks spring forward, stepping 24 hours at
+    /// a time jumps over the 23-hour day and skips its events.
+    #[test]
+    fn next_does_not_skip_the_short_daylight_saving_day() {
+        let location = astro::Location::new(40.7128, -74.0060).unwrap();
+        let reference = chrono_tz::America::New_York
+            .with_ymd_and_hms(2026, 3, 7, 23, 30, 0)
+            .unwrap();
+
+        let sunset = find_next_event(cli::NextEventArg::Sunset, &location, &reference).unwrap();
+        assert_eq!(sunset.format("%Y-%m-%d").to_string(), "2026-03-08");
+        assert_eq!(sunset.hour(), 18);
+
+        let moonset = find_next_event(cli::NextEventArg::Moonset, &location, &reference).unwrap();
+        assert!(moonset > reference);
+        assert!(moonset - reference < Duration::hours(26), "{moonset}");
+    }
+
+    /// Every result is strictly in the future and no earlier occurrence exists
+    /// between the reference and the result.
+    #[test]
+    fn next_returns_the_earliest_future_occurrence() {
+        let location = astro::Location::new(-13.8333, -171.7667).unwrap(); // Apia
+        let tz = chrono_tz::Pacific::Apia;
+        for hour in [0, 5, 6, 12, 18, 19, 23] {
+            let reference = tz.with_ymd_and_hms(2026, 11, 9, hour, 15, 0).unwrap();
+            for event in [cli::NextEventArg::Sunrise, cli::NextEventArg::Sunset] {
+                let found = find_next_event(event, &location, &reference).unwrap();
+                assert!(found > reference);
+                assert!(
+                    found - reference <= Duration::hours(24) + Duration::minutes(5),
+                    "{event:?} from {reference}: {found}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn offline_one_shot_modes_skip_the_time_sync_query() {
+        let skips = |extra: &[&str]| {
+            let args = cli::Args::try_parse_from(["solunatus"].iter().chain(extra)).unwrap();
+            mode_never_shows_time_sync(&args)
+        };
+
+        assert!(skips(&["--night"]));
+        assert!(skips(&["--next", "sunrise"]));
+        assert!(skips(&[
+            "--calendar",
+            "--calendar-start",
+            "2026-01-01",
+            "--calendar-end",
+            "2026-01-31"
+        ]));
+        // The text, JSON, and dashboard views display the sync status.
+        assert!(!skips(&["--no-prompt"]));
+        assert!(!skips(&["--json"]));
+        assert!(!skips(&[]));
+    }
+
+    #[test]
+    fn ignored_location_flags_are_reported() {
+        let flags = |extra: &[&str]| -> Vec<&'static str> {
+            let args = cli::Args::try_parse_from(["solunatus"].iter().chain(extra)).unwrap();
+            ignored_location_flags(&args)
+                .into_iter()
+                .map(|(flag, _)| flag)
+                .collect()
+        };
+
+        assert!(flags(&["--city", "Boston"]).is_empty());
+        assert!(flags(&["--lat", "1", "--lon", "2", "--tz", "UTC"]).is_empty());
+        assert!(flags(&[]).is_empty());
+
+        assert_eq!(flags(&["--tz", "Asia/Tokyo"]), ["--tz"]);
+        assert_eq!(flags(&["--city", "Boston", "--tz", "Asia/Tokyo"]), ["--tz"]);
+        assert_eq!(
+            flags(&["--city", "Boston", "--lat", "1", "--lon", "2"]),
+            ["--lat/--lon"]
+        );
+    }
 }

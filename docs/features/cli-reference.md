@@ -31,7 +31,8 @@ solunatus --lat 40.7128  # New York
 solunatus --lat -33.8688  # Sydney
 ```
 
-**Required with:** `--lon` and `--tz`
+**Required with:** `--lon` (giving only one coordinate is an error). Add `--tz`
+for local times; without it, times are shown in UTC.
 
 ### `--lon <LON>`
 Longitude in decimal degrees (range: -180 to +180).
@@ -41,7 +42,8 @@ solunatus --lon -74.0060  # New York
 solunatus --lon 151.2093  # Sydney
 ```
 
-**Required with:** `--lat` and `--tz`
+**Required with:** `--lat` (giving only one coordinate is an error). Add `--tz`
+for local times; without it, times are shown in UTC.
 
 ### `--tz <TIMEZONE>`
 Timezone in IANA format (e.g., `America/New_York`).
@@ -61,6 +63,10 @@ solunatus --lat 35.6762 --lon 139.6503 --tz Asia/Tokyo
 - `Pacific/Auckland`
 
 See [IANA Timezone Database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for complete list.
+
+`--tz` applies together with `--lat` and `--lon`. A city from `--city` uses
+its own timezone, and a saved location keeps its saved timezone; in both
+cases `--tz` is ignored with a warning.
 
 ### `--date <DATE>`
 Calculate for a specific date in `YYYY-MM-DD` format.

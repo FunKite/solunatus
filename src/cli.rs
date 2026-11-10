@@ -50,11 +50,11 @@ pub enum TimeFormatArg {
 #[command(about = "High-precision astronomical CLI for sun and moon calculations", long_about = None)]
 pub struct Args {
     /// Latitude in decimal degrees (positive North, negative South)
-    #[arg(long)]
+    #[arg(long, requires = "lon", allow_negative_numbers = true)]
     pub lat: Option<f64>,
 
     /// Longitude in decimal degrees (positive East, negative West)
-    #[arg(long)]
+    #[arg(long, requires = "lat", allow_negative_numbers = true)]
     pub lon: Option<f64>,
 
     /// Timezone (IANA timezone name, e.g. America/New_York)
@@ -63,7 +63,7 @@ pub struct Args {
 
     /// Date in YYYY-MM-DD format (defaults to today). Prints a one-shot
     /// report for that date; the live dashboard always shows the current time.
-    #[arg(long)]
+    #[arg(long, allow_hyphen_values = true)]
     pub date: Option<String>,
 
     /// Select a city from the built-in database
@@ -88,11 +88,11 @@ pub struct Args {
     pub calendar_format: CalendarFormatArg,
 
     /// Calendar range start date (YYYY-MM-DD, supports negative years like -0999)
-    #[arg(long, requires = "calendar")]
+    #[arg(long, requires = "calendar", allow_hyphen_values = true)]
     pub calendar_start: Option<String>,
 
     /// Calendar range end date (YYYY-MM-DD, supports negative years like -0999)
-    #[arg(long, requires = "calendar")]
+    #[arg(long, requires = "calendar", allow_hyphen_values = true)]
     pub calendar_end: Option<String>,
 
     /// Path to write the generated calendar (stdout when omitted)
@@ -166,5 +166,55 @@ impl Args {
     /// one-shot text report instead of being silently ignored.
     pub fn should_watch(&self) -> bool {
         self.watch || (!self.json && !self.no_prompt && self.date.is_none())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(extra: &[&str]) -> Result<Args, clap::Error> {
+        Args::try_parse_from(["solunatus"].iter().chain(extra))
+    }
+
+    /// Western and southern coordinates are negative; they must parse in the
+    /// ordinary space-separated form, not only as `--lon=-74.0`.
+    #[test]
+    fn negative_coordinates_parse_without_an_equals_sign() {
+        let args = parse(&["--lat", "-33.8688", "--lon", "-70.6693"]).unwrap();
+        assert_eq!(args.lat, Some(-33.8688));
+        assert_eq!(args.lon, Some(-70.6693));
+
+        let args = parse(&["--lat=40.7128", "--lon=-74.0060"]).unwrap();
+        assert_eq!(args.lon, Some(-74.0060));
+    }
+
+    #[test]
+    fn latitude_and_longitude_must_be_given_together() {
+        for flags in [["--lat", "40.7"], ["--lon", "-74.0"]] {
+            let error = parse(&flags).unwrap_err();
+            assert_eq!(
+                error.kind(),
+                clap::error::ErrorKind::MissingRequiredArgument
+            );
+        }
+    }
+
+    /// The help text advertises astronomical (negative) years.
+    #[test]
+    fn negative_years_parse_for_dates_and_calendar_ranges() {
+        let args = parse(&[
+            "--calendar",
+            "--calendar-start",
+            "-0999-01-01",
+            "--calendar-end",
+            "-0999-12-31",
+        ])
+        .unwrap();
+        assert_eq!(args.calendar_start.as_deref(), Some("-0999-01-01"));
+        assert_eq!(args.calendar_end.as_deref(), Some("-0999-12-31"));
+
+        let args = parse(&["--date", "-0044-03-15"]).unwrap();
+        assert_eq!(args.date.as_deref(), Some("-0044-03-15"));
     }
 }

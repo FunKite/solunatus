@@ -10,7 +10,7 @@ Solunatus implements high-precision lunar calculations based on Jean Meeus' "Ast
 
 - **Geocentric positions**: Accurate to within a few arcminutes
 - **Topocentric positions**: Accounts for Earth's flattening and parallax
-- **Lunar phase times**: Accurate to within ±2 minutes
+- **Lunar phase times**: Accurate to within ±1 minute for current dates
 - **Moonrise/moonset times**: Accurate to within ±3 minutes at mid-latitudes
 
 ## Algorithms Source
@@ -164,18 +164,25 @@ Days since the last new moon (0-29.5 days). The synodic month (lunar cycle) aver
 Exact times of major phases (New, First Quarter, Full, Last Quarter) are calculated using Meeus' algorithm from Chapter 49.
 
 The calculation involves:
-1. Estimating the approximate phase time
-2. Calculating corrections based on:
+1. Computing the mean phase time (JDE) for the lunation number `k`
+2. Adding the complete set of periodic corrections for that phase type
+   (separate coefficient tables for new moon, full moon, and the quarters),
+   based on:
    - Sun's and Moon's anomalies
-   - Longitude of ascending node
+   - Moon's argument of latitude and longitude of ascending node
    - Eccentricity of Earth's orbit
-3. Iterating to find the precise moment
+3. Adding the 14 planetary-argument corrections
+4. Converting the result from Terrestrial Time to UTC with the ΔT estimate
+   shared with the equinox/solstice calculations
+
+The series is checked against Meeus' worked examples 49.a and 49.b and
+against published USNO phase times.
 
 ### 7. Rise and Set Times
 
 Moonrise and moonset calculations use a bisection method:
 
-1. **Search interval**: The algorithm searches the 24-hour period
+1. **Search interval**: The algorithm searches the local civil day, from one local midnight to the next (23 or 25 hours on daylight-saving transition days)
 2. **Target altitude**: -0.833° (accounting for refraction and lunar radius)
 3. **Bisection method**: Repeatedly narrows the time window by checking if the moon is above or below the target altitude
 4. **Precision**: Converges to within seconds

@@ -5,7 +5,7 @@ use super::app::AiConfigField;
 use super::app::{App, AppMode, CalendarField};
 use crate::location_source::LocationSource;
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use std::time::Duration;
 
 pub fn handle_events(app: &mut App, timeout: Duration) -> Result<()> {
@@ -18,6 +18,12 @@ pub fn handle_events(app: &mut App, timeout: Duration) -> Result<()> {
 }
 
 fn handle_key_event(app: &mut App, key: KeyEvent) -> Result<()> {
+    // Windows terminals report a release event for every key press. Acting on
+    // both would type each character twice and flip each toggle back.
+    if key.kind == KeyEventKind::Release {
+        return Ok(());
+    }
+
     match app.mode {
         AppMode::Watch => handle_watch_mode_keys(app, key),
         AppMode::Settings => handle_settings_keys(app, key),
@@ -202,7 +208,8 @@ fn handle_settings_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                 _ => {}
             }
         }
-        KeyCode::Char('d') | KeyCode::Char('D') => {
+        // In a text field `d` is part of the server or model name being typed.
+        KeyCode::Char('d') | KeyCode::Char('D') if !app.settings_draft.current_field_is_text() => {
             // Load defaults
             app.reset_settings_to_defaults();
             app.set_status_message("Loaded default settings");
@@ -282,6 +289,10 @@ fn handle_location_input_keys(app: &mut App, key: KeyEvent) -> Result<()> {
                                     app.timezone = tz;
                                     app.city_name = None;
                                     app.location_source = LocationSource::ManualCli;
+                                    app.location_mode = crate::config::LocationMode::Manual;
+                                    // Persist like a city selection does, so the
+                                    // location survives leaving Settings with Esc.
+                                    app.should_save = true;
 
                                     // Find nearest city for reference
                                     if let Ok(db) = crate::city::CityDatabase::load()
@@ -592,6 +603,146 @@ fn handle_reports_keys(app: &mut App, key: KeyEvent) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tui::app::SettingsField;
+    use crossterm::event::KeyModifiers;
+
+    /// An app with network features off. Key handling never writes settings
+    /// (the watch loop owns persistence), so no home directory is touched.
+    fn test_app() -> App {
+        App::new(super::super::app::AppConfig {
+            location: crate::astro::Location::new(42.36, -71.06).unwrap(),
+            timezone: chrono_tz::America::New_York,
+            city_name: Some("Boston".into()),
+            location_source: LocationSource::CityDatabase,
+            location_mode: crate::config::LocationMode::City,
+            time_sync: crate::time_sync::TimeSyncInfo {
+                source: "test".into(),
+                delta: None,
+                error: None,
+            },
+            time_sync_disabled: true,
+            time_sync_server: String::new(),
+            #[cfg(feature = "ai-insights")]
+            ai_config: crate::ai::AiConfig {
+                enabled: false,
+                server: "http://localhost:11434".into(),
+                model: "llama3.2:latest".into(),
+                refresh: Duration::from_secs(120),
+                refresh_mode: crate::config::AiRefreshMode::AutoAndManual,
+            },
+            watch_prefs: None,
+        })
+    }
+
+    fn press(app: &mut App, code: KeyCode) {
+        handle_key_event(app, KeyEvent::from(code)).unwrap();
+    }
+
+    fn type_text(app: &mut App, text: &str) {
+        for c in text.chars() {
+            press(app, KeyCode::Char(c));
+        }
+    }
+
+    #[test]
+    fn settings_text_fields_accept_the_letter_d() {
+        let mut app = test_app();
+        app.open_settings();
+        app.settings_draft.night_mode = true;
+        app.settings_draft.field_index = 2;
+        assert_eq!(
+            app.settings_draft.current_field(),
+            SettingsField::TimeSyncServer
+        );
+
+        type_text(&mut app, "Dtime.cloudflare.com:123d");
+        assert_eq!(
+            app.settings_draft.time_sync_server,
+            "Dtime.cloudflare.com:123d"
+        );
+        assert!(
+            app.settings_draft.night_mode,
+            "typing must not reset the other settings to defaults"
+        );
+
+        // Outside text fields the shortcut still loads defaults.
+        app.settings_draft.field_index = 9;
+        assert_eq!(app.settings_draft.current_field(), SettingsField::NightMode);
+        press(&mut app, KeyCode::Char('d'));
+        assert!(!app.settings_draft.night_mode);
+        assert_eq!(app.settings_draft.time_sync_server, "time.google.com");
+    }
+
+    #[cfg(feature = "ai-insights")]
+    #[test]
+    fn ai_text_fields_accept_the_letter_d() {
+        let mut app = test_app();
+        app.open_settings();
+        for (index, field) in [(11, SettingsField::AiServer), (12, SettingsField::AiModel)] {
+            app.settings_draft.field_index = index;
+            assert_eq!(app.settings_draft.current_field(), field);
+            type_text(&mut app, "d");
+        }
+        assert_eq!(app.settings_draft.ai_server, "http://localhost:11434d");
+        assert_eq!(app.settings_draft.ai_model, "llama3.2:latestd");
+    }
+
+    #[test]
+    fn key_release_events_are_ignored() {
+        let mut app = test_app();
+        app.open_settings();
+        app.settings_draft.field_index = 9;
+        assert_eq!(app.settings_draft.current_field(), SettingsField::NightMode);
+        let before = app.settings_draft.night_mode;
+
+        let space = |kind| KeyEvent::new_with_kind(KeyCode::Char(' '), KeyModifiers::NONE, kind);
+        handle_key_event(&mut app, space(KeyEventKind::Press)).unwrap();
+        handle_key_event(&mut app, space(KeyEventKind::Release)).unwrap();
+        assert_eq!(
+            app.settings_draft.night_mode, !before,
+            "a press followed by its release must toggle once"
+        );
+
+        app.settings_draft.field_index = 2; // TimeSyncServer
+        let letter = |kind| KeyEvent::new_with_kind(KeyCode::Char('x'), KeyModifiers::NONE, kind);
+        handle_key_event(&mut app, letter(KeyEventKind::Press)).unwrap();
+        handle_key_event(&mut app, letter(KeyEventKind::Release)).unwrap();
+        assert_eq!(app.settings_draft.time_sync_server, "x");
+    }
+
+    #[test]
+    fn manual_location_entry_is_applied_and_queued_for_saving() {
+        let mut app = test_app();
+        app.open_settings();
+        app.settings_draft.location_mode = crate::config::LocationMode::Manual;
+        press(&mut app, KeyCode::Enter); // The LocationMode field opens the input form.
+        assert!(matches!(app.mode, AppMode::LocationInput));
+
+        type_text(&mut app, "-33.8688");
+        press(&mut app, KeyCode::Tab);
+        type_text(&mut app, "151.2093");
+        press(&mut app, KeyCode::Tab);
+        for _ in 0.."UTC".len() {
+            press(&mut app, KeyCode::Backspace);
+        }
+        type_text(&mut app, "Australia/Sydney");
+        assert!(!app.should_save);
+        press(&mut app, KeyCode::Enter);
+
+        assert_eq!(app.location.latitude.value(), -33.8688);
+        assert_eq!(app.location.longitude.value(), 151.2093);
+        assert_eq!(app.timezone, chrono_tz::Australia::Sydney);
+        assert_eq!(app.city_name, None);
+        assert!(
+            app.should_save,
+            "a manual location must be saved even if Settings is left with Esc"
+        );
+
+        let saved = app.build_config();
+        assert_eq!(saved.lat, -33.8688);
+        assert_eq!(saved.tz, "Australia/Sydney");
+        assert_eq!(saved.location_mode, crate::config::LocationMode::Manual);
+    }
 
     #[test]
     fn settings_enter_defers_persistence() {

@@ -124,7 +124,7 @@ fn mean_event_jde(kind: SeasonalEventKind, year: i32) -> f64 {
 ///
 /// Uses the Espenak–Meeus polynomial expressions for 1986–2150 and the
 /// long-term parabolic fit elsewhere.
-fn delta_t_seconds(year: i32) -> f64 {
+pub(crate) fn delta_t_seconds(year: i32) -> f64 {
     let y = f64::from(year);
     if (1986..2005).contains(&year) {
         let t = y - 2000.0;

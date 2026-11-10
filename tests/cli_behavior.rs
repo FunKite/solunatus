@@ -157,3 +157,146 @@ fn saving_legacy_config_does_not_expose_new_settings_through_old_descriptor() {
         "temporary file must be removed"
     );
 }
+
+#[cfg(unix)]
+fn stdout(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+#[cfg(unix)]
+fn stderr(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stderr).into_owned()
+}
+
+/// Half the world has a negative longitude or latitude; the ordinary
+/// space-separated form must work, as the documentation shows it.
+#[cfg(unix)]
+#[test]
+fn negative_coordinates_work_without_an_equals_sign() {
+    let home = temp_home("negative-coordinates");
+    let output = run_in(
+        &home,
+        &[
+            "--lat",
+            "-33.4489",
+            "--lon",
+            "-70.6693",
+            "--tz",
+            "America/Santiago",
+            "--date",
+            "2026-06-15",
+            "--no-save",
+        ],
+    );
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stdout(&output).contains("Lat,Lon~-33.449,-70.669"));
+}
+
+#[cfg(unix)]
+#[test]
+fn latitude_without_longitude_is_rejected_instead_of_ignored() {
+    let home = temp_home("lat-only");
+    // A saved location must not be used silently in place of the partial one.
+    let saved = run_in(&home, &["--city", "Tucson", "--no-prompt"]);
+    assert!(saved.status.success());
+
+    let output = run_in(&home, &["--lat", "40.7", "--no-prompt", "--no-save"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(stderr(&output).contains("--lon"), "{}", stderr(&output));
+    assert!(stdout(&output).is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn ignored_timezone_flag_is_reported() {
+    let home = temp_home("tz-ignored");
+    let output = run_in(
+        &home,
+        &[
+            "--city",
+            "Boston",
+            "--tz",
+            "Asia/Tokyo",
+            "--date",
+            "2026-06-15",
+            "--no-save",
+        ],
+    );
+    assert!(output.status.success());
+    assert!(
+        stderr(&output).contains("warning: --tz is ignored"),
+        "{}",
+        stderr(&output)
+    );
+    assert!(stdout(&output).contains("America/New_York"));
+}
+
+/// Apia keeps UTC+13 at 171.8°W, a calendar day away from its solar day.
+/// Reports for a date must describe that date, and `--next` must not skip
+/// the event that is still ahead today.
+#[cfg(unix)]
+#[test]
+fn date_line_city_reports_events_for_the_requested_date() {
+    let home = temp_home("date-line");
+    let base = ["--city", "Apia", "--date", "2026-11-09", "--no-save"];
+
+    let output = run_in(&home, &[&base[..], &["--json"]].concat());
+    assert!(output.status.success(), "{}", stderr(&output));
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let events = &report["sun"]["events"];
+    for event in ["sunrise", "solar_noon", "sunset", "astronomical_dusk"] {
+        let time = events[event].as_str().unwrap();
+        assert!(time.starts_with("2026-11-09 "), "{event}: {time}");
+    }
+
+    // Searching from local noon, sunset is about six and a half hours away.
+    let output = run_in(
+        &home,
+        &[&base[..], &["--next", "sunset", "--format", "local"]].concat(),
+    );
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(
+        stdout(&output).starts_with("2026-11-09 18:31"),
+        "{}",
+        stdout(&output)
+    );
+
+    let output = run_in(
+        &home,
+        &[&base[..], &["--next", "sunrise", "--format", "local"]].concat(),
+    );
+    assert!(
+        stdout(&output).starts_with("2026-11-10 05:5"),
+        "{}",
+        stdout(&output)
+    );
+}
+
+/// `--help` advertises negative (astronomical) years for calendar ranges.
+#[cfg(unix)]
+#[test]
+fn calendar_accepts_negative_years() {
+    let home = temp_home("negative-years");
+    let output = run_in(
+        &home,
+        &[
+            "--city",
+            "Boston",
+            "--calendar",
+            "--calendar-format",
+            "json",
+            "--calendar-start",
+            "-0999-01-01",
+            "--calendar-end",
+            "-0999-01-02",
+        ],
+    );
+    assert!(output.status.success(), "{}", stderr(&output));
+    let calendar: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(calendar["days"].as_array().unwrap().len(), 2);
+    assert_eq!(calendar["days"][0]["date"], "-0999-01-01");
+    assert!(
+        !home.join(".solunatus.json").exists(),
+        "calendar generation must not save settings"
+    );
+}

@@ -476,16 +476,8 @@ pub fn planet_event_time<T: TimeZone>(
 ) -> Option<DateTime<T>> {
     let seek_rising = event == PlanetEvent::Rise;
 
-    let tz = date.timezone();
-    let start_naive = date.date_naive().and_hms_opt(0, 0, 0)?;
-    let start = match tz.from_local_datetime(&start_naive) {
-        chrono::LocalResult::Single(dt) => dt,
-        chrono::LocalResult::Ambiguous(early, _) => early,
-        chrono::LocalResult::None => tz
-            .from_local_datetime(&(start_naive + Duration::hours(1)))
-            .earliest()?,
-    };
-    let end = start.clone() + Duration::hours(24);
+    // Scan the civil day itself; DST-change days are 23 or 25 hours long.
+    let (start, end) = super::moon::local_day_bounds(date)?;
 
     let step = Duration::minutes(10);
     let mut prev_dt = start.clone();

@@ -11,8 +11,10 @@
 //!
 //! # Accuracy
 //!
-//! The algorithms provide geocentric moon positions accurate to within a few arcminutes
-//! and lunar phase times accurate to within a few minutes.
+//! The algorithms provide geocentric moon positions accurate to within a few arcminutes.
+//! Lunar phase times use the complete Meeus series and are converted from
+//! Terrestrial Time to UTC, so they agree with published almanac times to
+//! well under a minute for current dates.
 
 use super::*;
 use chrono::{DateTime, Datelike, Duration, LocalResult, TimeZone};
@@ -397,8 +399,7 @@ pub fn lunar_phases(year: i32, month: u32) -> Vec<LunarPhase> {
         let k_integer = (approx_k + offset as f64).round();
         for &(phase_type, fraction) in &phase_offsets {
             let k = k_integer + fraction;
-            let jde = lunar_phase_jde(k, phase_type);
-            let Some(dt) = jd_to_datetime(jde) else {
+            let Some(dt) = lunar_phase_datetime(k, phase_type) else {
                 continue; // Skip invalid dates (extremely rare)
             };
 
@@ -416,68 +417,174 @@ pub fn lunar_phases(year: i32, month: u32) -> Vec<LunarPhase> {
     phases
 }
 
-/// Calculate JDE for a lunar phase using Meeus algorithm
+/// One periodic term of the phase correction: `coefficient · E^e_power ·
+/// sin(m·M + m_prime·M′ + f·F + omega·Ω)`.
+struct PhaseTerm {
+    e_power: i32,
+    m: f64,
+    m_prime: f64,
+    f: f64,
+    omega: f64,
+}
+
+const fn term(e_power: i32, m: i32, m_prime: i32, f: i32, omega: i32) -> PhaseTerm {
+    PhaseTerm {
+        e_power,
+        m: m as f64,
+        m_prime: m_prime as f64,
+        f: f as f64,
+        omega: omega as f64,
+    }
+}
+
+/// Periodic terms for new and full moon (Meeus ch. 49): the coefficient for
+/// new moon, the coefficient for full moon, and the shared argument.
+const NEW_FULL_TERMS: &[(f64, f64, PhaseTerm)] = &[
+    (-0.40720, -0.40614, term(0, 0, 1, 0, 0)),
+    (0.17241, 0.17302, term(1, 1, 0, 0, 0)),
+    (0.01608, 0.01614, term(0, 0, 2, 0, 0)),
+    (0.01039, 0.01043, term(0, 0, 0, 2, 0)),
+    (0.00739, 0.00734, term(1, -1, 1, 0, 0)),
+    (-0.00514, -0.00515, term(1, 1, 1, 0, 0)),
+    (0.00208, 0.00209, term(2, 2, 0, 0, 0)),
+    (-0.00111, -0.00111, term(0, 0, 1, -2, 0)),
+    (-0.00057, -0.00057, term(0, 0, 1, 2, 0)),
+    (0.00056, 0.00056, term(1, 1, 2, 0, 0)),
+    (-0.00042, -0.00042, term(0, 0, 3, 0, 0)),
+    (0.00042, 0.00042, term(1, 1, 0, 2, 0)),
+    (0.00038, 0.00038, term(1, 1, 0, -2, 0)),
+    (-0.00024, -0.00024, term(1, -1, 2, 0, 0)),
+    (-0.00017, -0.00017, term(0, 0, 0, 0, 1)),
+    (-0.00007, -0.00007, term(0, 2, 1, 0, 0)),
+    (0.00004, 0.00004, term(0, 0, 2, -2, 0)),
+    (0.00004, 0.00004, term(0, 3, 0, 0, 0)),
+    (0.00003, 0.00003, term(0, 1, 1, -2, 0)),
+    (0.00003, 0.00003, term(0, 0, 2, 2, 0)),
+    (-0.00003, -0.00003, term(0, 1, 1, 2, 0)),
+    (0.00003, 0.00003, term(0, -1, 1, 2, 0)),
+    (-0.00002, -0.00002, term(0, -1, 1, -2, 0)),
+    (-0.00002, -0.00002, term(0, 1, 3, 0, 0)),
+    (0.00004, 0.00004, term(0, 0, 4, 0, 0)),
+];
+
+/// Periodic terms for first and last quarter (Meeus ch. 49).
+const QUARTER_TERMS: &[(f64, PhaseTerm)] = &[
+    (-0.62801, term(0, 0, 1, 0, 0)),
+    (0.17172, term(1, 1, 0, 0, 0)),
+    (-0.01183, term(1, 1, 1, 0, 0)),
+    (0.00862, term(0, 0, 2, 0, 0)),
+    (0.00804, term(0, 0, 0, 2, 0)),
+    (0.00454, term(1, -1, 1, 0, 0)),
+    (0.00204, term(2, 2, 0, 0, 0)),
+    (-0.00180, term(0, 0, 1, -2, 0)),
+    (-0.00070, term(0, 0, 1, 2, 0)),
+    (-0.00040, term(0, 0, 3, 0, 0)),
+    (-0.00034, term(1, -1, 2, 0, 0)),
+    (0.00032, term(1, 1, 0, 2, 0)),
+    (0.00032, term(1, 1, 0, -2, 0)),
+    (-0.00028, term(2, 2, 1, 0, 0)),
+    (0.00027, term(1, 1, 2, 0, 0)),
+    (-0.00017, term(0, 0, 0, 0, 1)),
+    (-0.00005, term(0, -1, 1, -2, 0)),
+    (0.00004, term(0, 0, 2, 2, 0)),
+    (-0.00004, term(0, 1, 1, 2, 0)),
+    (0.00004, term(0, -2, 1, 0, 0)),
+    (0.00003, term(0, 1, 1, -2, 0)),
+    (0.00003, term(0, 3, 0, 0, 0)),
+    (0.00002, term(0, 0, 2, -2, 0)),
+    (0.00002, term(0, -1, 1, 2, 0)),
+    (-0.00002, term(0, 1, 3, 0, 0)),
+];
+
+/// Planetary arguments A1–A14 (Meeus ch. 49): coefficient, constant term in
+/// degrees, and rate in degrees per lunation `k`. A1 also carries a T² term.
+const PLANETARY_TERMS: &[(f64, f64, f64)] = &[
+    (0.000325, 299.77, 0.107408),
+    (0.000165, 251.88, 0.016321),
+    (0.000164, 251.83, 26.651886),
+    (0.000126, 349.42, 36.412478),
+    (0.000110, 84.66, 18.206239),
+    (0.000062, 141.74, 53.303771),
+    (0.000060, 207.14, 2.453732),
+    (0.000056, 154.84, 7.306860),
+    (0.000047, 34.52, 27.261239),
+    (0.000042, 207.19, 0.121824),
+    (0.000040, 291.34, 1.844379),
+    (0.000037, 161.72, 24.198154),
+    (0.000035, 239.56, 25.513099),
+    (0.000023, 331.55, 3.592518),
+];
+
+/// Julian Ephemeris Day of a lunar phase (Meeus ch. 49, full series).
+///
+/// The result is in Terrestrial (Dynamical) Time, not UTC.
 fn lunar_phase_jde(k: f64, phase_type: LunarPhaseType) -> f64 {
     let t = k / 1236.85;
+    let t2 = t * t;
+    let t3 = t2 * t;
+    let t4 = t3 * t;
 
-    let jde = 2451550.09766 + 29.530588861 * k + 0.00015437 * t * t - 0.000000150 * t * t * t
-        + 0.00000000073 * t * t * t * t;
+    let mean_jde =
+        2451550.09766 + 29.530588861 * k + 0.00015437 * t2 - 0.000000150 * t3 + 0.00000000073 * t4;
 
-    let e = 1.0 - 0.002516 * t - 0.0000074 * t * t;
-    let m = 2.5534 + 29.10535670 * k - 0.0000014 * t * t - 0.00000011 * t * t * t;
-    let m_prime = 201.5643 + 385.81693528 * k + 0.0107582 * t * t + 0.00001238 * t * t * t
-        - 0.000000058 * t * t * t * t;
-    let f = 160.7108 + 390.67050284 * k - 0.0016118 * t * t - 0.00000227 * t * t * t
-        + 0.000000011 * t * t * t * t;
-    let omega = 124.7746 - 1.56375588 * k + 0.0020672 * t * t + 0.00000215 * t * t * t;
+    let e = 1.0 - 0.002516 * t - 0.0000074 * t2;
+    let m = (2.5534 + 29.10535670 * k - 0.0000014 * t2 - 0.00000011 * t3) * DEG_TO_RAD;
+    let m_prime = (201.5643 + 385.81693528 * k + 0.0107582 * t2 + 0.00001238 * t3
+        - 0.000000058 * t4)
+        * DEG_TO_RAD;
+    let f = (160.7108 + 390.67050284 * k - 0.0016118 * t2 - 0.00000227 * t3 + 0.000000011 * t4)
+        * DEG_TO_RAD;
+    let omega = (124.7746 - 1.56375588 * k + 0.0020672 * t2 + 0.00000215 * t3) * DEG_TO_RAD;
 
-    let m_rad = m * DEG_TO_RAD;
-    let m_prime_rad = m_prime * DEG_TO_RAD;
-    let f_rad = f * DEG_TO_RAD;
-    let omega_rad = omega * DEG_TO_RAD;
+    let evaluate = |coefficient: f64, term: &PhaseTerm| {
+        let argument = term.m * m + term.m_prime * m_prime + term.f * f + term.omega * omega;
+        coefficient * e.powi(term.e_power) * argument.sin()
+    };
 
-    let mut correction = match phase_type {
-        LunarPhaseType::NewMoon | LunarPhaseType::FullMoon => {
-            -0.40720 * m_prime_rad.sin()
-                + 0.17241 * e * m_rad.sin()
-                + 0.01608 * (2.0 * m_prime_rad).sin()
-                + 0.01039 * (2.0 * f_rad).sin()
-                + 0.00739 * e * (m_prime_rad - m_rad).sin()
-                - 0.00514 * e * (m_prime_rad + m_rad).sin()
-                + 0.00208 * e * e * (2.0 * m_rad).sin()
-        }
+    let periodic: f64 = match phase_type {
+        LunarPhaseType::NewMoon => NEW_FULL_TERMS
+            .iter()
+            .map(|(new, _, term)| evaluate(*new, term))
+            .sum(),
+        LunarPhaseType::FullMoon => NEW_FULL_TERMS
+            .iter()
+            .map(|(_, full, term)| evaluate(*full, term))
+            .sum(),
         LunarPhaseType::FirstQuarter | LunarPhaseType::LastQuarter => {
-            let mut corr = -0.62801 * m_prime_rad.sin() + 0.17172 * e * m_rad.sin()
-                - 0.01183 * e * (m_prime_rad + m_rad).sin()
-                + 0.00862 * (2.0 * m_prime_rad).sin()
-                + 0.00804 * (2.0 * f_rad).sin()
-                + 0.00454 * e * (m_prime_rad - m_rad).sin();
-
-            let w = 0.00306 - 0.00038 * e * m_rad.cos() + 0.00026 * m_prime_rad.cos()
-                - 0.00002 * (m_prime_rad - m_rad).cos()
-                + 0.00002 * (m_prime_rad + m_rad).cos()
-                + 0.00002 * (2.0 * f_rad).cos();
-
+            let sum: f64 = QUARTER_TERMS
+                .iter()
+                .map(|(coefficient, term)| evaluate(*coefficient, term))
+                .sum();
+            let w = 0.00306 - 0.00038 * e * m.cos() + 0.00026 * m_prime.cos()
+                - 0.00002 * (m_prime - m).cos()
+                + 0.00002 * (m_prime + m).cos()
+                + 0.00002 * (2.0 * f).cos();
             if phase_type == LunarPhaseType::FirstQuarter {
-                corr += w;
+                sum + w
             } else {
-                corr -= w;
+                sum - w
             }
-            corr
         }
     };
 
-    // Planetary arguments correction
-    let a1 = 299.77 + 0.107408 * k - 0.009173 * t * t;
-    let a2 = 251.88 + 0.016321 * k;
-    let a3 = 251.83 + 26.651886 * k;
+    let planetary: f64 = PLANETARY_TERMS
+        .iter()
+        .enumerate()
+        .map(|(index, (coefficient, constant, rate))| {
+            let t2_term = if index == 0 { -0.009173 * t2 } else { 0.0 };
+            coefficient * ((constant + rate * k + t2_term) * DEG_TO_RAD).sin()
+        })
+        .sum();
 
-    correction += 0.000325 * (a1 * DEG_TO_RAD).sin()
-        + 0.000165 * (a2 * DEG_TO_RAD).sin()
-        + 0.000164 * (a3 * DEG_TO_RAD).sin()
-        + 0.000126 * (omega_rad).sin();
+    mean_jde + periodic + planetary
+}
 
-    jde + correction
+/// UTC instant of a lunar phase: the Meeus JDE converted from Terrestrial
+/// Time with the same ΔT estimate used for equinoxes and solstices.
+fn lunar_phase_datetime(k: f64, phase_type: LunarPhaseType) -> Option<DateTime<chrono::Utc>> {
+    let jde = lunar_phase_jde(k, phase_type);
+    let year = (2000.0 + (jde - 2451545.0) / 365.25).floor() as i32;
+    jd_to_datetime(jde - super::seasons::delta_t_seconds(year) / 86_400.0)
 }
 
 /// Convert Julian Day to DateTime
@@ -522,7 +629,7 @@ pub(crate) fn jd_to_datetime(jd: f64) -> Option<DateTime<chrono::Utc>> {
     .single()
 }
 
-fn resolve_local_datetime<T: TimeZone>(
+pub(crate) fn resolve_local_datetime<T: TimeZone>(
     timezone: &T,
     naive: &chrono::NaiveDateTime,
 ) -> Option<DateTime<T>> {
@@ -539,6 +646,27 @@ fn resolve_local_datetime<T: TimeZone>(
             }
         }
     }
+}
+
+/// Start and end instants of the civil day containing `date`, in its timezone.
+///
+/// The end is the next local midnight rather than a fixed 24 hours after the
+/// start, because days with a daylight-saving change are 23 or 25 hours long.
+/// A fixed 24-hour scan misses events in the last hour of a 25-hour day and
+/// attributes the first hour of the following day to a 23-hour day.
+pub(crate) fn local_day_bounds<T: TimeZone>(
+    date: &DateTime<T>,
+) -> Option<(DateTime<T>, DateTime<T>)> {
+    let tz = date.timezone();
+    let civil = date.date_naive();
+    let start = resolve_local_datetime(&tz, &civil.and_hms_opt(0, 0, 0)?)?;
+    let end = civil
+        .succ_opt()
+        .and_then(|next| next.and_hms_opt(0, 0, 0))
+        .and_then(|naive| resolve_local_datetime(&tz, &naive))
+        .filter(|end| *end > start)
+        .unwrap_or_else(|| start.clone() + Duration::hours(24));
+    Some((start, end))
 }
 
 fn refine_crossing<T: TimeZone>(
@@ -579,10 +707,7 @@ fn search_rise_or_set<T: TimeZone>(
     threshold: f64,
     seek_rising: bool,
 ) -> Option<DateTime<T>> {
-    let tz = date.timezone();
-    let start_naive = date.date_naive().and_hms_opt(0, 0, 0)?;
-    let start = resolve_local_datetime(&tz, &start_naive)?;
-    let end = start.clone() + Duration::hours(24);
+    let (start, end) = local_day_bounds(date)?;
 
     let step = Duration::minutes(5);
     let mut prev_dt = start.clone();
@@ -1006,6 +1131,69 @@ mod tests {
         assert!(!is_supermoon(full), "Apr 2025 full moon is a micromoon");
     }
 
+    /// Meeus, "Astronomical Algorithms", Example 49.a: the new moon of
+    /// February 1977 falls at JDE 2443192.65118 (February 18, 03:37:42 TD).
+    #[test]
+    fn meeus_example_49a_new_moon_february_1977() {
+        let jde = lunar_phase_jde(-283.0, LunarPhaseType::NewMoon);
+        assert!(
+            (jde - 2443192.65118).abs() < 0.00002,
+            "JDE {jde:.5} differs from Meeus reference 2443192.65118"
+        );
+    }
+
+    /// Meeus Example 49.b: the last quarter of January 2044 falls at
+    /// JDE 2467636.49186 (January 21, 23:47:07 TD).
+    #[test]
+    fn meeus_example_49b_last_quarter_january_2044() {
+        let jde = lunar_phase_jde(544.75, LunarPhaseType::LastQuarter);
+        assert!(
+            (jde - 2467636.49186).abs() < 0.00002,
+            "JDE {jde:.5} differs from Meeus reference 2467636.49186"
+        );
+    }
+
+    /// Phase times are published in UTC to the minute (USNO). Each phase
+    /// type must match its published time, which requires the complete series
+    /// and the Terrestrial Time to UTC conversion.
+    #[test]
+    fn phase_times_match_published_utc_minutes() {
+        use LunarPhaseType::{FirstQuarter, FullMoon, LastQuarter, NewMoon};
+
+        let published = [
+            (FullMoon, (2025, 10, 7, 3, 47)),
+            (NewMoon, (2025, 10, 21, 12, 25)),
+            (FirstQuarter, (2025, 10, 29, 16, 21)),
+            (FullMoon, (2025, 11, 5, 13, 19)),
+            (LastQuarter, (2025, 11, 12, 5, 28)),
+            (NewMoon, (2025, 11, 20, 6, 47)),
+            (FirstQuarter, (2025, 11, 28, 6, 59)),
+            (FullMoon, (2025, 12, 4, 23, 14)),
+            (LastQuarter, (2025, 12, 11, 20, 52)),
+            (NewMoon, (2025, 12, 20, 1, 43)),
+            (FirstQuarter, (2025, 12, 27, 19, 10)),
+        ];
+
+        for (phase_type, (year, month, day, hour, minute)) in published {
+            let expected = Utc
+                .with_ymd_and_hms(year, month, day, hour, minute, 0)
+                .unwrap();
+            let computed = lunar_phases(year, month)
+                .into_iter()
+                .filter(|phase| phase.phase_type == phase_type)
+                .min_by_key(|phase| (phase.datetime - expected).num_seconds().abs())
+                .unwrap_or_else(|| panic!("no {phase_type:?} in {year}-{month}"));
+            // Published times are rounded to the minute; allow a few seconds
+            // more for the ΔT estimate.
+            let off = (computed.datetime - expected).num_seconds();
+            assert!(
+                off.abs() <= 40,
+                "{phase_type:?} {} is {off} s from published {expected}",
+                computed.datetime
+            );
+        }
+    }
+
     #[test]
     fn oct_2025_full_moon_matches_usno() {
         let phases = lunar_phases(2025, 10);
@@ -1049,6 +1237,39 @@ mod tests {
             4,
             "expected one instance of each primary phase for October 2025"
         );
+    }
+
+    /// Days with a daylight-saving change are 23 or 25 hours long; the
+    /// rise/set scan must cover exactly the civil day.
+    #[test]
+    fn rise_and_set_scan_the_whole_civil_day_across_dst_changes() {
+        use chrono_tz::America::New_York;
+
+        let location = Location::new(40.7128, -74.0060).unwrap();
+        let midday = |y, m, d| New_York.with_ymd_and_hms(y, m, d, 12, 0, 0).unwrap();
+
+        // 25-hour day: the moon rose at 23:13 EST, in the final hour.
+        let fall_back = midday(2026, 11, 1);
+        let moonrise = lunar_event_time(&location, &fall_back, LunarEvent::Moonrise)
+            .expect("moonrise late on the 25-hour day");
+        assert_eq!(moonrise.date_naive(), fall_back.date_naive());
+        assert_eq!(moonrise.format("%H:%M %Z").to_string(), "23:13 EST");
+
+        // 23-hour day: the next moonrise is 00:41 EDT on March 9 and must not
+        // be reported as an event of March 8.
+        let spring_forward = midday(2026, 3, 8);
+        assert_eq!(
+            lunar_event_time(&location, &spring_forward, LunarEvent::Moonrise),
+            None
+        );
+        let next_day = lunar_event_time(&location, &midday(2026, 3, 9), LunarEvent::Moonrise)
+            .expect("moonrise shortly after midnight on March 9");
+        assert_eq!(next_day.format("%m-%d %H:%M").to_string(), "03-09 00:41");
+
+        let (start, end) = local_day_bounds(&fall_back).unwrap();
+        assert_eq!((end - start).num_hours(), 25);
+        let (start, end) = local_day_bounds(&spring_forward).unwrap();
+        assert_eq!((end - start).num_hours(), 23);
     }
 
     #[test]

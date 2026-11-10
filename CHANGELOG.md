@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Sun**: Solar events now belong to the requested civil date in zones beside the international date line. In places that keep a calendar a day away from their longitude's solar day (Apia and Nuku'alofa in the city database, Kiritimati, the Chatham Islands, the western Aleutians), `solar_event_time` and `solar_noon` returned the neighboring day's events. JSON output listed tomorrow's sunrise and sunset, iCalendar exports placed every sun event a day late, the events list missed the previous evening, and `--next` skipped an event still ahead today. All other locations are unchanged.
+- **CLI**: `--next` no longer skips an occurrence that is still ahead today. With coordinates and the default UTC timezone at western longitudes, the next sunset could be reported about 26 hours away instead of 2. The search also steps by calendar date, so it no longer jumps over the 23-hour day when run late on the evening before clocks spring forward.
+- **CLI**: Negative coordinates work in the ordinary form (`--lon -74.0060`, `--lat -33.87`), as the documentation shows. They previously failed with "unexpected argument" unless written as `--lon=-74.0060`. Negative (astronomical) years, which the help text advertises, are likewise accepted for `--calendar-start`, `--calendar-end` and `--date`.
+- **CLI**: `--lat` without `--lon` (or the reverse) is now an error. It was silently ignored, so the report used the saved location instead. A `--tz` that has no effect (with `--city`, or without `--lat`/`--lon`) and coordinates given alongside `--city` now print a warning instead of being dropped silently.
+- **Moon and planets**: Rise and set searches cover the local civil day rather than a fixed 24 hours. On a 25-hour daylight-saving day an event in the final hour was reported as not occurring (for example the 23:13 moonrise in New York on 2026-11-01), and on a 23-hour day an event from early the next morning was attributed to it.
+- **Moon**: Lunar phase times use the complete Meeus chapter 49 series and are converted from Terrestrial Time to UTC. The previous abbreviated series applied new-moon coefficients to full moons, paired one planetary coefficient with the wrong argument, and reported Terrestrial Time as UTC, so phases were up to about six minutes off. They now reproduce Meeus' worked examples and published USNO times to the minute. Lunar age, supermoon flags and iCalendar phase events shift accordingly.
+- **Dashboard**: In Settings, typing the letter `d` in the time server, AI server or AI model field now enters the character. It previously triggered "load defaults", which reset every setting in the form and made names such as `time.cloudflare.com` impossible to type.
+- **Dashboard**: A manually entered location is now saved, as a city selection already was. It was previously lost on the next start if Settings was left with Esc.
+- **Dashboard**: Key release events are ignored, so each key press acts once on Windows terminals, which report both press and release.
+- **Calendar**: The HTML daylight column rounds the total before splitting it, so a day length never appears as "11 h 60 m".
+- **Calendar**: `--calendar` no longer queries NTP first. Its output never shows the time-sync result, so the query only added network traffic and, when offline, seconds of timeouts.
+
+### Changed
+- **Documentation**: The CLI reference, lunar-calculation notes and accuracy summary describe the coordinate rules, the phase algorithm and the civil-day rise/set search as implemented.
+
 ### Security
 - **CI**: Refreshed both CodeQL action SHA pins to the verified v4.39.3 commit (`33d7b85`), restoring agreement with the tracked `v4` tag. This includes the CodeQL 2.27.4 bundle and the upstream alert-filtering fix for paths containing spaces, special characters, or non-ASCII characters. Full SHA pinning and existing security checks remain enforced.
 - **Dependencies**: Updated the locked Tokio version from 1.52.3 to 1.53.3 for [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386.html), an informational unsoundness advisory covering Unix `AsyncFd` constructors and file-descriptor lifetime safety. Solunatus does not call those constructors directly; Tokio is included through the optional HTTP stack. Dependency constraints, default features, and the Rust 1.91 minimum are unchanged.
