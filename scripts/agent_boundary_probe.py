@@ -45,11 +45,16 @@ def is_api_denial(returncode, output, *, approval=False):
     if message.rstrip(".") in APPROVAL_DISABLED:
         return True
     errors = body.get("errors", [])
-    # GitHub also wraps the policy denial in a Validation Failed response.
-    return message == "Validation Failed" and bool(errors) and all(
-        isinstance(error, dict)
-        and error.get("resource") == "PullRequestReview"
-        and error.get("message", "").rstrip(".") in APPROVAL_DISABLED
+    # GitHub also wraps the policy denial in a generic 422. Seen live on PR 122:
+    # message "Unprocessable Entity" with errors as plain strings. Every error
+    # must be the policy denial; any other 422 still fails the probe.
+    return message in {"Validation Failed", "Unprocessable Entity"} and bool(errors) and all(
+        (isinstance(error, str) and error.rstrip(".") in APPROVAL_DISABLED)
+        or (
+            isinstance(error, dict)
+            and error.get("resource") == "PullRequestReview"
+            and str(error.get("message", "")).rstrip(".") in APPROVAL_DISABLED
+        )
         for error in errors
     )
 

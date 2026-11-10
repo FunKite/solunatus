@@ -35,6 +35,21 @@ class DenialTests(unittest.TestCase):
                                 "Can not approve your own pull request")
         self.assertFalse(probe.is_api_denial(1, output, approval=True))
 
+    def test_live_approval_policy_denial_shape(self):
+        # The exact response the job token got on PR 122 (Nov 10).
+        output = "HTTP/2.0 422 Unprocessable Entity\n\n" + json.dumps({
+            "message": "Unprocessable Entity",
+            "errors": ["GitHub Actions is not permitted to approve pull requests."],
+        })
+        self.assertTrue(probe.is_api_denial(1, output, approval=True))
+        self.assertFalse(probe.is_api_denial(1, output))
+        for errors in [["Can not approve your own pull request"], [],
+                       ["GitHub Actions is not permitted to approve pull requests.", "Something else"]]:
+            with self.subTest(errors=errors):
+                other = "HTTP/2.0 422 Unprocessable Entity\n\n" + json.dumps(
+                    {"message": "Unprocessable Entity", "errors": errors})
+                self.assertFalse(probe.is_api_denial(1, other, approval=True))
+
     def test_unrelated_http_failures_do_not_pass(self):
         for status, message in [(409, "Head branch was modified"), (422, "Validation Failed"),
                                 (404, "Not Found"), (403, "API rate limit exceeded"),
