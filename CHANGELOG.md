@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Release**: Pushing a version tag now publishes to crates.io and creates the GitHub release from a workflow, using crates.io Trusted Publishing instead of a stored token. The workflow refuses tags that do not match the `Cargo.toml` version or are not on `main`, and runs a packaging dry run first.
+
 ## [0.8.1] - 2026-11-10
 
 ### Fixed
