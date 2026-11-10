@@ -4,8 +4,8 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    # Run the same gates for follow-up PRs stacked on the review branch.
-    branches: [ "main", "codex/fable-review-2026-11-09" ]
+    # Run the same gates for follow-up PRs stacked on either review branch.
+    branches: [ "main", "codex/fable-review-2026-11-09", "claude/agent-collaboration-setup" ]
   schedule:
     - cron: "0 9 * * 1"
   workflow_dispatch:
