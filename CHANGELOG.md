@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Calendar**: `--calendar` no longer queries NTP first. Its output never shows the time-sync result, so the query only added network traffic and, when offline, seconds of timeouts.
 
 ### Changed
+- **Agent safety**: Keep Claude disabled on fork pull requests pending safe live validation, and stop treating the shared `github-actions[bot]` identity as a trusted comment source. Fail closed if counting Codex calls encounters an API error, and add offline routing regression tests to the security workflow.
+- **Agent collaboration**: Share repository instructions between Claude and Codex, add owner-controlled Claude assistance and comment-only cross-reviews with pinned actions, and exclude agent guidance from the published crate. Validate stacked workflow fixes with the existing Rust, security and CodeQL checks.
 - **CI**: Run the existing Rust, security and CodeQL checks on follow-up pull requests targeting the review branch, so stacked fixes can be validated before any merge.
 - **Testing**: CLI integration tests use isolated configuration directories on every platform. Added Windows CI for default, all-feature, and minimal builds, including synthetic key press/release regression tests (not an interactive console test).
 - **Configuration**: `SOLUNATUS_CONFIG_DIR` selects an existing absolute directory for `.solunatus.json`, enabling isolated runs without changing the platform home directory. Invalid overrides never fall back to personal settings.
