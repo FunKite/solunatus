@@ -6,64 +6,36 @@ name: Boundary Probe
 
 on:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize]
 
 permissions:
   contents: read
 
 jobs:
   probe:
-    if: github.event.pull_request.head.ref == 'codex/claude-boundary-test' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.actor == github.repository_owner && github.event.pull_request.number == 122 && github.event.pull_request.head.ref == 'codex/claude-boundary-test' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write
     steps:
+      # actions/checkout v7 (same pin as the other workflows)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Test denial classification without network access
+        run: python3 -m unittest discover -s scripts/tests -p 'test_agent_boundary_probe.py' -v
+
       - name: Probe the job token
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -uo pipefail
-          fail=0
-          expect_denied() {
-            local name="$1"; shift
-            if out="$("$@" 2>&1)"; then
-              echo "FAIL: ${name} was allowed"; echo "${out}" | head -3; fail=1
-            else
-              echo "OK: ${name} denied: $(echo "${out}" | grep -oE 'HTTP [0-9]+|Resource not accessible by integration|403|409[^"]*' | head -1)"
-            fi
-          }
-          expect_denied "commit through the contents API" \
-            gh api -X PUT "repos/${REPO}/contents/boundary-probe.txt" -f message=probe -f content=cHJvYmUK -f branch=codex/claude-boundary-test
-          expect_denied "create a branch" \
-            gh api -X POST "repos/${REPO}/git/refs" -f ref=refs/heads/boundary-probe-should-not-exist -f sha="${HEAD_SHA}"
-          # A wrong SHA makes an allowed merge fail with 409 instead of merging.
-          expect_denied "merge (403 means no permission, 409 would mean allowed)" \
-            gh api -X PUT "repos/${REPO}/pulls/${PR}/merge" -f sha=0000000000000000000000000000000000000000
-          expect_denied "approve" \
-            gh api -X POST "repos/${REPO}/pulls/${PR}/reviews" -f event=APPROVE -f body="Boundary probe approval test"
-          git init -q /tmp/probe && cd /tmp/probe
-          git -c user.name=probe -c user.email=probe@invalid commit -q --allow-empty -m probe
-          expect_denied "git push" \
-            git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:refs/heads/boundary-probe-should-not-exist
-
-          if c="$(gh api -X POST "repos/${REPO}/issues/${PR}/comments" -f body="Boundary probe: summary comment test. Temporary." --jq '"\(.id) \(.user.login)"')"; then
-            echo "OK: summary comment posted as ${c#* }"
-            gh api -X DELETE "repos/${REPO}/issues/comments/${c%% *}" && echo "cleaned up summary comment"
-          else
-            echo "FAIL: summary comment"; fail=1
-          fi
-          if c="$(gh api -X POST "repos/${REPO}/pulls/${PR}/comments" -f body="Boundary probe: inline comment test. Temporary." -f commit_id="${HEAD_SHA}" -f path=docs/agent-boundary-test.md -F line=3 -f side=RIGHT --jq '"\(.id) \(.user.login)"')"; then
-            echo "OK: inline comment posted as ${c#* }"
-            gh api -X DELETE "repos/${REPO}/pulls/comments/${c%% *}" && echo "cleaned up inline comment"
-          else
-            echo "FAIL: inline comment"; fail=1
-          fi
-          exit "${fail}"
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: python3 scripts/agent_boundary_probe.py
 
       - name: Probe subprocess isolation (same step as the Claude jobs)
         run: |
