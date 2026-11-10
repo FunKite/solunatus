@@ -198,7 +198,7 @@ All calculations follow U.S. Naval Observatory (USNO) standards for:
 **Typical Accuracy:**
 - Solar events (sunrise/sunset/twilight): ±1-3 minutes
 - Lunar events (moonrise/moonset): ±3 minutes at mid-latitudes
-- Lunar phase times: ±2 minutes
+- Lunar phase times: within one minute in the verified late-2025 sample; see [time-scale limits](../development/lunar-calculations.md#6-lunar-phase-times) for other years
 
 Differences from other sources are usually due to different atmospheric assumptions or calculation methods.
 

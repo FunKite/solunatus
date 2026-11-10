@@ -4,7 +4,8 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
+    # Run the same gates for follow-up PRs stacked on the review branch.
+    branches: [ "main", "codex/fable-review-2026-11-09" ]
   schedule:
     # Run at 3:00 AM UTC every Monday (weekly scan)
     - cron: '0 3 * * 1'

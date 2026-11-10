@@ -175,7 +175,7 @@ Shows if system clock is synchronized with NTP servers:
 - ⚠️ Drift (minor offset)
 - ✗ Unsynchronized (significant offset)
 
-Auto-checks every 30 minutes to comply with NTP server terms of service.
+Auto-checks every 30 minutes. Successful results are cached for 30 minutes; failed queries are cached for one minute so repeated CLI invocations do not repeatedly wait on network timeouts. Enabling time sync or changing the server schedules a check on the next dashboard tick, honoring that cache. Saving other settings does not reset the check timer.
 
 ## Position Display
 

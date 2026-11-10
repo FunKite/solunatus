@@ -10,7 +10,7 @@ Solunatus implements high-precision lunar calculations based on Jean Meeus' "Ast
 
 - **Geocentric positions**: Accurate to within a few arcminutes
 - **Topocentric positions**: Accounts for Earth's flattening and parallax
-- **Lunar phase times**: Accurate to within ±2 minutes
+- **Lunar phase times**: Within one minute for the independently verified October–December 2025 USNO sample; this is not a guarantee across all years
 - **Moonrise/moonset times**: Accurate to within ±3 minutes at mid-latitudes
 
 ## Algorithms Source
@@ -164,18 +164,43 @@ Days since the last new moon (0-29.5 days). The synodic month (lunar cycle) aver
 Exact times of major phases (New, First Quarter, Full, Last Quarter) are calculated using Meeus' algorithm from Chapter 49.
 
 The calculation involves:
-1. Estimating the approximate phase time
-2. Calculating corrections based on:
+1. Computing the mean phase time (JDE) for the lunation number `k`
+2. Adding the complete set of periodic corrections for that phase type
+   (separate coefficient tables for new moon, full moon, and the quarters),
+   based on:
    - Sun's and Moon's anomalies
-   - Longitude of ascending node
+   - Moon's argument of latitude and longitude of ascending node
    - Eccentricity of Earth's orbit
-3. Iterating to find the precise moment
+3. Adding the 14 planetary-argument corrections
+4. Converting Terrestrial Time to UTC with `TT−UTC = 32.184 + (TAI−UTC)`
+   and the epoch-specific leap-second table shared with the equinox/solstice
+   calculations. The verified table covers 1972-01-01 through 2027-06-30.
+
+The series is checked against Meeus' worked examples 49.a and 49.b and
+against [published USNO phase times](https://aa.usno.navy.mil/calculated/moon/phases?date=2025-10-06&format=p&nump=50&submit=Get+Data).
+These eleven values were independently checked on 2026-11-09. USNO labels
+them Universal Time and rounds to the minute; they do not establish
+second-level accuracy.
+
+The leap-second offsets come from the [USNO TAI−UTC history](https://maia.usno.navy.mil/ser7/tai-utc.dat).
+[IERS Bulletin C 72](https://hpiers.obspm.fr/iers/bul/bulc/bulletinc.72)
+confirms no leap second at the end of December 2026. The next undecided
+boundary is July 2027, so the table is explicitly bounded rather than assuming
+69.184 seconds forever. The bound must be refreshed against later bulletins.
+
+Before 1972 and from July 2027 onward, the existing polynomial ΔT model is
+retained as an approximate UT1 conversion, carried in the UTC timestamp type
+for API compatibility. It does not predict exact UTC or future leap seconds.
+ΔT means TT−UT1, not TT−UTC. The [NASA polynomial documentation](https://eclipse.gsfc.nasa.gov/SEcat5/deltatpoly.html)
+describes the modern segment as an extrapolation; its 2025 value is about
+5.28 seconds above the actual TT−UTC offset. This forecast error is no longer
+applied to modern dates covered by the leap-second table.
 
 ### 7. Rise and Set Times
 
 Moonrise and moonset calculations use a bisection method:
 
-1. **Search interval**: The algorithm searches the 24-hour period
+1. **Search interval**: The algorithm searches the local civil day, from one local midnight to the next (23 or 25 hours on daylight-saving transition days)
 2. **Target altitude**: -0.833° (accounting for refraction and lunar radius)
 3. **Bisection method**: Repeatedly narrows the time window by checking if the moon is above or below the target altitude
 4. **Precision**: Converges to within seconds

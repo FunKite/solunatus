@@ -14,7 +14,7 @@
 //! data within ±1-2 minutes for sunrise/sunset times.
 
 use super::*;
-use chrono::{DateTime, Duration, TimeZone};
+use chrono::{DateTime, Duration, NaiveDate, Offset, TimeZone};
 
 /// Types of solar events that can be calculated.
 ///
@@ -192,6 +192,26 @@ fn hour_angle_for_altitude(lat: f64, dec: f64, altitude: f64) -> Option<f64> {
     }
 }
 
+/// UTC calculation date whose solar day matches the civil date of `date`.
+///
+/// The NOAA formulas place each event relative to 00:00 UTC of a calculation
+/// date. Using the civil date directly is correct wherever local clocks stay
+/// within 12 hours of mean solar time. Zones beside the international date
+/// line that keep the other side's calendar (UTC+13/+14 at western longitudes
+/// such as Samoa, Tonga and Kiritimati, or UTC-10 in the western Aleutians)
+/// differ from mean solar time by about a day, so every event would otherwise
+/// land on the neighboring civil date. Shift the calculation date by that
+/// whole number of days.
+fn solar_calculation_date<T: TimeZone>(location: &Location, date: &DateTime<T>) -> NaiveDate {
+    let civil = date.date_naive();
+    let offset_minutes = f64::from(date.offset().fix().local_minus_utc()) / 60.0;
+    // Local clock time minus local mean solar time, rounded to whole days.
+    let shift_days = ((offset_minutes - 4.0 * location.longitude.value()) / 1440.0).round() as i64;
+    civil
+        .checked_sub_signed(Duration::days(shift_days))
+        .unwrap_or(civil)
+}
+
 /// Calculate solar noon time for a given location and date.
 ///
 /// Solar noon is when the sun reaches its highest point in the sky for the day.
@@ -202,11 +222,14 @@ fn hour_angle_for_altitude(lat: f64, dec: f64, altitude: f64) -> Option<f64> {
 /// # Arguments
 ///
 /// * `location` - Geographic location
-/// * `date` - Date for calculation (time component is ignored)
+/// * `date` - Civil date for the calculation, taken in `date`'s timezone
+///   (the time of day is ignored)
 ///
 /// # Returns
 ///
-/// DateTime of solar noon in the input timezone.
+/// DateTime of solar noon in the input timezone. The result belongs to the
+/// solar day of that civil date, including in zones beside the international
+/// date line.
 ///
 /// # Examples
 ///
@@ -223,7 +246,8 @@ fn hour_angle_for_altitude(lat: f64, dec: f64, altitude: f64) -> Option<f64> {
 #[must_use]
 pub fn solar_noon<T: TimeZone>(location: &Location, date: &DateTime<T>) -> DateTime<T> {
     // Use noon UTC as reference for calculations
-    let base_date = date.date_naive().and_hms_opt(12, 0, 0).unwrap();
+    let calculation_date = solar_calculation_date(location, date);
+    let base_date = calculation_date.and_hms_opt(12, 0, 0).unwrap();
     let utc_noon = chrono::Utc.from_local_datetime(&base_date).unwrap();
 
     let jd = julian_day(&utc_noon);
@@ -233,7 +257,7 @@ pub fn solar_noon<T: TimeZone>(location: &Location, date: &DateTime<T>) -> DateT
     // Solar noon in minutes from midnight UTC
     let solar_noon_offset = 720.0 - 4.0 * location.longitude.value() - eqtime;
 
-    let utc_midnight = date.date_naive().and_hms_opt(0, 0, 0).unwrap();
+    let utc_midnight = calculation_date.and_hms_opt(0, 0, 0).unwrap();
     let solar_noon_utc = chrono::Utc.from_local_datetime(&utc_midnight).unwrap()
         + Duration::seconds((solar_noon_offset * 60.0) as i64);
 
@@ -248,7 +272,9 @@ pub fn solar_noon<T: TimeZone>(location: &Location, date: &DateTime<T>) -> DateT
 /// # Arguments
 ///
 /// * `location` - Geographic location
-/// * `date` - Date for calculation (time component is ignored)
+/// * `date` - Civil date for the calculation, taken in `date`'s timezone
+///   (the time of day is ignored). Events belong to the solar day of that
+///   civil date, including in zones beside the international date line.
 /// * `event` - Type of solar event to calculate
 ///
 /// # Returns
@@ -281,7 +307,8 @@ pub fn solar_event_time<T: TimeZone>(
     }
 
     // Use noon UTC as reference for calculations
-    let base_date = date.date_naive().and_hms_opt(12, 0, 0).unwrap();
+    let calculation_date = solar_calculation_date(location, date);
+    let base_date = calculation_date.and_hms_opt(12, 0, 0).unwrap();
     let utc_noon = chrono::Utc.from_local_datetime(&base_date).unwrap();
 
     let jd = julian_day(&utc_noon);
@@ -307,7 +334,7 @@ pub fn solar_event_time<T: TimeZone>(
         720.0 - 4.0 * (location.longitude.value() - ha) - eqtime
     };
 
-    let utc_midnight = date.date_naive().and_hms_opt(0, 0, 0).unwrap();
+    let utc_midnight = calculation_date.and_hms_opt(0, 0, 0).unwrap();
     let event_utc = chrono::Utc.from_local_datetime(&utc_midnight).unwrap()
         + Duration::seconds((offset * 60.0) as i64);
 
@@ -518,6 +545,84 @@ mod tests {
         );
         assert!(eg_start < eg_end);
         assert!(eb_start < eb_end);
+    }
+
+    /// Zones beside the date line keep a calendar a day away from their
+    /// longitude's solar day (Apia is UTC+13 at 171.8°W). Events must still
+    /// be reported for the requested civil date.
+    #[test]
+    fn date_line_zones_report_events_on_the_requested_civil_date() {
+        use chrono::NaiveDate;
+
+        let cases = [
+            ("Pacific/Apia", -13.8333, -171.7667),
+            ("Pacific/Tongatapu", -21.1394, -175.2011),
+            ("Pacific/Kiritimati", 1.8721, -157.4278),
+            ("Pacific/Chatham", -43.9535, -176.5597),
+            // Western Aleutians: UTC-10/-9 at an eastern longitude.
+            ("America/Adak", 52.9, 172.9),
+        ];
+        let date = NaiveDate::from_ymd_opt(2026, 11, 9).unwrap();
+
+        for (zone, lat, lon) in cases {
+            let tz: chrono_tz::Tz = zone.parse().unwrap();
+            let location = Location::new(lat, lon).unwrap();
+            let midday = tz
+                .from_local_datetime(&date.and_hms_opt(12, 0, 0).unwrap())
+                .unwrap();
+
+            let sunrise = solar_event_time(&location, &midday, SolarEvent::Sunrise).unwrap();
+            let noon = solar_noon(&location, &midday);
+            let sunset = solar_event_time(&location, &midday, SolarEvent::Sunset).unwrap();
+
+            assert_eq!(sunrise.date_naive(), date, "{zone} sunrise {sunrise}");
+            assert_eq!(noon.date_naive(), date, "{zone} solar noon {noon}");
+            assert_eq!(sunset.date_naive(), date, "{zone} sunset {sunset}");
+            assert!(sunrise < noon && noon < sunset, "{zone}");
+
+            // The sun really is on the horizon at the reported times.
+            for event in [sunrise, sunset] {
+                let altitude = solar_position(&location, &event).altitude;
+                assert!(
+                    (altitude - -0.833).abs() < 0.3,
+                    "{zone}: sun at {altitude:.2}° at {event}"
+                );
+            }
+        }
+    }
+
+    /// Ordinary zones, including ones with a large clock-versus-sun offset,
+    /// keep using the civil date unchanged.
+    #[test]
+    fn ordinary_zones_keep_the_civil_calculation_date() {
+        use chrono::NaiveDate;
+
+        let date = NaiveDate::from_ymd_opt(2026, 6, 15).unwrap();
+        let cases = [
+            ("America/New_York", 40.7128, -74.0060),
+            ("Asia/Tokyo", 35.6895, 139.6917),
+            ("Pacific/Auckland", -36.8485, 174.7635),
+            ("Pacific/Fiji", -18.1416, 178.4419),
+            ("Pacific/Honolulu", 21.3069, -157.8583),
+            // Western China runs about three hours ahead of the sun.
+            ("Asia/Shanghai", 39.4704, 75.9898),
+            // Coordinates with the UTC default timezone.
+            ("UTC", 34.0522, -118.2437),
+            ("UTC", 35.6895, 139.6917),
+        ];
+
+        for (zone, lat, lon) in cases {
+            let tz: chrono_tz::Tz = zone.parse().unwrap();
+            let location = Location::new(lat, lon).unwrap();
+            let midday = tz
+                .from_local_datetime(&date.and_hms_opt(12, 0, 0).unwrap())
+                .unwrap();
+            assert_eq!(
+                solar_calculation_date(&location, &midday),
+                date,
+                "{zone} at {lon}"
+            );
+        }
     }
 
     #[test]

@@ -693,6 +693,17 @@ impl SettingsDraft {
         self.clear_error();
     }
 
+    /// Whether the selected field takes free text, so letter keys must be
+    /// typed into it rather than treated as shortcuts.
+    pub fn current_field_is_text(&self) -> bool {
+        match self.current_field() {
+            SettingsField::TimeSyncServer => true,
+            #[cfg(feature = "ai-insights")]
+            SettingsField::AiServer | SettingsField::AiModel => true,
+            _ => false,
+        }
+    }
+
     pub fn toggle_current_bool(&mut self) {
         match self.current_field() {
             SettingsField::TimeSyncEnabled => self.time_sync_enabled = !self.time_sync_enabled,

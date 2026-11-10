@@ -388,3 +388,35 @@ fn refine_dark_window_transition(
     let mid_seconds = (left.timestamp() + right.timestamp()) / 2;
     left.timezone().timestamp_opt(mid_seconds, 0).unwrap()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Apia keeps UTC+13 at 171.8°W. Early in the morning, the previous
+    /// evening's sunset and dusk are within the 12-hour window and must be
+    /// listed alongside the coming sunrise.
+    #[test]
+    fn date_line_window_includes_the_previous_evening() {
+        let location = Location::new(-13.8333, -171.7667).unwrap();
+        let reference = chrono_tz::Pacific::Apia
+            .with_ymd_and_hms(2026, 11, 10, 2, 0, 0)
+            .unwrap();
+
+        let events = collect_events_within_window(&location, &reference, Duration::hours(12));
+        let time_of = |name: &str| {
+            events
+                .iter()
+                .find(|(_, label)| label.contains(name))
+                .map(|(time, _)| time.format("%m-%d %H:%M").to_string())
+        };
+
+        assert_eq!(time_of("Sunset").as_deref(), Some("11-09 18:31"));
+        assert_eq!(time_of("Astro dusk").as_deref(), Some("11-09 19:46"));
+        assert!(time_of("Sunrise").is_some_and(|t| t.starts_with("11-10 05:5")));
+        assert!(
+            events.windows(2).all(|pair| pair[0].0 <= pair[1].0),
+            "events must be chronological"
+        );
+    }
+}

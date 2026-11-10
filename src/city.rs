@@ -133,6 +133,31 @@ impl CityDatabase {
             .find(|c| c.name.to_lowercase() == name_lower)
     }
 
+    /// Match a city name followed by optional comma-separated state, country,
+    /// or IANA timezone qualifiers. Matching is exact and case-insensitive;
+    /// whitespace around each component is ignored. All qualifiers must match.
+    /// Returns every match in database order so callers can handle ambiguity.
+    pub fn find_qualified(&self, query: &str) -> Vec<&City> {
+        let parts: Vec<_> = query.split(',').map(str::trim).collect();
+        if parts.iter().any(|part| part.is_empty()) {
+            return Vec::new();
+        }
+        self.cities
+            .iter()
+            .filter(|city| {
+                city.name.to_lowercase() == parts[0].to_lowercase()
+                    && parts[1..].iter().all(|part| {
+                        city.country.eq_ignore_ascii_case(part)
+                            || city.tz.eq_ignore_ascii_case(part)
+                            || city
+                                .state
+                                .as_deref()
+                                .is_some_and(|state| state.eq_ignore_ascii_case(part))
+                    })
+            })
+            .collect()
+    }
+
     /// Search for cities using fuzzy matching.
     ///
     /// Searches city names, states, and countries using fuzzy string matching.
@@ -269,6 +294,49 @@ mod tests {
         let city = db.find_exact("New York");
         assert!(city.is_some());
         assert_eq!(city.unwrap().country, "US");
+    }
+
+    #[test]
+    fn qualified_city_matching_is_exact_and_handles_duplicates() {
+        let db = CityDatabase::load().unwrap();
+        assert_eq!(db.find_qualified("Portland").len(), 2);
+        assert_eq!(
+            db.find_qualified(" portland , me , us ")[0].tz,
+            "America/New_York"
+        );
+        assert_eq!(
+            db.find_qualified("Portland, America/Los_Angeles")[0]
+                .state
+                .as_deref(),
+            Some("OR")
+        );
+        assert_eq!(db.find_qualified("Alexandria, eg")[0].tz, "Africa/Cairo");
+        assert_eq!(
+            db.find_qualified("Columbus, GA")[0].state.as_deref(),
+            Some("GA")
+        );
+        assert_eq!(db.find_qualified("Columbus, America/New_York").len(), 2);
+        for query in [
+            "",
+            "Portland,",
+            "Portland, Maine",
+            "Portland, ME, EG",
+            "Port, ME",
+        ] {
+            assert!(db.find_qualified(query).is_empty(), "{query}");
+        }
+        // Each duplicate can be selected by the exact alternative printed by the CLI.
+        for city in db.cities() {
+            let query = match &city.state {
+                Some(state) => format!("{}, {}, {}", city.name, state, city.country),
+                None => format!("{}, {}", city.name, city.country),
+            };
+            assert_eq!(db.find_qualified(&query).len(), 1, "{query}");
+        }
+        assert_eq!(
+            db.find_exact("Portland").unwrap().state.as_deref(),
+            Some("OR")
+        );
     }
 
     #[test]

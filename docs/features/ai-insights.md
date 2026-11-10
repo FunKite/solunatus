@@ -178,3 +178,12 @@ done
 - **[Ollama Documentation](https://ollama.com/)** - Model selection and setup
 - **[CLI Reference](cli-reference.md)** - Command-line options
 - **[Interactive Mode](interactive-mode.md)** - Watch mode features
+
+### Saved settings and offline commands
+
+Dashboard settings normalize a bare server such as `localhost:11434` to
+`http://localhost:11434` when saved, even if you have not left the server field.
+Invalid saved refresh intervals do not prevent non-AI text/JSON reports,
+observing plans, event queries, calendars, or validation reports. Commands that
+actually use AI still require an interval of 1–60 minutes. One-shot commands do
+not rewrite the saved AI settings while applying these runtime safeguards.

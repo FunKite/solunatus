@@ -431,11 +431,7 @@ fn render_html(
             html.push_str(&format!(
                 "<td>{}</td>",
                 day_length_minutes(record)
-                    .map(|mins| format!(
-                        "{:02} h {:02} m",
-                        (mins / 60.0).floor() as i64,
-                        (mins % 60.0).round() as i64
-                    ))
+                    .map(format_day_length)
                     .unwrap_or_else(|| "—".to_string())
             ));
             html.push_str(&format!(
@@ -675,6 +671,15 @@ fn day_length_minutes(record: &DailyRecord) -> Option<f64> {
     }
 }
 
+/// Format a day length as hours and minutes, rounded to the nearest minute.
+///
+/// Rounds the total before splitting it, so 11 h 59.6 m becomes 12 h 00 m
+/// rather than 11 h 60 m.
+fn format_day_length(minutes: f64) -> String {
+    let total = minutes.round() as i64;
+    format!("{:02} h {:02} m", total / 60, total % 60)
+}
+
 fn month_name(month: u32) -> &'static str {
     match month {
         1 => "January",
@@ -766,6 +771,47 @@ mod tests {
     }
 
     #[test]
+    fn day_length_rounds_before_splitting_hours_and_minutes() {
+        assert_eq!(format_day_length(719.6), "12 h 00 m");
+        assert_eq!(format_day_length(719.4), "11 h 59 m");
+        assert_eq!(format_day_length(545.68), "09 h 06 m");
+        assert_eq!(format_day_length(59.5), "01 h 00 m");
+        assert_eq!(format_day_length(0.0), "00 h 00 m");
+    }
+
+    /// Apia keeps UTC+13 at 171.8°W. Each day's events must fall on that
+    /// local date, in the HTML/JSON tables and as iCalendar instants.
+    #[test]
+    fn date_line_calendar_days_hold_their_own_events() {
+        let location = Location::new(-13.8333, -171.7667).unwrap();
+        let tz = chrono_tz::Pacific::Apia;
+        let start = NaiveDate::from_ymd_opt(2026, 11, 9).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 11, 11).unwrap();
+
+        let records = collect_records(&location, &tz, start, end).unwrap();
+        assert_eq!(records.len(), 3);
+        for record in &records {
+            for (name, event) in [
+                ("sunrise", record.sunrise),
+                ("solar noon", record.solar_noon),
+                ("sunset", record.sunset),
+                ("civil dawn", record.civil_dawn),
+                ("civil dusk", record.civil_dusk),
+            ] {
+                let event = event.unwrap_or_else(|| panic!("{name} on {}", record.date));
+                assert_eq!(event.date_naive(), record.date, "{name} at {event}");
+            }
+        }
+
+        let ics = generate_calendar(&location, &tz, None, start, start, CalendarFormat::Ics)
+            .unwrap()
+            .replace("\r\n ", "");
+        // Nov 9 sunrise 05:50 and sunset 18:31 at UTC+13.
+        assert!(ics.contains("DTSTART:20261108T1650"), "{ics}");
+        assert!(ics.contains("DTSTART:20261109T0531"), "{ics}");
+    }
+
+    #[test]
     fn ics_calendar_is_well_formed() {
         let location = Location::new(40.7128, -74.0060).unwrap();
         let tz = New_York;
@@ -812,7 +858,7 @@ mod tests {
     }
 
     /// A phase early in a UTC month can fall on the last local day of the
-    /// previous month: the 2026-12-01 06:14 UTC last quarter is 2026-11-30 in
+    /// previous month: the 2026-12-01 06:09 UTC last quarter is 2026-11-30 in
     /// Los Angeles, so a November export there must still include it.
     #[test]
     fn ics_includes_phases_across_utc_month_boundary() {

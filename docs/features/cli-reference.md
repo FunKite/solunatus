@@ -21,7 +21,23 @@ solunatus --city "Tokyo"
 solunatus --city "London"
 ```
 
-City names must match a database entry (case-insensitive). Fuzzy search is available in the interactive settings city picker, not in `--city`. Use coordinates for an unlisted observing site.
+City names must match a database entry (case-insensitive). For duplicate names,
+add comma-separated state/country codes or an IANA timezone from the database:
+
+```bash
+solunatus --city "Portland, ME"
+solunatus --city "Portland, OR, US"
+solunatus --city "Alexandria, EG"
+solunatus --city "Portland, America/New_York"
+```
+
+Qualifiers are exact, case-insensitive matches (use `ME`, not `Maine`); spaces
+around commas are ignored. A plain ambiguous name preserves the historical
+first match and warns on stderr with explicit alternatives. A qualified name
+that still matches multiple cities (for example `Columbus, US`) is an error.
+`--tz` does not disambiguate a city; include a timezone inside `--city` instead.
+
+Fuzzy search is available in the interactive settings city picker, not in `--city`. Use coordinates for an unlisted observing site.
 
 ### `--lat <LAT>`
 Latitude in decimal degrees (range: -90 to +90).
@@ -31,7 +47,10 @@ solunatus --lat 40.7128  # New York
 solunatus --lat -33.8688  # Sydney
 ```
 
-**Required with:** `--lon` and `--tz`
+**Required with:** `--lon` (giving only one coordinate is an error). Add `--tz`
+for local times; without it, times are shown in UTC and a warning is printed
+on stderr. UTC is also stored if settings are saved; an existing saved timezone
+is not reused for new coordinates. Use `--tz UTC` to choose UTC explicitly.
 
 ### `--lon <LON>`
 Longitude in decimal degrees (range: -180 to +180).
@@ -41,7 +60,10 @@ solunatus --lon -74.0060  # New York
 solunatus --lon 151.2093  # Sydney
 ```
 
-**Required with:** `--lat` and `--tz`
+**Required with:** `--lat` (giving only one coordinate is an error). Add `--tz`
+for local times; without it, times are shown in UTC and a warning is printed
+on stderr. UTC is also stored if settings are saved; an existing saved timezone
+is not reused for new coordinates. Use `--tz UTC` to choose UTC explicitly.
 
 ### `--tz <TIMEZONE>`
 Timezone in IANA format (e.g., `America/New_York`).
@@ -61,6 +83,10 @@ solunatus --lat 35.6762 --lon 139.6503 --tz Asia/Tokyo
 - `Pacific/Auckland`
 
 See [IANA Timezone Database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for complete list.
+
+`--tz` applies together with `--lat` and `--lon`. A city from `--city` uses
+its own timezone, and a saved location keeps its saved timezone; in both
+cases `--tz` is ignored with a warning.
 
 ### `--date <DATE>`
 Calculate for a specific date in `YYYY-MM-DD` format.
