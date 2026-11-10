@@ -118,6 +118,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    env:
+      # Strip Anthropic and GitHub Actions secrets from the environment of any
+      # command Claude runs, so text in the fork cannot get a token echoed out.
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
     steps:
       # Checks out this repository's default branch only, never the fork's code.
       # actions/checkout v7 (same pin as the other workflows; see Pin Drift Check)
