@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Security maintenance**: Refresh the pinned Rust toolchain action to the current stable commit and update locked `quinn-proto`, `quinn-udp`, and `rustix` dependencies to address the November RustSec audit findings.
 - **Release**: Pushing a version tag now publishes to crates.io and creates the GitHub release from a workflow, using crates.io Trusted Publishing instead of a stored token. The workflow refuses tags that do not match the `Cargo.toml` version or are not on `main`, and runs a packaging dry run first.
 
 ## [0.8.1] - 2026-11-10

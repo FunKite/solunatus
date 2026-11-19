@@ -38,7 +38,7 @@ jobs:
 
       # dtolnay/rust-toolchain stable
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca
 
       - name: Check tag, version, release notes and branch
         env:
