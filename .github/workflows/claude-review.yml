@@ -61,7 +61,7 @@ jobs:
       # this job's permissions instead of the Claude GitHub App's, so the job
       # cannot push, commit through the API or merge.
       - name: Claude review
-        uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9
+        uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67
         with:
           # Uses the owner's Claude subscription (token from `claude setup-token`),
           # not a pay-as-you-go API key.
