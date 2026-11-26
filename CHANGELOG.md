@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Security maintenance**: Update locked `url` 2.5.8 → 2.5.9 for RUSTSEC-2026-0592 and refresh both CodeQL SHA pins to verified v4.39.5 (`915412f`), restoring the live drift check with the CodeQL 2.27.6 bundle. Dependency constraints, features, MSRV, workflow permissions, and action allowlists are unchanged.
+- **Security maintenance**: Refresh the pinned Rust toolchain action to the current stable commit and update locked `quinn-proto`, `quinn-udp`, and `rustix` dependencies to address the November RustSec audit findings.
 - **Release**: Pushing a version tag now publishes to crates.io and creates the GitHub release from a workflow, using crates.io Trusted Publishing instead of a stored token. The workflow refuses tags that do not match the `Cargo.toml` version or are not on `main`, and runs a packaging dry run first.
 
 ## [0.8.1] - 2026-11-10
